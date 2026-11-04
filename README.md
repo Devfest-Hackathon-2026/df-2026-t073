@@ -10,6 +10,12 @@ Team ID: df-2026-t073
 
 Please copy the contents of `.env.example` to `.env` and paste your API keys.
 
+Do NOT remove `.env` from `.gitignore`.
+
+We **cannot** use GitHub Actions or GitHub Pages.
+
+The repo will become read-only once the deadline passes. Make sure to push all work before then. It will be used by panelists in the judging process.
+
 ## Problem
 
 The problem we are solving and who it is for. (TBD)
