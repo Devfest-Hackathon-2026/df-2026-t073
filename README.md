@@ -16,10 +16,10 @@ The problem we are solving and who it is for. (TBD)
 
 ## Team
 
-Stephen
-Valerie
-Arnold
-Haozhi
+- Stephen
+- Valerie
+- Arnold
+- Haozhi
 
 ## Tech stack
 
