@@ -12,7 +12,9 @@ Please copy the contents of `.env.example` to `.env` and paste your API keys.
 
 Do NOT remove `.env` from `.gitignore`.
 
-The repo will become read-only once the deadline passes. Make sure to push all work before then. It will be used by panelists in the judging process.
+The repo will become read-only once the deadline passes. Make sure to push all work to the submission repo before then. It will be used by panelists in the judging process.
+
+Submit here: https://github.com/Devfest-Hackathon-2026/df-2026-t073
 
 ## Problem
 
