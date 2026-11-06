@@ -1,0 +1,39 @@
+steps:
+  # 1. Install JS dependencies
+  - name: 'node:22'
+    dir: 'frontend'
+    entrypoint: 'npm'
+    args: ['ci']
+
+  # 2. Run Lint & Jest Unit Tests
+  - name: 'node:22'
+    dir: 'frontend'
+    entrypoint: 'npm'
+    args: ['test', '--', '--watchAll=false']
+
+  # 3. Compile Signed Android Release APK
+  - name: 'reactnativecommunity/react-native-android:latest'
+    dir: 'frontend/android'
+    entrypoint: './gradlew'
+    args: ['assembleRelease']
+
+  # 4. Distribute Android APK exclusively via Firebase App Distribution
+  - name: 'node:22'
+    dir: 'frontend'
+    entrypoint: 'npx'
+    args:
+      - '--yes'
+      - 'firebase-tools@latest'
+      - 'appdistribution:distribute'
+      - 'android/app/build/outputs/apk/release/app-release.apk'
+      - '--app'
+      - '${_FIREBASE_ANDROID_APP_ID}'
+      - '--groups'
+      - '${_TESTER_GROUPS}'
+      - '--release-notes'
+      - 'Automated Android build from commit $SHORT_SHA'
+
+substitutions:
+  _FIREBASE_ANDROID_APP_ID: '1:000000000000:android:0000000000000000000000'
+  _TESTER_GROUPS: 'hackathon-testers'
+
