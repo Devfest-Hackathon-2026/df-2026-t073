@@ -5,15 +5,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.core import firebase
 from app.core.config import settings
-from app.core.firebase import close_firebase, init_firebase
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-    init_firebase()
+    firebase.init_firebase()
     yield
-    await close_firebase()
+    await firebase.close_firebase()
 
 
 app = FastAPI(

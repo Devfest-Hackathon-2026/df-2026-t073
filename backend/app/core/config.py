@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str | None = None
     FIRESTORE_DATABASE_ID: str = "(default)"
 
+    # Cloud Storage & Gemini AI settings for Tankengo
+    GCS_BUCKET_NAME: str | None = None
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MiB
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
         env_ignore_empty=True,

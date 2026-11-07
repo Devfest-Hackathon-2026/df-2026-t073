@@ -1,0 +1,175 @@
+import json
+import logging
+
+import httpx
+from fastapi import HTTPException, status
+
+from app.core.config import settings
+from app.schemas.flashcard import GeneratedFlashcardContent, RelatedVocabItem
+
+logger = logging.getLogger(__name__)
+
+
+def _require_gemini_key() -> str:
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GEMINI_API_KEY is not configured.",
+        )
+    return settings.GEMINI_API_KEY
+
+
+async def generate_flashcard_content(
+    *,
+    http_client: httpx.AsyncClient,
+    target_word: str,
+    source_label: str | None = None,
+    item_type: str = "object",
+) -> GeneratedFlashcardContent:
+    """Generate structured Japanese vocabulary flashcard content via Gemini Structured Outputs."""
+    api_key = _require_gemini_key()
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{settings.GEMINI_MODEL}:generateContent"
+    )
+
+    context_hint = (
+        f" (detected from photo {item_type}: '{source_label}')"
+        if source_label and source_label != target_word
+        else ""
+    )
+    prompt = (
+        f"Create a Japanese vocabulary study flashcard for '{target_word}'{context_hint}.\n"
+        "Return:\n"
+        "- kanji: The standard Japanese writing (kanji/kana, or katakana for loanwords).\n"
+        "- reading: The full hiragana reading (furigana).\n"
+        "- romaji: Standard Hepburn romaji.\n"
+        "- meaning: Clear, concise English translation and meaning.\n"
+        "- part_of_speech: Grammatical category (e.g., Noun, Ichidan Verb, i-Adjective, Expression).\n"
+        "- use_cases: 2 practical, natural everyday Japanese example sentences using this word, "
+        "each with its full hiragana reading and English translation."
+    )
+
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "kanji": {"type": "STRING"},
+                    "reading": {"type": "STRING"},
+                    "romaji": {"type": "STRING"},
+                    "meaning": {"type": "STRING"},
+                    "part_of_speech": {"type": "STRING"},
+                    "use_cases": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "japanese": {"type": "STRING"},
+                                "reading": {"type": "STRING"},
+                                "english": {"type": "STRING"},
+                            },
+                            "required": ["japanese", "reading", "english"],
+                        },
+                    },
+                },
+                "required": [
+                    "kanji",
+                    "reading",
+                    "romaji",
+                    "meaning",
+                    "part_of_speech",
+                    "use_cases",
+                ],
+            },
+        },
+    }
+
+    try:
+        resp = await http_client.post(
+            url,
+            headers={"x-goog-api-key": api_key},
+            json=body,
+        )
+        resp.raise_for_status()
+        candidates = resp.json().get("candidates") or []
+        if not candidates:
+            raise ValueError("Gemini returned no candidates.")
+        raw_json = candidates[0]["content"]["parts"][0]["text"]
+        return GeneratedFlashcardContent.model_validate_json(raw_json)
+    except httpx.HTTPStatusError as exc:
+        logger.exception("Gemini API returned HTTP %s", exc.response.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to generate flashcard from Gemini API.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to generate flashcard for word=%s", target_word)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invalid response from flashcard generator.",
+        ) from exc
+
+
+async def generate_related_vocabulary(
+    *,
+    http_client: httpx.AsyncClient,
+    kanji: str,
+    meaning: str,
+) -> list[RelatedVocabItem]:
+    """Generate 4 contextually related Japanese vocabulary words to extend the lesson."""
+    api_key = _require_gemini_key()
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{settings.GEMINI_MODEL}:generateContent"
+    )
+
+    prompt = (
+        f"Given the Japanese vocabulary word '{kanji}' ({meaning}), suggest 4 closely related "
+        "Japanese words that a learner would encounter in the same real-world situation or context. "
+        "For each word provide kanji, hiragana reading, English meaning, and a brief relation_note."
+    )
+
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.3,
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "kanji": {"type": "STRING"},
+                        "reading": {"type": "STRING"},
+                        "meaning": {"type": "STRING"},
+                        "relation_note": {"type": "STRING"},
+                    },
+                    "required": ["kanji", "reading", "meaning", "relation_note"],
+                },
+            },
+        },
+    }
+
+    try:
+        resp = await http_client.post(
+            url,
+            headers={"x-goog-api-key": api_key},
+            json=body,
+        )
+        resp.raise_for_status()
+        candidates = resp.json().get("candidates") or []
+        if not candidates:
+            return []
+        raw_items = json.loads(candidates[0]["content"]["parts"][0]["text"])
+        return [RelatedVocabItem.model_validate(item) for item in raw_items]
+    except Exception as exc:
+        logger.exception("Failed to generate related vocabulary for %s", kanji)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to generate related vocabulary.",
+        ) from exc
+

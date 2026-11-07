@@ -4,6 +4,7 @@ import time
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, Db
+from app.api.endpoints import captures, flashcards
 from app.core.config import settings
 from app.schemas.user import UserProfile
 from app.services.firestore import sync_user_profile
@@ -59,3 +60,7 @@ async def read_current_user(
 ) -> UserProfile:
     """Return the caller's profile from their token, syncing it to Firestore if changed."""
     return await sync_user_profile(db=db, decoded_claims=current_user)
+
+
+api_router.include_router(captures.router, prefix=settings.API_V1_STR)
+api_router.include_router(flashcards.router, prefix=settings.API_V1_STR)

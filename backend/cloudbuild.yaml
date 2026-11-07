@@ -17,7 +17,7 @@ steps:
       - '--all-tags'
       - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME'
 
-  # 3. Deploy the image to Cloud Run with Firebase/Firestore project configuration
+  # 3. Deploy the image to Cloud Run with Firebase, Storage & Gemini configuration
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -28,13 +28,15 @@ steps:
       - '--region=$_REGION'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB'
+      - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB,GCS_BUCKET_NAME=$_GCS_BUCKET_NAME'
+      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
 
 substitutions:
   _REGION: 'asia-east1'
   _AR_REPO: 'devfest-repo'
   _SERVICE_NAME: 'fastapi-backend'
   _FIRESTORE_DB: '(default)'
+  _GCS_BUCKET_NAME: ''
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$COMMIT_SHA'

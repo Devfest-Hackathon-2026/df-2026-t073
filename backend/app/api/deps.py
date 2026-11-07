@@ -1,12 +1,13 @@
 from typing import Annotated, Any
 
 import anyio
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth
 from google.cloud.firestore import AsyncClient
 
-from app.core.firebase import get_firestore_client
+from app.core.firebase import get_firestore_client, get_http_client
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -15,6 +16,17 @@ def get_db() -> AsyncClient:
     """FastAPI dependency that provides the shared Async Firestore client."""
     try:
         return get_firestore_client()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+def get_http() -> httpx.AsyncClient:
+    """FastAPI dependency that provides the shared httpx.AsyncClient."""
+    try:
+        return get_http_client()
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -88,3 +100,4 @@ def _unauthorized(detail: str) -> HTTPException:
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
 CurrentUserStrict = Annotated[dict[str, Any], Depends(get_current_user_strict)]
 Db = Annotated[AsyncClient, Depends(get_db)]
+HttpClient = Annotated[httpx.AsyncClient, Depends(get_http)]
