@@ -1,5 +1,5 @@
 import { getIdToken } from '../auth/firebase';
-import { API_BASE_URL, USE_MOCKS } from '../config';
+import { API_BASE_URL, type ApiArea, isLive } from '../config';
 
 export class ApiError extends Error {
   status?: number;
@@ -47,11 +47,14 @@ export async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}${toQueryString(query)}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const response = await fetch(
+    `${API_BASE_URL}${path}${toQueryString(query)}`,
+    {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    },
+  );
   if (!response.ok) {
     throw new ApiError(
       `${method} ${path} failed with HTTP ${response.status}`,
@@ -73,12 +76,13 @@ export function mockDelay<T>(value: T, ms = 300): Promise<T> {
   });
 }
 
-/** Picks the mock or the fetch implementation based on USE_MOCKS. */
+/** Picks the mock or the fetch implementation for an area (USE_MOCKS / LIVE_APIS). */
 export function pick<A extends unknown[], R>(
+  area: ApiArea,
   mock: (...args: A) => Promise<R>,
   real: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {
-  return USE_MOCKS ? mock : real;
+  return isLive(area) ? real : mock;
 }
 
 export const API_V1 = '/api/v1';

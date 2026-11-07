@@ -17,6 +17,7 @@ import {
   useCameraPermission,
   usePhotoOutput,
 } from 'react-native-vision-camera';
+import { fromByteArray } from 'base64-js';
 import {
   catchTango,
   getCurrentPlaceName,
@@ -24,11 +25,18 @@ import {
   readSelection,
   recordRecognition,
   undoCatch,
+  uploadCapture,
 } from '../../api/capture';
+import { isLive } from '../../config';
 import { getTango } from '../../api/tango';
 import { Jp } from '../../components/Jp';
 import { BottomSheet, Toast } from '../../components/layout';
-import { Button, Chip, IconButton, SegmentedControl } from '../../components/ui';
+import {
+  Button,
+  Chip,
+  IconButton,
+  SegmentedControl,
+} from '../../components/ui';
 import {
   boxOf,
   type DetectorFrame,
@@ -50,6 +58,7 @@ import {
   space,
 } from '../../styles/tokens';
 import type {
+  DetectedItem,
   Detection,
   JpText,
   NormalizedBox,
@@ -64,7 +73,14 @@ type Sheet =
   | { kind: 'tango'; tango: Tango; detection: Detection }
   | { kind: 'known'; tango: Tango }
   | { kind: 'reading'; reading: SelectionReading }
+  | { kind: 'found' }
   | null;
+
+/** A backend read of one photo (POST /api/v1/captures). */
+interface Found {
+  captureId: string;
+  items: DetectedItem[];
+}
 
 interface ToastState {
   jp?: JpText;
@@ -72,10 +88,19 @@ interface ToastState {
   undo?: { tangoId: string; itemId?: string };
 }
 
-const FILL = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as const;
+const FILL = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+} as const;
 
 const DEFAULT_BOX: NormalizedBox = { x: 0.2, y: 0.32, w: 0.6, h: 0.14 };
 const CAUGHT_MS = 900;
+/** Upload size: enough for small sign text, well under the backend's 10 MiB limit. */
+const PHOTO_SIZE = { width: 1600, height: 1200 };
+const LIVE_HINT = "Press the shutter to read what's in front of you.";
 const TOAST_MS = 4000;
 
 /** A Tango-shaped stand-in for detections that aren't saved Tango yet. */
@@ -105,7 +130,13 @@ export function CaptureScreen({
   // Camera
   const device = useCameraDevice('back');
   const permission = useCameraPermission();
-  const photoOutput = usePhotoOutput();
+  const photoOutput = usePhotoOutput({
+    targetResolution: PHOTO_SIZE,
+    containerFormat: 'jpeg',
+    quality: 0.8,
+  });
+  // Live: real photo reads on the backend. Mock: scripted detector (src/mocks).
+  const live = isLive('capture');
   const outputs = useMemo(() => [photoOutput], [photoOutput]);
   const cameraReady = !!device && permission.hasPermission;
   const { canRequestPermission, requestPermission } = permission;
@@ -129,10 +160,14 @@ export function CaptureScreen({
   const [box, setBox] = useState<NormalizedBox>(DEFAULT_BOX);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [found, setFound] = useState<Found | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    getCurrentPlaceName().then(setPlaceName).catch(() => setPlaceName('Unknown place'));
+    getCurrentPlaceName()
+      .then(setPlaceName)
+      .catch(() => setPlaceName('Unknown place'));
     getTodaysCatch()
       .then(list => setCount(list.length))
       .catch(() => {});
@@ -140,13 +175,14 @@ export function CaptureScreen({
     return () => pending.forEach(clearTimeout);
   }, []);
 
-  // Live detection runs while the camera is live.
+  // Mock detection runs while the camera is live. Real on-device detection
+  // (ML Kit) plugs in here later; in live mode the shutter does the reading.
   useEffect(() => {
-    if (phase === 'frozen') {
+    if (phase === 'frozen' || live) {
       return;
     }
     return mockDetector.start(mode, setFrame);
-  }, [mode, phase]);
+  }, [mode, phase, live]);
 
   useEffect(() => {
     if (!toast) {
@@ -161,7 +197,8 @@ export function CaptureScreen({
   };
 
   const centered = frame.items.find(
-    item => item.item_id === frame.centeredId && !caught[item.item_id] && !item.known,
+    item =>
+      item.item_id === frame.centeredId && !caught[item.item_id] && !item.known,
   );
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -197,7 +234,11 @@ export function CaptureScreen({
     try {
       const tango = await catchTango({ tangoId: reading.tango.id, placeName });
       setCount(n => n + 1);
-      setToast({ jp: tango, text: 'saved, pinned here', undo: { tangoId: tango.id } });
+      setToast({
+        jp: tango,
+        text: 'saved, pinned here',
+        undo: { tangoId: tango.id },
+      });
       unfreeze();
     } catch (err) {
       showError(err);
@@ -224,7 +265,9 @@ export function CaptureScreen({
         ? await getTango(detection.tangoId)
         : tangoFromDetection(detection);
       setSheet(
-        detection.known ? { kind: 'known', tango } : { kind: 'tango', tango, detection },
+        detection.known
+          ? { kind: 'known', tango }
+          : { kind: 'tango', tango, detection },
       );
     } catch (err) {
       showError(err);
@@ -240,10 +283,77 @@ export function CaptureScreen({
 
   const unfreeze = () => {
     setFrozenUri(null);
+    setFound(null);
+    setSheet(null);
     setPhase('live');
   };
 
+  /** Sends a photo to the backend and lists what it found. */
+  const readPhoto = async (base64: string, mimeType: string) => {
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await uploadCapture(base64, mimeType);
+      setFound({ captureId: result.capture_id, items: result.detected_items });
+      setSheet({ kind: 'found' });
+    } catch (err) {
+      showError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const catchFound = async (item: DetectedItem) => {
+    if (!found) {
+      return;
+    }
+    setError(null);
+    setSaving(item.item_id);
+    try {
+      const tango = await catchTango({
+        detection: { ...item, known: false },
+        captureId: found.captureId,
+        placeName,
+      });
+      setCaught(ids => ({ ...ids, [item.item_id]: true }));
+      setCount(n => n + 1);
+      setToast({
+        jp: tango,
+        text: 'caught here',
+        undo: { tangoId: tango.id, itemId: item.item_id },
+      });
+    } catch (err) {
+      showError(err);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const onShutterLive = async () => {
+    if (!cameraReady) {
+      setError('No camera available. Use the photo import button instead.');
+      return;
+    }
+    try {
+      const photo = await photoOutput.capturePhoto({}, {});
+      try {
+        const path = await photo.saveToTemporaryFileAsync();
+        const bytes = await photo.getFileDataAsync();
+        freeze(path.startsWith('file://') ? path : `file://${path}`);
+        await readPhoto(fromByteArray(new Uint8Array(bytes)), 'image/jpeg');
+      } finally {
+        photo.dispose();
+      }
+    } catch (err) {
+      showError(err);
+    }
+  };
+
   const onShutter = async () => {
+    if (live) {
+      await onShutterLive();
+      return;
+    }
     let uri: string | null = null;
     if (cameraReady) {
       try {
@@ -258,7 +368,14 @@ export function CaptureScreen({
 
   const onImport = async () => {
     try {
-      const result = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+        includeBase64: live,
+        maxWidth: PHOTO_SIZE.width,
+        maxHeight: PHOTO_SIZE.width,
+        quality: 0.8,
+      });
       if (result.didCancel) {
         return;
       }
@@ -266,7 +383,15 @@ export function CaptureScreen({
         setError(result.errorMessage ?? result.errorCode);
         return;
       }
-      freeze(result.assets?.[0]?.uri ?? null);
+      const asset = result.assets?.[0];
+      freeze(asset?.uri ?? null);
+      if (live) {
+        if (asset?.base64) {
+          await readPhoto(asset.base64, asset.type ?? 'image/jpeg');
+        } else {
+          setError('Could not read that photo.');
+        }
+      }
     } catch (err) {
       showError(err);
     }
@@ -290,7 +415,9 @@ export function CaptureScreen({
       await recordRecognition(tango.id, recognized);
       setToast({
         jp: tango,
-        text: recognized ? 'nice. Review pushed later.' : 'okay. It will come back sooner.',
+        text: recognized
+          ? 'nice. Review pushed later.'
+          : 'okay. It will come back sooner.',
       });
     } catch (err) {
       showError(err);
@@ -305,11 +432,21 @@ export function CaptureScreen({
       {/* Camera feed, frozen photo, or placeholder */}
       {phase === 'frozen' ? (
         frozenUri ? (
-          <Image source={{ uri: frozenUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image
+            source={{ uri: frozenUri }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
         ) : (
           <View style={styles.placeholderPhoto}>
             {PLACEHOLDER_PHOTO_LINES.map(line => (
-              <Jp key={line} text={line} size="xxl" tone="inverse" alwaysKanji />
+              <Jp
+                key={line}
+                text={line}
+                size="xxl"
+                tone="inverse"
+                alwaysKanji
+              />
             ))}
           </View>
         )
@@ -323,11 +460,15 @@ export function CaptureScreen({
       ) : (
         <View style={styles.noCamera}>
           <Text style={styles.noCameraText}>
-            Camera preview unavailable (no camera or no permission). Mock detection
-            still runs.
+            Camera preview unavailable (no camera or no permission). Mock
+            detection still runs.
           </Text>
           {permission.canRequestPermission ? (
-            <Button label="Allow camera" variant="light" onPress={requestPermission} />
+            <Button
+              label="Allow camera"
+              variant="light"
+              onPress={requestPermission}
+            />
           ) : null}
         </View>
       )}
@@ -364,12 +505,18 @@ export function CaptureScreen({
                   {item.known ? (
                     <View style={[styles.tag, styles.tagKnown]}>
                       <Text style={styles.tagTextDark}>★</Text>
-                      <Jp text={item.japanese_text} reading={item.reading ?? undefined} size="xs" />
+                      <Jp
+                        text={item.japanese_text}
+                        reading={item.reading ?? undefined}
+                        size="xs"
+                      />
                       <Text style={styles.tagTextDark}>· you know this</Text>
                     </View>
                   ) : (
                     <View style={[styles.tag, isCaught && styles.tagSaved]}>
-                      <Text style={isCaught ? styles.tagTextDark : styles.tagText}>
+                      <Text
+                        style={isCaught ? styles.tagTextDark : styles.tagText}
+                      >
                         {isCaught ? '✓ Saved' : 'New Tango'}
                       </Text>
                     </View>
@@ -380,8 +527,8 @@ export function CaptureScreen({
           })
         : null}
 
-      {/* Manual box on a frozen frame */}
-      {phase === 'frozen' && size.width > 0 ? (
+      {/* Manual box on a frozen frame (mock only: the backend can't read a selected area yet) */}
+      {phase === 'frozen' && !live && size.width > 0 ? (
         <SelectionBox
           width={size.width}
           height={size.height}
@@ -413,13 +560,26 @@ export function CaptureScreen({
         </Pressable>
       </View>
       {phase === 'frozen' ? (
-        <View style={[styles.frozenNote, { top: insets.top + sizes.touch + space.lg }]}>
-          <Text style={styles.pillText}>Photo taken · nothing was detected</Text>
+        <View
+          style={[
+            styles.frozenNote,
+            { top: insets.top + sizes.touch + space.lg },
+          ]}
+        >
+          <Text style={styles.pillText}>
+            {live
+              ? busy
+                ? 'Photo taken · reading…'
+                : `Photo taken · ${found?.items.length ?? 0} found`
+              : 'Photo taken · nothing was detected'}
+          </Text>
         </View>
       ) : null}
 
       {/* Bottom controls */}
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + space.lg }]}>
+      <View
+        style={[styles.bottom, { paddingBottom: insets.bottom + space.lg }]}
+      >
         {toast ? (
           <Toast
             message={
@@ -435,9 +595,14 @@ export function CaptureScreen({
                       label: 'Details',
                       onPress: () =>
                         toast.undo &&
-                        navigation.navigate('TangoDetail', { id: toast.undo.tangoId }),
+                        navigation.navigate('TangoDetail', {
+                          id: toast.undo.tangoId,
+                        }),
                     },
-                    { label: 'Undo', onPress: () => toast.undo && undo(toast.undo) },
+                    {
+                      label: 'Undo',
+                      onPress: () => toast.undo && undo(toast.undo),
+                    },
                   ]
                 : undefined
             }
@@ -449,7 +614,22 @@ export function CaptureScreen({
           </Pressable>
         ) : null}
 
-        {phase === 'frozen' ? (
+        {phase === 'frozen' && live ? (
+          <View style={base.row}>
+            <Button
+              label="Retake"
+              variant="dark"
+              style={base.grow}
+              onPress={unfreeze}
+            />
+            <Button
+              label={busy ? 'Reading…' : 'Show results'}
+              style={base.grow}
+              disabled={busy || !found}
+              onPress={() => setSheet({ kind: 'found' })}
+            />
+          </View>
+        ) : phase === 'frozen' ? (
           <>
             <View style={styles.hint}>
               <Text style={styles.hintText}>
@@ -458,7 +638,12 @@ export function CaptureScreen({
               </Text>
             </View>
             <View style={base.row}>
-              <Button label="Retake" variant="dark" style={base.grow} onPress={unfreeze} />
+              <Button
+                label="Retake"
+                variant="dark"
+                style={base.grow}
+                onPress={unfreeze}
+              />
               <Button
                 label={busy ? 'Reading…' : '✦ Read this'}
                 style={base.grow}
@@ -469,23 +654,33 @@ export function CaptureScreen({
           </>
         ) : (
           <>
-            {frame.hint ? (
+            {live || frame.hint ? (
               <View style={styles.hint}>
-                <Text style={styles.hintText}>{frame.hint}</Text>
+                <Text style={styles.hintText}>
+                  {live ? LIVE_HINT : frame.hint}
+                </Text>
               </View>
             ) : null}
-            <View style={styles.modeToggle}>
-              <SegmentedControl
-                options={[
-                  { value: 'text', label: 'T  Text' },
-                  { value: 'objects', label: '⬡  Objects' },
-                ]}
-                value={mode}
-                onChange={setMode}
-              />
-            </View>
+            {/* Text/Objects only steers the mock detector; the backend returns both. */}
+            {live ? null : (
+              <View style={styles.modeToggle}>
+                <SegmentedControl
+                  options={[
+                    { value: 'text', label: 'T  Text' },
+                    { value: 'objects', label: '⬡  Objects' },
+                  ]}
+                  value={mode}
+                  onChange={setMode}
+                />
+              </View>
+            )}
             <View style={styles.controls}>
-              <IconButton glyph="🖼" label="Import from photos" dark onPress={onImport} />
+              <IconButton
+                glyph="🖼"
+                label="Import from photos"
+                dark
+                onPress={onImport}
+              />
               <View style={styles.shutterSlot}>
                 {phase === 'caught' ? (
                   <View style={[styles.catchButton, styles.caughtButton]}>
@@ -539,7 +734,10 @@ export function CaptureScreen({
                 <Text style={base.label}>Ways you might hear it</Text>
                 {examples(sheet.tango).map(example => (
                   <View key={example.jp.text} style={styles.example}>
-                    <Chip label={example.register === 'easy' ? 'Easy' : 'Keigo'} tone="outline" />
+                    <Chip
+                      label={example.register === 'easy' ? 'Easy' : 'Keigo'}
+                      tone="outline"
+                    />
                     <View style={base.grow}>
                       <Jp {...example.jp} />
                       <Text style={base.caption}>{example.jp.meaning}</Text>
@@ -548,7 +746,9 @@ export function CaptureScreen({
                 ))}
               </View>
             ) : null}
-            <Text style={base.caption}>⌖ Saved with this place: {placeName}</Text>
+            <Text style={base.caption}>
+              ⌖ Saved with this place: {placeName}
+            </Text>
             <View style={base.row}>
               <Button
                 label="Practice"
@@ -583,8 +783,9 @@ export function CaptureScreen({
             <View style={styles.history}>
               <Text style={base.caption}>
                 ⌖ First saved:{' '}
-                {sheet.tango.history[sheet.tango.history.length - 1]?.detail ?? 'unknown'}.
-                You've seen it {sheet.tango.sightings.length} times since.
+                {sheet.tango.history[sheet.tango.history.length - 1]?.detail ??
+                  'unknown'}
+                . You've seen it {sheet.tango.sightings.length} times since.
               </Text>
             </View>
             <Text style={base.heading}>Did you recognize this Tango?</Text>
@@ -607,9 +808,61 @@ export function CaptureScreen({
           </>
         ) : null}
 
+        {sheet?.kind === 'found' && found ? (
+          <>
+            <Text style={styles.eyebrow}>✦ Found in this photo</Text>
+            {error ? <Text style={styles.sheetError}>{error}</Text> : null}
+            {toast && !error ? (
+              <View style={base.row}>
+                {toast.jp ? <Jp {...toast.jp} bold /> : null}
+                <Text style={base.caption}>{toast.text}</Text>
+              </View>
+            ) : null}
+            {found.items.length === 0 ? (
+              <>
+                <Text style={base.text}>
+                  Nothing readable was found. Try again closer, or with the text
+                  straight on.
+                </Text>
+                <Button label="Retake" variant="dark" onPress={unfreeze} />
+              </>
+            ) : null}
+            {found.items.map(item => (
+              <View key={item.item_id} style={styles.foundRow}>
+                <View style={base.grow}>
+                  <Jp
+                    text={item.japanese_text}
+                    reading={item.reading ?? undefined}
+                    meaning={item.english_gloss ?? undefined}
+                    size="lg"
+                    bold
+                  />
+                  <Text style={base.caption}>
+                    {item.english_gloss ?? item.source_label}
+                    {item.item_type === 'object' ? ' · object' : ''}
+                  </Text>
+                </View>
+                <Button
+                  label={
+                    caught[item.item_id]
+                      ? '✓ Saved'
+                      : saving === item.item_id
+                      ? 'Saving…'
+                      : 'Catch'
+                  }
+                  disabled={!!caught[item.item_id] || saving !== null}
+                  onPress={() => catchFound(item)}
+                />
+              </View>
+            ))}
+          </>
+        ) : null}
+
         {sheet?.kind === 'reading' ? (
           <>
-            <Text style={styles.eyebrow}>✦ Gemini read your selection (mock)</Text>
+            <Text style={styles.eyebrow}>
+              ✦ Gemini read your selection (mock)
+            </Text>
             <Jp {...sheet.reading.tango} size="xxl" bold />
             <Text style={base.text}>{sheet.reading.explanation}</Text>
             <View style={base.wrap}>
@@ -617,7 +870,10 @@ export function CaptureScreen({
                 <Chip key={jp.text} jp={jp} label={jp.meaning} dashed />
               ))}
             </View>
-            <Button label="Catch" onPress={() => catchFromReading(sheet.reading)} />
+            <Button
+              label="Catch"
+              onPress={() => catchFromReading(sheet.reading)}
+            />
             <Button
               label="Not quite? Adjust the box"
               variant="ghost"
@@ -818,6 +1074,18 @@ const styles = StyleSheet.create({
   },
   strong: {
     fontWeight: fontWeights.bold,
+  },
+  sheetError: {
+    ...base.caption,
+    color: colors.caution,
+  },
+  foundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.sm,
+    borderBottomWidth: sizes.hairline,
+    borderBottomColor: colors.border,
   },
   example: {
     flexDirection: 'row',

@@ -12,7 +12,7 @@ import {
   SegmentedControl,
   ToggleRow,
 } from '../../components/ui';
-import { API_BASE_URL, USE_MOCKS } from '../../config';
+import { API_BASE_URL, LIVE_APIS, USE_MOCKS } from '../../config';
 import { useAsync } from '../../hooks/useAsync';
 import { useAuth } from '../../state/AuthContext';
 import { useSettings } from '../../state/SettingsContext';
@@ -229,7 +229,11 @@ export function MeScreen(): React.JSX.Element {
       <Card>
         <Text style={base.label}>Developer</Text>
         <Text style={base.caption}>
-          Data: {USE_MOCKS ? 'mock data (USE_MOCKS)' : 'backend'} · {API_BASE_URL}
+          Data:{' '}
+          {USE_MOCKS
+            ? `mock data${LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''}`
+            : 'backend'}{' '}
+          · {API_BASE_URL}
         </Text>
         <Text style={base.caption}>Backend health: {health}</Text>
         <Button label="Check backend health" variant="secondary" onPress={ping} />

@@ -2,6 +2,7 @@
 declare module '@env' {
   export const USE_MOCKS: string | undefined;
   export const API_BASE_URL: string | undefined;
+  export const LIVE_APIS: string | undefined;
   export const FIREBASE_API_KEY: string | undefined;
   export const FIREBASE_AUTH_DOMAIN: string | undefined;
   export const FIREBASE_PROJECT_ID: string | undefined;

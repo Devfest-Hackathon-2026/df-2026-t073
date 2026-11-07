@@ -8,6 +8,7 @@ import { API_V1, mockDelay, pick, request } from './client';
  * the stats are a TODO to agree on.
  */
 export const getProfile = pick(
+  'user',
   () => mockDelay<UserProfile>(PROFILE),
   // TODO confirm endpoint with backend
   () => request<UserProfile>(`${API_V1}/me/profile`),

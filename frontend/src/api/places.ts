@@ -10,7 +10,12 @@ const MAP_AREAS: MapArea[] = [
     label: 'Around Koenji',
     tangoCount: 12,
     placeCount: 4,
-    sample: [TANGO.kaedama, TANGO.shokken, TANGO['churin-kinshi'], TANGO.oomori],
+    sample: [
+      TANGO.kaedama,
+      TANGO.shokken,
+      TANGO['churin-kinshi'],
+      TANGO.oomori,
+    ],
     moreCount: 8,
     planPlaceId: 'menya-taiki',
   },
@@ -36,6 +41,7 @@ const MAP_AREAS: MapArea[] = [
 
 // Today screen: greeting, map pins and areas, next visit, day-one starter Tango.
 export const getToday = pick(
+  'places',
   () =>
     mockDelay<TodaySummary>({
       userName: USER_NAME,
@@ -49,6 +55,7 @@ export const getToday = pick(
 );
 
 export const searchPlaces = pick(
+  'places',
   (query: string) => {
     const q = query.trim().toLowerCase();
     const results = Object.values(PLACES).filter(
@@ -62,22 +69,28 @@ export const searchPlaces = pick(
     return mockDelay<Place[]>(results, 200);
   },
   // TODO confirm endpoint with backend (Google Maps Places search, proxied by the backend)
-  (query: string) => request<Place[]>(`${API_V1}/places/search`, { query: { q: query } }),
+  (query: string) =>
+    request<Place[]>(`${API_V1}/places/search`, { query: { q: query } }),
 );
 
 export const getPlace = pick(
-  (placeId: string) => mockDelay<Place>(PLACES[placeId] ?? PLACES['menya-taiki']),
+  'places',
+  (placeId: string) =>
+    mockDelay<Place>(PLACES[placeId] ?? PLACES['menya-taiki']),
   // TODO confirm endpoint with backend
-  (placeId: string) => request<Place>(`${API_V1}/places/${encodeURIComponent(placeId)}`),
+  (placeId: string) =>
+    request<Place>(`${API_V1}/places/${encodeURIComponent(placeId)}`),
 );
 
 export const listVisits = pick(
+  'places',
   () => mockDelay<Visit[]>(VISITS),
   // TODO confirm endpoint with backend
   () => request<Visit[]>(`${API_V1}/visits`),
 );
 
 export const createVisit = pick(
+  'places',
   (placeId: string, when: string) =>
     mockDelay<Visit>({
       id: `visit-${Date.now()}`,
@@ -87,5 +100,8 @@ export const createVisit = pick(
     }),
   // TODO confirm endpoint with backend
   (placeId: string, when: string) =>
-    request<Visit>(`${API_V1}/visits`, { method: 'POST', body: { placeId, when } }),
+    request<Visit>(`${API_V1}/visits`, {
+      method: 'POST',
+      body: { placeId, when },
+    }),
 );

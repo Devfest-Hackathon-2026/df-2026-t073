@@ -40,7 +40,9 @@ export function flashcardToTango(card: FlashcardResponse): Tango {
   const strength = (mastered ? 4 : Math.min(3, count)) as Strength;
   return {
     id: card.flashcard_id,
-    kind: card.part_of_speech.toLowerCase().includes('phrase') ? 'phrase' : 'word',
+    kind: card.part_of_speech.toLowerCase().includes('phrase')
+      ? 'phrase'
+      : 'word',
     text: card.kanji,
     reading: card.reading,
     romaji: card.romaji,
@@ -79,8 +81,12 @@ function matches(tango: Tango, query: string): boolean {
 
 /** All saved Tango, filtered by word, reading, meaning or place. */
 export const listTango = pick(
+  'tango',
   (query: string = '') =>
-    mockDelay<Tango[]>(ALL_TANGO.filter(t => matches(t, query)), 200),
+    mockDelay<Tango[]>(
+      ALL_TANGO.filter(t => matches(t, query)),
+      200,
+    ),
   // Existing endpoint: GET /api/v1/flashcards. Search is client-side for now.
   async (query: string = '') => {
     const cards = await request<FlashcardResponse[]>(`${API_V1}/flashcards`);
@@ -89,10 +95,13 @@ export const listTango = pick(
 );
 
 export const getTango = pick(
+  'tango',
   (id: string) => mockDelay<Tango>(TANGO[id] ?? ALL_TANGO[0]),
   // Existing endpoint: GET /api/v1/flashcards/{flashcard_id}
   async (id: string) =>
     flashcardToTango(
-      await request<FlashcardResponse>(`${API_V1}/flashcards/${encodeURIComponent(id)}`),
+      await request<FlashcardResponse>(
+        `${API_V1}/flashcards/${encodeURIComponent(id)}`,
+      ),
     ),
 );
