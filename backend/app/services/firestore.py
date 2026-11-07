@@ -23,6 +23,5 @@ async def sync_user_profile(
     doc_ref = db.collection(USERS_COLLECTION).document(uid)
     await doc_ref.set(profile_data, merge=True)
 
-    snapshot = await doc_ref.get()
-    data = snapshot.to_dict() or profile_data
-    return UserProfile(**data)
+    # Every response field comes from the token, so no need to read the doc back.
+    return UserProfile(**profile_data)

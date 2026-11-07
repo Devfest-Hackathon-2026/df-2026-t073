@@ -1,9 +1,10 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class UserProfile(BaseModel):
     uid: str
-    email: EmailStr | None = None
+    # Plain str: Firebase already validated it, and EmailStr rejects emulator/test domains.
+    email: str | None = None
     name: str | None = None
     picture: str | None = None
     email_verified: bool = False

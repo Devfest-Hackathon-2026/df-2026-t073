@@ -58,6 +58,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Adding or changing dependencies:** edit `pyproject.toml` (or use `uv add <pkg>`), then regenerate the Docker requirements so they match `uv.lock`:
+```bash
+uv lock && uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
+```
+
 ### Step 3: Configure environment variables
 Copy the root `.env.example` to `.env` (either in the repository root or inside `backend/.env`) and set `FIREBASE_PROJECT_ID`:
 

@@ -1,3 +1,5 @@
+import inspect
+
 import firebase_admin
 from google.cloud.firestore import AsyncClient
 
@@ -29,7 +31,10 @@ async def close_firebase() -> None:
     """Cleanly close the Async Firestore client on application shutdown."""
     global _firestore_client
     if _firestore_client is not None:
-        _firestore_client.close()
+        # close() is async on some library versions and sync on others.
+        result = _firestore_client.close()
+        if inspect.isawaitable(result):
+            await result
         _firestore_client = None
 
 
