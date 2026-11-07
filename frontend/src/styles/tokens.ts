@@ -1,0 +1,90 @@
+import { Platform } from 'react-native';
+
+// Design tokens. Placeholder values until the style guide is final.
+// Every color, font and size in the app comes from this file.
+
+export const colors = {
+  // Neutrals
+  bg: '#F2F2EF',
+  surface: '#FFFFFF',
+  surfaceMuted: '#E7E7E3',
+  border: '#D4D4CF',
+  text: '#1B1B1B',
+  textMuted: '#6A6A66',
+  textInverse: '#FFFFFF',
+  dark: '#1B1B1B',
+  camera: '#202326',
+  scrim: 'rgba(0, 0, 0, 0.4)',
+  overlay: 'rgba(0, 0, 0, 0.65)',
+  // The one accent
+  accent: '#2D46C8',
+  accentSoft: '#E6E9F9',
+  // Status (kept minimal)
+  positive: '#2E7A4F',
+  caution: '#A35C00',
+  star: '#C99A12',
+} as const;
+
+export const fonts = {
+  body: Platform.select({ android: 'sans-serif', default: 'System' }),
+  mono: Platform.select({ android: 'monospace', default: 'Menlo' }),
+} as const;
+
+export const fontWeights = {
+  regular: '400',
+  medium: '500',
+  bold: '700',
+} as const;
+
+export const fontSizes = {
+  xs: 11,
+  sm: 13,
+  md: 15,
+  lg: 18,
+  xl: 22,
+  xxl: 28,
+  jumbo: 44,
+} as const;
+
+export const space = {
+  xxs: 2,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+} as const;
+
+export const radii = {
+  sm: 8,
+  md: 12,
+  lg: 18,
+  pill: 999,
+} as const;
+
+/** Fixed component sizes. */
+export const sizes = {
+  hairline: 1,
+  border: 2,
+  touch: 44,
+  icon: 20,
+  tabBar: 64,
+  captureTab: 56,
+  shutter: 72,
+  mic: 72,
+  pin: 24,
+  mapHeight: 220,
+  strengthSegment: 8,
+  dot: 2,
+  handle: 22,
+} as const;
+
+export const tracking = {
+  wide: 0.8,
+} as const;
+
+export const opacity = {
+  pressed: 0.6,
+  faded: 0.45,
+} as const;

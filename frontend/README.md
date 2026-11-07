@@ -87,18 +87,21 @@ npm run android
 
 ---
 
-## 4. Connecting to the Local FastAPI Backend
+## 4. Mock data and the backend
 
-By default, [`src/services/api.ts`](./src/services/api.ts) points to:
-```ts
-export const API_BASE_URL = 'http://10.0.2.2:8000';
-```
-- **On an Android Emulator:** `10.0.2.2` automatically routes to `localhost` (`127.0.0.1`) on your host computer. Start the FastAPI backend on port `8000` (`cd ../backend && uv run uvicorn main:app --reload`) and tap **"Check Backend Health"** in the app.
-- **On a Physical Android Device:** Forward port `8000` over USB using `adb reverse` so the phone can reach your computer's local backend:
-  ```bash
-  adb reverse tcp:8000 tcp:8000
-  ```
-  *(Or replace `API_BASE_URL` with your deployed Cloud Run backend URL.)*
+The app runs on mock data by default (`src/mocks/`), so every screen works without the backend.
+
+1. Copy `frontend/.env.example` to `frontend/.env`.
+2. Set `USE_MOCKS=false` to call the backend, and `API_BASE_URL` to its URL.
+3. Restart Metro with a clean cache so the new values are picked up: `npm start -- --reset-cache`.
+
+`API_BASE_URL` defaults to `http://10.0.2.2:8000`:
+- **Android emulator:** `10.0.2.2` routes to `localhost` on your computer. Start the backend on port `8000` (`cd ../backend && uv run uvicorn main:app --reload`).
+- **Physical device:** forward the port with `adb reverse tcp:8000 tcp:8000`, or point `API_BASE_URL` at the Cloud Run URL.
+
+Me › Developer shows which mode is active and has a **Check backend health** button (`GET /healthz`).
+
+Every endpoint, request and response shape is listed in [`docs/api-contract.md`](./docs/api-contract.md), including which ones already exist in the backend and which are proposed.
 
 ---
 
@@ -106,18 +109,40 @@ export const API_BASE_URL = 'http://10.0.2.2:8000';
 
 ```text
 frontend/
-├── App.tsx                  # Root component & SafeAreaProvider
+├── App.tsx                  # Providers: safe area, settings, navigation
 ├── index.js                 # React Native entrypoint
-├── cloudbuild.yaml          # Google Cloud Build -> Firebase App Distribution pipeline
+├── .env.example             # USE_MOCKS, API_BASE_URL (names only)
+├── docs/api-contract.md     # API contract to agree with the backend
 ├── android/                 # Native Android Gradle project (com.devfestapp)
 └── src/
-    ├── components/          # Reusable UI components
-    ├── navigation/          # App navigation stacks/tabs
-    ├── screens/
-    │   └── HomeScreen.tsx   # Main screen with backend health check
-    └── services/
-        └── api.ts           # Backend API client
+    ├── api/                 # One module per area; each picks mock or fetch
+    ├── mocks/               # Mock data (麺屋 たいき, 食券, 替え玉, 立入禁止, ...)
+    ├── types/               # Shared domain types (Tango, Place, Visit, ...)
+    ├── styles/
+    │   ├── tokens.ts        # All colors, fonts, sizes, spacing, radii
+    │   └── base.ts          # Shared layout primitives (stack, row, card, button, chip)
+    ├── state/               # Settings context, saved with AsyncStorage
+    ├── components/          # <Jp>, buttons, chips, cards, screen scaffolding
+    ├── features/capture/    # Detector seam (mock now, ML Kit later) + selection box
+    ├── navigation/          # Root stack, bottom tabs, route types, path map
+    └── screens/             # today, plans, prepare, rehearse, capture, tango, review, me, welcome
 ```
+
+### Styling rules
+- Every color, font and size comes from `src/styles/tokens.ts`. Placeholder values until the style guide is final.
+- Components use `StyleSheet.create` with token values. Inline styles only for dynamic values (positions, sizes from data).
+- All Japanese text goes through `<Jp>` (`src/components/Jp.tsx`), which follows the "Show Japanese as" and furigana settings. Pass `peek` for a dotted underline with long-press English.
+
+### Routes
+| Screen | Path (deep-link map in `src/navigation/linking.ts`) |
+|---|---|
+| Today / Plans / Review / Me tabs | `/`, `/plans`, `/review`, `/me` |
+| Prepare | `/prepare/:placeId` |
+| Rehearse, results | `/rehearse/:placeId`, `/rehearse/:placeId/results` |
+| Capture, today's catch | `/capture`, `/capture/today` |
+| Tango detail | `/tango/:id` |
+| Review session | `/review/session` |
+| First run | `/welcome` (Me › Developer › Restart onboarding) |
 
 ---
 
@@ -127,8 +152,12 @@ frontend/
 | :--- | :--- |
 | `npm start` | Start the Metro bundler (`--reset-cache` to clear cache) |
 | `npm run android` | Compile and run the Android debug build |
-| `npm test` | Run Jest unit tests |
 | `npm run lint` | Run ESLint across the project |
+| `npm run typecheck` | Type-check with `tsc --noEmit` |
+| `npm test` | Run Jest unit tests |
+| `npm run build` | Build the production JS bundle into `build/` (checks that Metro can bundle the app) |
+
+The camera uses `react-native-vision-camera` (v5, needs `react-native-nitro-modules` and `react-native-nitro-image`) and gallery import uses `react-native-image-picker`. Both are native modules, so rebuild the app (`npm run android`) after installing. On an emulator without a camera, the Capture screen shows a placeholder and the mock detection still runs.
 
 ---
 
