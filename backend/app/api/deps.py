@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 import anyio
 from fastapi import Depends, HTTPException, status
@@ -17,7 +17,7 @@ def get_db() -> AsyncClient:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> dict[str, Any]:
     """Verify the Firebase Auth Bearer ID token and return decoded user claims."""
     if credentials is None or not credentials.credentials:
@@ -60,3 +60,8 @@ def _unauthorized(detail: str) -> HTTPException:
         detail=detail,
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+# Use these as route parameter types, e.g. `async def route(user: CurrentUser, db: Db)`.
+CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
+Db = Annotated[AsyncClient, Depends(get_db)]

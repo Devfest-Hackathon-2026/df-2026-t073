@@ -1,9 +1,6 @@
-from typing import Any
+from fastapi import APIRouter, HTTPException, status
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from google.cloud.firestore import AsyncClient
-
-from app.api.deps import get_current_user, get_db
+from app.api.deps import CurrentUser, Db
 from app.core.config import settings
 from app.core.firebase import get_firestore_client
 from app.schemas.user import UserProfile
@@ -37,8 +34,8 @@ async def readiness_check() -> dict[str, str]:
     tags=["auth"],
 )
 async def read_current_user(
-    current_user: dict[str, Any] = Depends(get_current_user),
-    db: AsyncClient = Depends(get_db),
+    current_user: CurrentUser,
+    db: Db,
 ) -> UserProfile:
     """Verify Firebase Auth Bearer token and sync the user's profile in Firestore."""
     return await sync_user_profile(db=db, decoded_claims=current_user)
