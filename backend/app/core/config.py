@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Cloud Storage & Gemini AI settings for Tankengo
     GCS_BUCKET_NAME: str | None = None
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MiB
 
     model_config = SettingsConfigDict(
