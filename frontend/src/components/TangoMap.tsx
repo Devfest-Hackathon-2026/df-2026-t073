@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
@@ -19,6 +19,11 @@ import type { MapPin } from '../types';
 import { TANGO_MAP_STYLE } from './mapStyle';
 
 const MARKER_SETTLE_MS = 600;
+const FIT_MS = 300;
+const CENTER = { x: 0.5, y: 0.5 };
+const LABELLED_ANCHOR = { x: 0.5, y: 0.3 };
+/** Breathing room around the outermost pins, in pixels. */
+const FIT_EDGE = { top: 80, right: 80, bottom: 80, left: 80 };
 
 /** Koenji to Nakano, with Asagaya at the west edge. */
 const INITIAL_REGION: Region = {
@@ -54,6 +59,38 @@ export function TangoMap({
   // the badge is captured after layout, then stop to save work.
   const [tracking, setTracking] = useState(true);
   const mapRef = useRef<MapView>(null);
+  const ready = useRef(false);
+
+  // Frame all Tango pins in the visible area (between search bar and sheet).
+  const tangoCoords = pins
+    .filter(pin => pin.kind === 'tango')
+    .map(pin => ({ latitude: pin.lat, longitude: pin.lng }));
+  const coordsKey = JSON.stringify(tangoCoords);
+  const fitPins = useCallback(
+    (animated: boolean) => {
+      const coords = JSON.parse(coordsKey) as {
+        latitude: number;
+        longitude: number;
+      }[];
+      if (!ready.current || !mapRef.current) {
+        return;
+      }
+      if (coords.length < 2) {
+        mapRef.current.animateToRegion(INITIAL_REGION, animated ? FIT_MS : 0);
+        return;
+      }
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: FIT_EDGE,
+        animated,
+      });
+    },
+    [coordsKey],
+  );
+
+  // Re-frame when the sheet opens or closes (the visible area changes).
+  useEffect(() => {
+    fitPins(true);
+  }, [fitPins, bottomInset]);
   useEffect(() => {
     setTracking(true);
     const timer = setTimeout(() => setTracking(false), MARKER_SETTLE_MS);
@@ -65,8 +102,11 @@ export function TangoMap({
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       // initialRegion is ignored if the map mounts before its size is known,
-      // so move to the Tango area once the map is ready.
-      onMapReady={() => mapRef.current?.animateToRegion(INITIAL_REGION, 0)}
+      // so pins are framed once the map is ready (fitPins).
+      onMapReady={() => {
+        ready.current = true;
+        fitPins(false);
+      }}
       provider={PROVIDER_GOOGLE}
       customMapStyle={TANGO_MAP_STYLE}
       mapPadding={{ top: topInset, right: 0, bottom: bottomInset, left: 0 }}
@@ -88,7 +128,8 @@ export function TangoMap({
           coordinate={{ latitude: pin.lat, longitude: pin.lng }}
           onPress={onPinPress ? () => onPinPress(pin) : undefined}
           tracksViewChanges={tracking}
-          anchor={{ x: 0.5, y: 0.5 }}
+          // Labelled pins: keep the badge (not the badge+label block) on the spot.
+          anchor={pin.kind === 'tango' && pin.label ? LABELLED_ANCHOR : CENTER}
         >
           <PinBadge pin={pin} showStars={showStars} />
         </Marker>
@@ -115,10 +156,13 @@ function PinBadge({
     );
   }
   return (
-    <View style={[styles.pin, styles.tango]}>
-      <Text style={styles.text}>
-        {showStars ? `★${pin.stars ?? 0}` : pin.count}
-      </Text>
+    <View style={styles.tangoWrap}>
+      <View style={[styles.pin, styles.tango]}>
+        <Text style={styles.text}>
+          {showStars ? `★${pin.stars ?? 0}` : pin.count}
+        </Text>
+      </View>
+      {pin.label ? <Text style={styles.areaLabel}>{pin.label}</Text> : null}
     </View>
   );
 }
@@ -133,6 +177,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     borderWidth: sizes.border,
     borderColor: colors.surface,
+  },
+  tangoWrap: {
+    alignItems: 'center',
+  },
+  areaLabel: {
+    ...base.text,
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.bold,
+    color: colors.text,
+    textShadowColor: colors.surface,
+    textShadowRadius: space.xs,
   },
   tango: {
     backgroundColor: colors.dark,

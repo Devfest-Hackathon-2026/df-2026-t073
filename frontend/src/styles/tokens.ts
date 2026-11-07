@@ -89,16 +89,21 @@ export const opacity = {
   faded: 0.45,
 } as const;
 
-/** Google map style colors: muted neutrals so pins and the accent stand out. */
+/** Google map style colors: warm land with white roads, clear parks, water and rail. */
 export const mapColors = {
-  land: '#ECEBE6',
-  park: '#DCE3D3',
-  water: '#C8D5E2',
+  land: '#E3DFD5',
+  park: '#C7DDB5',
+  water: '#A9C8E6',
   road: '#FFFFFF',
-  roadEdge: '#E0DED7',
-  highway: '#F7F5EF',
-  rail: '#B7BEDA',
-  label: '#7E7D78',
-  labelHalo: '#F2F2EF',
-  border: '#CFCDC5',
+  rail: '#8494D8',
+} as const;
+
+/** "Pale Dawn" map style colors (Snazzy Maps style #1). */
+export const paleDawnColors = {
+  land: '#F2E5D4',
+  park: '#C5DAC6',
+  highway: '#C5C6C6',
+  arterial: '#E4D7C6',
+  local: '#FBFAF7',
+  water: '#ACBCC9',
 } as const;
