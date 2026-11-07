@@ -1,7 +1,12 @@
+import inspect
+import logging
+
 import firebase_admin
 from google.cloud.firestore import AsyncClient
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 _firestore_client: AsyncClient | None = None
 
@@ -26,10 +31,23 @@ def init_firebase() -> None:
 
 
 async def close_firebase() -> None:
-    """Cleanly close the Async Firestore client on application shutdown."""
+    """Close the Firestore gRPC channel on application shutdown."""
     global _firestore_client
-    if _firestore_client is not None:
-        _firestore_client.close()
+    client = _firestore_client
+    if client is None:
+        return
+    try:
+        # AsyncClient.close() only closes an HTTP session Firestore never creates,
+        # so close the gRPC transport directly. The API object is created lazily;
+        # if no request ever ran, there is no channel to close.
+        api = getattr(client, "_firestore_api_internal", None)
+        if api is not None:
+            result = api.transport.close()
+            if inspect.isawaitable(result):
+                await result
+    except Exception:
+        logger.exception("Failed to close Firestore client")
+    finally:
         _firestore_client = None
 
 

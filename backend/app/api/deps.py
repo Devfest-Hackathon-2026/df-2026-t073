@@ -13,13 +13,35 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 def get_db() -> AsyncClient:
     """FastAPI dependency that provides the shared Async Firestore client."""
-    return get_firestore_client()
+    try:
+        return get_firestore_client()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> dict[str, Any]:
-    """Verify the Firebase Auth Bearer ID token and return decoded user claims."""
+    """Verify the ID token locally (signature + expiry). No network call per request."""
+    return await _verify(credentials, check_revoked=False)
+
+
+async def get_current_user_strict(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> dict[str, Any]:
+    """Also check revocation and disabled accounts via the Firebase Auth API.
+
+    Costs one network call per request; use only on sensitive routes.
+    """
+    return await _verify(credentials, check_revoked=True)
+
+
+async def _verify(
+    credentials: HTTPAuthorizationCredentials | None, *, check_revoked: bool
+) -> dict[str, Any]:
     if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,7 +53,7 @@ async def get_current_user(
     try:
         # Run synchronous token verification in a worker thread to avoid blocking the event loop
         decoded_token: dict[str, Any] = await anyio.to_thread.run_sync(
-            lambda: auth.verify_id_token(token, check_revoked=True)
+            lambda: auth.verify_id_token(token, check_revoked=check_revoked)
         )
         return decoded_token
     # Revoked and Expired subclass InvalidIdTokenError, so they must come first.
@@ -64,4 +86,5 @@ def _unauthorized(detail: str) -> HTTPException:
 
 # Use these as route parameter types, e.g. `async def route(user: CurrentUser, db: Db)`.
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
+CurrentUserStrict = Annotated[dict[str, Any], Depends(get_current_user_strict)]
 Db = Annotated[AsyncClient, Depends(get_db)]
