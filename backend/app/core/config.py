@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "DevFest 2026 Backend"
+    PROJECT_NAME: str = "Tankengo Backend"
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     API_V1_STR: str = "/api/v1"
