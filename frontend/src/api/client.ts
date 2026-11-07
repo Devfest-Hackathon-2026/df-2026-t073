@@ -1,3 +1,4 @@
+import { getIdToken } from '../auth/firebase';
 import { API_BASE_URL, USE_MOCKS } from '../config';
 
 export class ApiError extends Error {
@@ -40,8 +41,11 @@ export async function request<T>(
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  // TODO(auth): add `Authorization: Bearer <Firebase ID token>` once auth lands.
-  // Every /api/v1 route on the backend requires it.
+  // Every /api/v1 route on the backend checks this Firebase ID token.
+  const token = await getIdToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}${toQueryString(query)}`, {
     method,

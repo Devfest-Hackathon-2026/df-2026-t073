@@ -45,3 +45,21 @@ jest.mock('react-native-vision-camera', () => {
 jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: async () => ({ didCancel: true }),
 }));
+
+jest.mock('firebase/app', () => ({
+  getApps: () => [],
+  initializeApp: () => ({}),
+}));
+
+jest.mock('firebase/auth', () => ({
+  getReactNativePersistence: () => ({}),
+  initializeAuth: () => ({
+    authStateReady: async () => {},
+    currentUser: null,
+  }),
+  onAuthStateChanged: (_auth, cb) => {
+    cb(null);
+    return () => {};
+  },
+  signInAnonymously: async () => ({ user: null }),
+}));

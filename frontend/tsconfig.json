@@ -1,5 +1,11 @@
 {
   "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "paths": {
+      // Use Firebase Auth's React Native types (adds getReactNativePersistence).
+      "@firebase/auth": ["./node_modules/@firebase/auth/dist/rn/index.rn.d.ts"]
+    }
+  },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["**/node_modules", "**/Pods"]
 }

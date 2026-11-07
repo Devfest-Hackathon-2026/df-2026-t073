@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { checkBackendHealth } from '../../api/health';
+import { checkBackendAuth, checkBackendHealth } from '../../api/health';
 import { getProfile } from '../../api/user';
 import { Jp } from '../../components/Jp';
 import { Screen } from '../../components/layout';
@@ -14,6 +14,7 @@ import {
 } from '../../components/ui';
 import { API_BASE_URL, USE_MOCKS } from '../../config';
 import { useAsync } from '../../hooks/useAsync';
+import { useAuth } from '../../state/AuthContext';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
@@ -35,6 +36,13 @@ const LANGUAGES = [
   { value: 'Spanish', native: 'Español' },
 ];
 
+const AUTH_LABEL = {
+  not_configured: 'off (Firebase values not set in .env)',
+  signing_in: 'signing in…',
+  signed_in: 'signed in anonymously',
+  error: 'failed',
+} as const;
+
 const PREVIEW = {
   text: '食券',
   reading: 'しょっけん',
@@ -47,6 +55,18 @@ export function MeScreen(): React.JSX.Element {
   const profile = useAsync(getProfile);
   const [languagesOpen, setLanguagesOpen] = useState(false);
   const [health, setHealth] = useState<string>('Not checked');
+  const [backendAuth, setBackendAuth] = useState<string>('Not checked');
+  const auth = useAuth();
+
+  const checkAuth = async () => {
+    setBackendAuth('Checking…');
+    try {
+      const me = await checkBackendAuth();
+      setBackendAuth(`Accepted (uid ${me.uid.slice(0, 8)}…)`);
+    } catch (err) {
+      setBackendAuth(`Rejected (${err instanceof Error ? err.message : 'error'})`);
+    }
+  };
 
   const ping = async () => {
     setHealth('Checking…');
@@ -213,6 +233,13 @@ export function MeScreen(): React.JSX.Element {
         </Text>
         <Text style={base.caption}>Backend health: {health}</Text>
         <Button label="Check backend health" variant="secondary" onPress={ping} />
+        <Text style={base.caption}>
+          Sign-in: {AUTH_LABEL[auth.status]}
+          {auth.user ? ` · uid ${auth.user.uid.slice(0, 8)}…` : ''}
+          {auth.error ? ` · ${auth.error}` : ''}
+        </Text>
+        <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
+        <Button label="Check sign-in with backend" variant="secondary" onPress={checkAuth} />
         <Button
           label="Restart onboarding"
           variant="ghost"

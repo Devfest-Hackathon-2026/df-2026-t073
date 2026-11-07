@@ -4,6 +4,7 @@ import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { linking } from './src/navigation/linking';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { AuthProvider } from './src/state/AuthContext';
 import { SettingsProvider } from './src/state/SettingsContext';
 import { colors } from './src/styles/tokens';
 
@@ -23,11 +24,13 @@ function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
-      <SettingsProvider>
-        <NavigationContainer theme={theme} linking={linking}>
-          <RootNavigator />
-        </NavigationContainer>
-      </SettingsProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <NavigationContainer theme={theme} linking={linking}>
+            <RootNavigator />
+          </NavigationContainer>
+        </SettingsProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
