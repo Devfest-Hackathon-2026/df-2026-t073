@@ -88,3 +88,17 @@ export const opacity = {
   pressed: 0.6,
   faded: 0.45,
 } as const;
+
+/** Google map style colors: muted neutrals so pins and the accent stand out. */
+export const mapColors = {
+  land: '#ECEBE6',
+  park: '#DCE3D3',
+  water: '#C8D5E2',
+  road: '#FFFFFF',
+  roadEdge: '#E0DED7',
+  highway: '#F7F5EF',
+  rail: '#B7BEDA',
+  label: '#7E7D78',
+  labelHalo: '#F2F2EF',
+  border: '#CFCDC5',
+} as const;

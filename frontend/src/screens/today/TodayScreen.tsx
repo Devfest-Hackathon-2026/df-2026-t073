@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getToday, searchPlaces } from '../../api/places';
 import { getReviewCard } from '../../api/review';
 import { Jp } from '../../components/Jp';
-import { MapPlaceholder } from '../../components/layout';
+import { TangoMap } from '../../components/TangoMap';
 import {
   Button,
   Card,
@@ -74,6 +74,8 @@ export function TodayScreen(): React.JSX.Element {
   const [area, setArea] = useState<MapArea | null>(null);
 
   // Sheet position: distance of the sheet's top edge from the top of the screen.
+  // The animated value holds it as an offset from openTop so the sheet can move
+  // with a native-driver transform (no layout work per frame).
   const openTop = Math.round(height * MAP_SHARE);
   const closedTop = Math.max(openTop, height - PEEK);
   const sheetTop = useRef(new Animated.Value(0)).current;
@@ -84,7 +86,7 @@ export function TodayScreen(): React.JSX.Element {
   useEffect(() => {
     if (height > 0) {
       const target = expanded ? closedTop : openTop;
-      sheetTop.setValue(target);
+      sheetTop.setValue(target - openTop);
       topNow.current = target;
     }
     // Only on size changes; snapping is handled by `snap` below.
@@ -99,8 +101,8 @@ export function TodayScreen(): React.JSX.Element {
         setArea(null);
       }
       Animated.spring(sheetTop, {
-        toValue: target,
-        useNativeDriver: false,
+        toValue: target - openTop,
+        useNativeDriver: true,
         bounciness: 0,
       }).start(() => {
         topNow.current = target;
@@ -116,14 +118,17 @@ export function TodayScreen(): React.JSX.Element {
         onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > DRAG_THRESHOLD,
         onPanResponderGrant: () => {
           sheetTop.stopAnimation(value => {
-            topNow.current = value;
+            topNow.current = value + openTop;
           });
           dragStart.current = topNow.current;
         },
         onPanResponderMove: (_e, g) => {
-          const next = Math.min(closedTop, Math.max(openTop, dragStart.current + g.dy));
+          const next = Math.min(
+            closedTop,
+            Math.max(openTop, dragStart.current + g.dy),
+          );
           topNow.current = next;
-          sheetTop.setValue(next);
+          sheetTop.setValue(next - openTop);
         },
         onPanResponderRelease: (_e, g) => {
           if (Math.abs(g.dy) < DRAG_THRESHOLD) {
@@ -138,17 +143,25 @@ export function TodayScreen(): React.JSX.Element {
     [closedTop, openTop, sheetTop, snap],
   );
 
-  const onLayout = (e: LayoutChangeEvent) => setHeight(e.nativeEvent.layout.height);
+  const onLayout = (e: LayoutChangeEvent) =>
+    setHeight(e.nativeEvent.layout.height);
 
-  const pins = (today.data?.pins ?? []).filter(pin => {
-    if (!expanded || filter === 'all') {
-      return true;
-    }
-    if (filter === 'stars') {
-      return pin.kind === 'me' || (pin.kind === 'tango' && (pin.stars ?? 0) > 0);
-    }
-    return pin.kind !== 'tango';
-  });
+  const allPins = today.data?.pins;
+  const pins = useMemo(
+    () =>
+      (allPins ?? []).filter(pin => {
+        if (!expanded || filter === 'all') {
+          return true;
+        }
+        if (filter === 'stars') {
+          return (
+            pin.kind === 'me' || (pin.kind === 'tango' && (pin.stars ?? 0) > 0)
+          );
+        }
+        return pin.kind !== 'tango';
+      }),
+    [allPins, expanded, filter],
+  );
 
   const onPinPress = (pin: MapPin) => {
     const found = today.data?.areas.find(a => a.id === pin.areaId) ?? null;
@@ -158,19 +171,17 @@ export function TodayScreen(): React.JSX.Element {
     setArea(found);
   };
 
-  // The map fills the space above the sheet, so pins stay visible as it moves.
-  const mapHeight = Animated.add(sheetTop, radii.lg);
-
   return (
     <View style={styles.root} onLayout={onLayout}>
-      <Animated.View style={[styles.map, { height: mapHeight }]}>
-        <MapPlaceholder
-          full
+      {/* Full-screen and never resized: the sheet slides over it. */}
+      <View style={styles.map}>
+        <TangoMap
           pins={pins}
           showStars={expanded && filter === 'stars'}
           onPinPress={onPinPress}
+          bottomInset={expanded ? PEEK : height - openTop}
         />
-      </Animated.View>
+      </View>
 
       {/* Search and filters float over the map */}
       <View style={[styles.top, { paddingTop: insets.top + space.sm }]}>
@@ -218,16 +229,32 @@ export function TodayScreen(): React.JSX.Element {
 
       {/* Bottom sheet */}
       {height > 0 ? (
-        <Animated.View style={[styles.sheet, { top: sheetTop }]}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              top: openTop,
+              height: height - openTop,
+              transform: [{ translateY: sheetTop }],
+            },
+          ]}
+        >
           <View
             {...panResponder.panHandlers}
             style={styles.handleArea}
             accessibilityRole="adjustable"
-            accessibilityLabel={expanded ? 'Pull up to close the map' : 'Pull down to explore your map'}
+            accessibilityLabel={
+              expanded
+                ? 'Pull up to close the map'
+                : 'Pull down to explore your map'
+            }
           >
             <View style={styles.handle} />
             {expanded ? (
-              <PeekSummary visit={today.data?.upNext ?? null} card={review.data} />
+              <PeekSummary
+                visit={today.data?.upNext ?? null}
+                card={review.data}
+              />
             ) : (
               <Text style={base.caption}>Pull down to explore your map</Text>
             )}
@@ -304,14 +331,18 @@ function AreaCard({
             onPress={() => nav.navigate('TangoDetail', { id: t.id })}
           />
         ))}
-        {area.moreCount > 0 ? <Text style={base.caption}>+{area.moreCount}</Text> : null}
+        {area.moreCount > 0 ? (
+          <Text style={base.caption}>+{area.moreCount}</Text>
+        ) : null}
       </View>
       <View style={base.row}>
         <Button
           label="Review these"
           variant="secondary"
           style={base.grow}
-          onPress={() => nav.navigate('ReviewSession', { collectionId: area.id })}
+          onPress={() =>
+            nav.navigate('ReviewSession', { collectionId: area.id })
+          }
         />
         <Button
           label="Plan a visit"
@@ -402,12 +433,15 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
     <Card variant="accent">
-      <Text style={styles.eyebrowInverse}>Up next · {formatVisitTime(visit.when)}</Text>
+      <Text style={styles.eyebrowInverse}>
+        Up next · {formatVisitTime(visit.when)}
+      </Text>
       <View style={base.rowBetween}>
         <View style={base.grow}>
           <Jp {...visit.place.name} bold size="lg" tone="inverse" />
           <Text style={styles.captionInverse}>
-            {visit.place.category} · {visit.place.area} · {visit.tangoCount} Tango
+            {visit.place.category} · {visit.place.area} · {visit.tangoCount}{' '}
+            Tango
           </Text>
         </View>
         <Button
@@ -426,13 +460,20 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
     <Card>
       <View style={base.rowBetween}>
         <View style={base.grow}>
-          <SectionTitle en="Review" jp={{ text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' }} />
+          <SectionTitle
+            en="Review"
+            jp={{ text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' }}
+          />
           <Text style={base.caption}>
             {card.dueCount} due · about {card.minutes} min
           </Text>
           <Text style={base.caption}>From {card.areas.join(', ')}</Text>
         </View>
-        <Button label="Start" variant="dark" onPress={() => nav.navigate('ReviewSession')} />
+        <Button
+          label="Start"
+          variant="dark"
+          onPress={() => nav.navigate('ReviewSession')}
+        />
       </View>
       <View style={base.wrap}>
         {card.sample.map(tango => (
@@ -443,7 +484,9 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
             onPress={() => nav.navigate('TangoDetail', { id: tango.id })}
           />
         ))}
-        {card.moreCount > 0 ? <Text style={base.caption}>+{card.moreCount}</Text> : null}
+        {card.moreCount > 0 ? (
+          <Text style={base.caption}>+{card.moreCount}</Text>
+        ) : null}
       </View>
     </Card>
   );
@@ -474,7 +517,9 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
         <NumberedStep index={1}>
           <View style={base.rowBetween}>
             <View style={base.grow}>
-              <Text style={styles.stepTitle}>Catch 3 Tango around the station</Text>
+              <Text style={styles.stepTitle}>
+                Catch 3 Tango around the station
+              </Text>
               <Text style={base.caption}>Signs count, so do menus</Text>
             </View>
             <Button label="Start" onPress={() => nav.navigate('Capture')} />
@@ -484,12 +529,16 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
           <View style={base.rowBetween}>
             <View style={base.grow}>
               <Text style={styles.stepTitle}>Rehearse buying a ticket</Text>
-              <Text style={base.caption}>1 min with Gemini, at your own pace</Text>
+              <Text style={base.caption}>
+                1 min with Gemini, at your own pace
+              </Text>
             </View>
             <Button
               label="Go"
               variant="secondary"
-              onPress={() => nav.navigate('Rehearse', { placeId: 'menya-taiki' })}
+              onPress={() =>
+                nav.navigate('Rehearse', { placeId: 'menya-taiki' })
+              }
             />
           </View>
         </NumberedStep>
@@ -507,7 +556,9 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
           </View>
         </NumberedStep>
       </Card>
-      <Text style={styles.eyebrow}>Tango you'll likely see around Koenji Station</Text>
+      <Text style={styles.eyebrow}>
+        Tango you'll likely see around Koenji Station
+      </Text>
       <View style={base.wrap}>
         {summary.starterTango.map(jp => (
           <Chip key={jp.text} jp={jp} label={jp.meaning} dashed />
@@ -532,6 +583,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
   },
   top: {
     position: 'absolute',
@@ -566,7 +618,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     backgroundColor: colors.bg,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,

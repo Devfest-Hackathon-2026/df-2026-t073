@@ -76,6 +76,9 @@ export interface MapPin {
   /** Position on the placeholder map, 0 to 1. */
   x: number;
   y: number;
+  /** Real position, for the Google map. */
+  lat: number;
+  lng: number;
   kind: 'tango' | 'next' | 'me';
   /** Area this pin belongs to (opens the area card on the full map). */
   areaId?: string;

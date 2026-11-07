@@ -79,6 +79,8 @@ android {
 
     namespace "com.devfestapp"
     defaultConfig {
+        // Google Maps key comes from the repo's root .env (git-ignored), never from source.
+        manifestPlaceholders["MAPS_API_KEY"] = readGoogleMapsKey()
         applicationId "com.devfestapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
@@ -127,4 +129,21 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+/**
+ * GOOGLE_MAPS_API_KEY from the environment, or from <repo root>/.env.
+ * Returns "" when unset; the app still builds and the map stays blank.
+ */
+def readGoogleMapsKey() {
+    def fromEnv = System.getenv("GOOGLE_MAPS_API_KEY")
+    if (fromEnv) {
+        return fromEnv
+    }
+    def envFile = new File(rootDir, "../../.env")
+    if (!envFile.exists()) {
+        return ""
+    }
+    def line = envFile.readLines().find { it.trim().startsWith("GOOGLE_MAPS_API_KEY=") }
+    return line ? line.trim().substring("GOOGLE_MAPS_API_KEY=".length()).replaceAll(/^["']|["']$/, "") : ""
 }

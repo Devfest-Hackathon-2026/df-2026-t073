@@ -42,6 +42,8 @@ function pinsFor(tango: Tango): MapPin[] {
         ? 0.5
         : 0.25 + (0.5 * i) / (tango.sightings.length - 1),
     y: 0.4,
+    lat: s.lat,
+    lng: s.lng,
     kind: 'tango' as const,
   }));
 }

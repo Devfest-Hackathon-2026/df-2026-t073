@@ -63,3 +63,10 @@ jest.mock('firebase/auth', () => ({
   },
   signInAnonymously: async () => ({ user: null }),
 }));
+
+jest.mock('react-native-maps', () => {
+  const { View } = require('react-native');
+  const MapView = props => <View {...props} />;
+  const Marker = props => <View {...props} />;
+  return { __esModule: true, default: MapView, Marker, PROVIDER_GOOGLE: 'google' };
+});
