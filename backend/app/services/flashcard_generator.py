@@ -5,7 +5,13 @@ import httpx
 from fastapi import HTTPException, status
 
 from app.core.config import settings
-from app.schemas.flashcard import GeneratedFlashcardContent, RelatedVocabItem
+from app.schemas.flashcard import (
+    Distractors,
+    FlashcardResponse,
+    GeneratedFlashcardContent,
+    JpOption,
+    RelatedVocabItem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,3 +190,96 @@ async def generate_related_vocabulary(
             detail="Failed to generate related vocabulary.",
         ) from exc
 
+
+async def generate_distractors(
+    *,
+    http_client: httpx.AsyncClient,
+    cards: list[FlashcardResponse],
+    language: str = "English",
+) -> dict[str, Distractors]:
+    """Plausible wrong answers for review questions, for many cards in one call.
+
+    Returns {flashcard_id: Distractors}. Never raises: on any failure it returns
+    what it has (possibly {}), and the caller fills gaps from other sources.
+    """
+    if not cards or not settings.GEMINI_API_KEY:
+        return {}
+
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{settings.GEMINI_MODEL}:generateContent"
+    )
+    items = [
+        {"flashcard_id": c.flashcard_id, "japanese": c.kanji, "reading": c.reading, "meaning": c.meaning}
+        for c in cards
+    ]
+    prompt = (
+        "You write wrong answer choices for a Japanese vocabulary quiz for learners living in Japan.\n"
+        "For each item give:\n"
+        f"- wrong_meanings: 3 short meanings in {language} that a learner could confuse with the "
+        "correct meaning (same category, similar situation), never the correct meaning itself.\n"
+        "- look_alike_words: 3 different real Japanese words that look or sound similar or appear "
+        "in the same places (shared kanji, similar katakana, same kind of sign), never the word "
+        "itself. Give each with its hiragana reading and Hepburn romaji.\n\n"
+        f"Items:\n{json.dumps(items, ensure_ascii=False)}"
+    )
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.4,
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "flashcard_id": {"type": "STRING"},
+                        "wrong_meanings": {"type": "ARRAY", "items": {"type": "STRING"}},
+                        "look_alike_words": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "text": {"type": "STRING"},
+                                    "reading": {"type": "STRING"},
+                                    "romaji": {"type": "STRING"},
+                                },
+                                "required": ["text", "reading", "romaji"],
+                            },
+                        },
+                    },
+                    "required": ["flashcard_id", "wrong_meanings", "look_alike_words"],
+                },
+            },
+        },
+    }
+
+    try:
+        resp = await http_client.post(
+            url,
+            headers={"x-goog-api-key": settings.GEMINI_API_KEY},
+            json=body,
+        )
+        resp.raise_for_status()
+        candidates = resp.json().get("candidates") or []
+        if not candidates:
+            return {}
+        raw = json.loads(candidates[0]["content"]["parts"][0]["text"])
+    except Exception:
+        logger.exception("Gemini distractor generation failed; using fallbacks")
+        return {}
+
+    wanted = {c.flashcard_id for c in cards}
+    result: dict[str, Distractors] = {}
+    for entry in raw:
+        card_id = entry.get("flashcard_id")
+        if card_id not in wanted:
+            continue
+        try:
+            result[card_id] = Distractors(
+                meanings=[m for m in entry.get("wrong_meanings", []) if isinstance(m, str)],
+                words=[JpOption.model_validate(w) for w in entry.get("look_alike_words", [])],
+            )
+        except Exception:
+            logger.warning("Skipping malformed distractors for %s", card_id)
+    return result

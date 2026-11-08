@@ -9,6 +9,7 @@ from app.api.deps import CurrentUser, Db, HttpClient
 from app.core.config import settings
 from app.schemas.capture import CaptureResponse, CaptureUploadRequest
 from app.services.firestore import get_capture, list_captures, save_capture
+from app.services.image_orientation import jpeg_orientation, to_display
 from app.services.storage import (
     decode_base64_image,
     upload_capture_image,
@@ -111,6 +112,12 @@ async def create_capture(
             image_bytes=image_bytes,
         ),
     )
+
+    # Vision measures raw pixels; apps show the photo rotated per its EXIF tag.
+    orientation = jpeg_orientation(image_bytes)
+    if orientation != 1:
+        for item in detected_items:
+            item.bounding_box = [to_display(v, orientation) for v in item.bounding_box]
 
     return await save_capture(
         db=db,

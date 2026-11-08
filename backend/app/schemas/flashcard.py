@@ -91,6 +91,23 @@ class FlashcardCreateRequest(BaseModel):
 
 class FlashcardReviewRequest(BaseModel):
     rating: Literal["again", "good", "easy"]
+    # Set when the answer comes from a review session, so the result screen can use it.
+    session_id: str | None = None
+
+
+class JpOption(BaseModel):
+    """A Japanese word as an answer choice."""
+
+    text: str
+    reading: str = ""
+    romaji: str = ""
+
+
+class Distractors(BaseModel):
+    """Plausible wrong answers for review questions, cached on the card."""
+
+    meanings: list[str] = Field(default_factory=list)
+    words: list[JpOption] = Field(default_factory=list)
 
 
 class SightingCreateRequest(BaseModel):
@@ -118,6 +135,8 @@ class FlashcardResponse(GeneratedFlashcardContent):
     strength: int = Field(default=0, ge=0, le=4)
     sightings: list[Sighting] = Field(default_factory=list)
     history: list[HistoryEvent] = Field(default_factory=list)
+    # Filled on first review; reused by later sessions.
+    distractors: Distractors | None = None
 
 
 class FlashcardCatchResponse(BaseModel):

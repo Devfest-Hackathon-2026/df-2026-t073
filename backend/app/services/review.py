@@ -1,0 +1,142 @@
+"""Review: what's due, the Review tab summary, sessions and their results."""
+
+import uuid
+from datetime import datetime, timezone
+
+import httpx
+from google.cloud.firestore import AsyncClient
+
+from app.schemas.flashcard import FlashcardResponse
+from app.schemas.review import (
+    Collection,
+    ExerciseType,
+    ReviewCardResponse,
+    ReviewSessionRecord,
+    ReviewSessionResponse,
+    ReviewSummaryResponse,
+    SessionResultResponse,
+)
+from app.services import review_rules as rules
+from app.services.firestore import (
+    create_review_session,
+    get_review_session,
+    list_flashcards,
+    save_distractors,
+)
+from app.services.flashcard_generator import generate_distractors
+
+# Enough for a hackathon-sized collection; all review screens look at the whole set.
+MAX_CARDS = 200
+SAMPLE_SIZE = 4
+
+EXERCISE_TYPES = [
+    ExerciseType(id="multiple_choice", label="Multiple choice", enabled=True),
+    ExerciseType(id="fill_gap", label="Fill the gap", enabled=True),
+    ExerciseType(id="type_it", label="Type it", enabled=False),
+    ExerciseType(id="say_it", label="Say it", enabled=False),
+]
+
+
+async def _all_cards(db: AsyncClient, uid: str) -> list[FlashcardResponse]:
+    return await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
+
+
+def _due(cards: list[FlashcardResponse], now: datetime) -> list[FlashcardResponse]:
+    due = [c for c in cards if rules.is_due(c, now)]
+    due.sort(key=lambda c: (c.strength, c.review_stats.next_review_at))
+    return due
+
+
+async def get_review_card(*, db: AsyncClient, uid: str) -> ReviewCardResponse:
+    now = datetime.now(timezone.utc)
+    due = _due(await _all_cards(db, uid), now)
+    return ReviewCardResponse(
+        due_count=len(due),
+        minutes=rules.estimate_minutes(min(len(due), rules.SESSION_SIZE)),
+        areas=[a.area for a in rules.areas_summary(due)][:3],
+        sample=due[:SAMPLE_SIZE],
+        more_count=max(0, len(due) - SAMPLE_SIZE),
+    )
+
+
+async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryResponse:
+    now = datetime.now(timezone.utc)
+    cards = await _all_cards(db, uid)
+    due = _due(cards, now)
+    place_cue = [c for c in due if rules.area_of(c)]
+    collections = [
+        Collection(
+            id=f"{rules.PLACE_PREFIX}{a.area}",
+            label=a.area,
+            count=a.count,
+            is_place=True,
+            is_place_cue=False,
+        )
+        for a in rules.areas_summary(cards)
+    ]
+    if place_cue:
+        collections.append(
+            Collection(
+                id=rules.PLACE_CUE_COLLECTION,
+                label="Place cue",
+                count=len(place_cue),
+                is_place=False,
+                is_place_cue=True,
+            )
+        )
+    return ReviewSummaryResponse(
+        due_count=len(due),
+        minutes=rules.estimate_minutes(min(len(due), rules.SESSION_SIZE)),
+        place_cue_count=len(place_cue),
+        collections=collections,
+        exercise_types=EXERCISE_TYPES,
+        total_tango=len(cards),
+    )
+
+
+async def build_session(
+    *,
+    db: AsyncClient,
+    http_client: httpx.AsyncClient,
+    uid: str,
+    collection: str | None = None,
+    language: str = "English",
+) -> ReviewSessionResponse:
+    """Pick cards, make sure each has wrong answers, build questions, save the session."""
+    now = datetime.now(timezone.utc)
+    cards = await _all_cards(db, uid)
+    picked = rules.pick_session_cards(cards, now, collection)
+    session_id = f"rs_{uuid.uuid4().hex[:16]}"
+
+    # One Gemini call for every card that has no cached wrong answers yet.
+    missing = [c for c in picked if c.distractors is None]
+    generated = await generate_distractors(http_client=http_client, cards=missing, language=language)
+    await save_distractors(db=db, uid=uid, distractors=generated)
+
+    exercises = []
+    for position, card in enumerate(picked):
+        found = card.distractors or generated.get(card.flashcard_id)
+        distractors = rules.complete_distractors(card, found, cards)
+        exercises.append(rules.build_exercise(card, distractors, position, session_id))
+
+    await create_review_session(
+        db=db,
+        uid=uid,
+        record=ReviewSessionRecord(
+            session_id=session_id,
+            flashcard_ids=[c.flashcard_id for c in picked],
+            collection=collection,
+            started_at=now,
+        ),
+    )
+    return ReviewSessionResponse(session_id=session_id, exercises=exercises)
+
+
+async def get_session_result(*, db: AsyncClient, uid: str, session_id: str) -> SessionResultResponse:
+    record = await get_review_session(db=db, uid=uid, session_id=session_id)
+    return SessionResultResponse(
+        reviewed=len({a.flashcard_id for a in record.answers}),
+        minutes=rules.session_minutes(record.started_at, record.answers),
+        biggest_win=rules.biggest_win(record.answers),
+        by_area=rules.answered_by_area(record.answers),
+    )

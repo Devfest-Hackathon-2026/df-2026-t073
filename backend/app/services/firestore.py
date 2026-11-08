@@ -9,6 +9,7 @@ from google.cloud.firestore import ArrayUnion, AsyncClient, Query
 
 from app.schemas.capture import CaptureResponse, DetectedItem
 from app.schemas.flashcard import (
+    Distractors,
     FlashcardResponse,
     GeneratedFlashcardContent,
     HistoryEvent,
@@ -16,8 +17,10 @@ from app.schemas.flashcard import (
     ReviewStats,
     Sighting,
 )
+from app.schemas.review import ReviewSessionRecord, SessionAnswer
 from app.schemas.user import UserProfile
 from app.services import tango_rules
+from app.services.review_rules import area_of
 
 Rating = Literal["again", "good", "easy"]
 
@@ -26,6 +29,7 @@ logger = logging.getLogger(__name__)
 USERS_COLLECTION = "users"
 CAPTURES_SUBCOLLECTION = "captures"
 FLASHCARDS_SUBCOLLECTION = "flashcards"
+REVIEW_SESSIONS_SUBCOLLECTION = "review_sessions"
 
 
 async def sync_user_profile(
@@ -455,8 +459,12 @@ async def update_flashcard_review(
     uid: str,
     flashcard_id: str,
     rating: Literal["again", "good", "easy"],
+    session_id: str | None = None,
 ) -> FlashcardResponse:
-    """Record a review: update strength, schedule the next review, add a history event."""
+    """Record a review: update strength, schedule the next review, add a history event.
+
+    With a session_id, the answer is also added to that review session.
+    """
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
     strength = tango_rules.apply_review(card.strength, rating)
@@ -482,9 +490,94 @@ async def update_flashcard_review(
             detail="Failed to update flashcard review state.",
         ) from exc
 
+    if session_id:
+        answer = SessionAnswer(
+            flashcard_id=flashcard_id,
+            correct=rating != "again",
+            strength_before=card.strength,
+            strength_after=strength,
+            at=now,
+            text=card.kanji,
+            reading=card.reading,
+            romaji=card.romaji,
+            meaning=card.meaning,
+            area=area_of(card),
+        )
+        await record_session_answer(db=db, uid=uid, session_id=session_id, answer=answer)
+
     return card.model_copy(
         update={"review_stats": new_stats, "strength": strength, "history": [*card.history, event]}
     )
+
+
+def _session_ref(db: AsyncClient, uid: str, session_id: str) -> Any:
+    return (
+        db.collection(USERS_COLLECTION)
+        .document(uid)
+        .collection(REVIEW_SESSIONS_SUBCOLLECTION)
+        .document(session_id)
+    )
+
+
+async def create_review_session(
+    *, db: AsyncClient, uid: str, record: ReviewSessionRecord
+) -> None:
+    try:
+        await _session_ref(db, uid, record.session_id).set(record.model_dump(mode="python"))
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to save review session for uid=%s", uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to start review session.",
+        ) from exc
+
+
+async def get_review_session(
+    *, db: AsyncClient, uid: str, session_id: str
+) -> ReviewSessionRecord:
+    try:
+        snapshot = await _session_ref(db, uid, session_id).get()
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to read review session %s for uid=%s", session_id, uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to read review session.",
+        ) from exc
+    if not snapshot.exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Review session '{session_id}' not found.",
+        )
+    return ReviewSessionRecord.model_validate(snapshot.to_dict())
+
+
+async def record_session_answer(
+    *, db: AsyncClient, uid: str, session_id: str, answer: SessionAnswer
+) -> None:
+    """Add an answer to its session. A missing session is logged, not fatal:
+    the review itself was already saved."""
+    try:
+        await _session_ref(db, uid, session_id).update(
+            {"answers": ArrayUnion([answer.model_dump(mode="python")])}
+        )
+    except (GoogleAPICallError, GoogleAuthError):
+        logger.exception("Failed to record answer in session %s (uid=%s)", session_id, uid)
+
+
+async def save_distractors(
+    *, db: AsyncClient, uid: str, distractors: dict[str, Distractors]
+) -> None:
+    """Cache wrong-answer choices on each card. Best effort: a failure only
+    means they get generated again next time."""
+    if not distractors:
+        return
+    batch = db.batch()
+    for flashcard_id, d in distractors.items():
+        batch.update(_flashcard_ref(db, uid, flashcard_id), {"distractors": d.model_dump(mode="python")})
+    try:
+        await batch.commit()
+    except (GoogleAPICallError, GoogleAuthError):
+        logger.exception("Failed to cache distractors for uid=%s", uid)
 
 
 async def save_related_vocab(

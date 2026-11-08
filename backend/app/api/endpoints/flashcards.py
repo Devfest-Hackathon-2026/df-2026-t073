@@ -161,12 +161,16 @@ async def review_flashcard(
     current_user: CurrentUser,
     db: Db,
 ) -> FlashcardResponse:
-    """Record a flashcard review result ('again', 'good', 'easy') and schedule the next review."""
+    """Record a flashcard review result ('again', 'good', 'easy') and schedule the next review.
+
+    Pass session_id when answering inside a review session, so it shows up in the results.
+    """
     return await update_flashcard_review(
         db=db,
         uid=current_user["uid"],
         flashcard_id=flashcard_id,
         rating=payload.rating,
+        session_id=payload.session_id,
     )
 
 
