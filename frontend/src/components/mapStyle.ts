@@ -139,5 +139,45 @@ export const PALE_DAWN_MAP_STYLE: MapStyleElement[] = [
   },
 ];
 
+/**
+ * Pale Dawn colors with every Google label and icon removed: area names come
+ * from our own pins instead.
+ */
+export const PALE_DAWN_NO_LABELS_MAP_STYLE: MapStyleElement[] = [
+  ...PALE_DAWN_MAP_STYLE,
+  { elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  {
+    featureType: 'administrative',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'off' }],
+  },
+];
+
 /** The style the app uses. Switch here to compare. */
-export const TANGO_MAP_STYLE = PALE_DAWN_MAP_STYLE;
+export const TANGO_MAP_STYLE = PALE_DAWN_NO_LABELS_MAP_STYLE;
