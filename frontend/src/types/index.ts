@@ -274,10 +274,26 @@ export interface SessionResult {
   } | null;
 }
 
+export interface HomeArea {
+  label: string;
+  lat: number;
+  lng: number;
+  radiusM: number;
+}
+
 export interface UserProfile {
   name: string;
   levelNote: string;
+  readingLevel?: ReadingLevel | null;
+  /** Pins inside it are never placed (privacy promise). */
+  homeArea?: HomeArea | null;
   stats: { tango: number; stars: number; places: number };
+}
+
+export interface ProfileUpdate {
+  name?: string;
+  readingLevel?: ReadingLevel;
+  homeArea?: HomeArea;
 }
 
 export type ShowJapaneseAs = 'kanji' | 'hiragana' | 'romaji';

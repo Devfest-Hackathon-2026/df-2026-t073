@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { updateProfile } from '../../api/user';
 import { MapPlaceholder, Screen } from '../../components/layout';
 import { Button } from '../../components/ui';
 import {
@@ -18,10 +19,26 @@ import {
 import type { ReadingLevel } from '../../types';
 
 const LEVELS: { value: ReadingLevel; title: string; help: string }[] = [
-  { value: 'none', title: 'Not yet', help: 'Romaji and English help everywhere' },
-  { value: 'kana', title: 'Hiragana and katakana', help: 'Furigana on every kanji' },
-  { value: 'some_kanji', title: 'Some everyday kanji', help: 'Furigana only on new kanji' },
-  { value: 'most', title: 'Most signs and menus', help: 'Japanese first, help on request' },
+  {
+    value: 'none',
+    title: 'Not yet',
+    help: 'Romaji and English help everywhere',
+  },
+  {
+    value: 'kana',
+    title: 'Hiragana and katakana',
+    help: 'Furigana on every kanji',
+  },
+  {
+    value: 'some_kanji',
+    title: 'Some everyday kanji',
+    help: 'Furigana only on new kanji',
+  },
+  {
+    value: 'most',
+    title: 'Most signs and menus',
+    help: 'Japanese first, help on request',
+  },
 ];
 
 const PRIVACY = [
@@ -49,6 +66,8 @@ export function WelcomeScreen(): React.JSX.Element {
   const finish = (locationAllowed: boolean) => {
     // No real location permission in this pass; we only record the choice.
     update({ locationAllowed, onboarded: true, dayOne: true });
+    // Best effort: the app works offline/signed out; the level is also kept locally.
+    updateProfile({ readingLevel: settings.readingLevel }).catch(() => {});
   };
 
   return (
@@ -58,7 +77,10 @@ export function WelcomeScreen(): React.JSX.Element {
           <Button label="Continue" onPress={() => setStep(1)} />
         ) : (
           <>
-            <Button label="Allow location while using the app" onPress={() => finish(true)} />
+            <Button
+              label="Allow location while using the app"
+              onPress={() => finish(true)}
+            />
             <Button
               label="Not now, use the camera without places"
               variant="ghost"
@@ -97,7 +119,8 @@ export function WelcomeScreen(): React.JSX.Element {
             );
           })}
           <Text style={base.caption}>
-            Explanations in {settings.explanationsLanguage} · change it later in Me
+            Explanations in {settings.explanationsLanguage} · change it later in
+            Me
           </Text>
         </>
       ) : (
@@ -105,8 +128,8 @@ export function WelcomeScreen(): React.JSX.Element {
           <MapPlaceholder height={sizes.mapHeight / 2} />
           <Text style={base.title}>Your map stays yours</Text>
           <Text style={base.caption}>
-            Location lets each Tango remember where you found it. Here's what that
-            means.
+            Location lets each Tango remember where you found it. Here's what
+            that means.
           </Text>
           {PRIVACY.map(item => (
             <View key={item.title} style={styles.privacyRow}>

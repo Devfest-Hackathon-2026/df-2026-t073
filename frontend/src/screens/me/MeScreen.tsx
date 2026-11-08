@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { checkBackendAuth, checkBackendHealth } from '../../api/health';
-import { getProfile } from '../../api/user';
+import { getProfile, updateProfile } from '../../api/user';
 import { Jp } from '../../components/Jp';
 import { Screen } from '../../components/layout';
 import {
@@ -56,6 +56,25 @@ export function MeScreen(): React.JSX.Element {
   const [languagesOpen, setLanguagesOpen] = useState(false);
   const [health, setHealth] = useState<string>('Not checked');
   const [backendAuth, setBackendAuth] = useState<string>('Not checked');
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (!name) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      await updateProfile({ name });
+      setNameError(null);
+      setEditingName(false);
+      profile.reload();
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : 'Could not save');
+    }
+  };
   const auth = useAuth();
 
   const checkAuth = async () => {
@@ -64,7 +83,9 @@ export function MeScreen(): React.JSX.Element {
       const me = await checkBackendAuth();
       setBackendAuth(`Accepted (uid ${me.uid.slice(0, 8)}…)`);
     } catch (err) {
-      setBackendAuth(`Rejected (${err instanceof Error ? err.message : 'error'})`);
+      setBackendAuth(
+        `Rejected (${err instanceof Error ? err.message : 'error'})`,
+      );
     }
   };
 
@@ -74,7 +95,9 @@ export function MeScreen(): React.JSX.Element {
       const res = await checkBackendHealth();
       setHealth(`Online (${res.status})`);
     } catch (err) {
-      setHealth(`Unreachable (${err instanceof Error ? err.message : 'error'})`);
+      setHealth(
+        `Unreachable (${err instanceof Error ? err.message : 'error'})`,
+      );
     }
   };
 
@@ -90,10 +113,38 @@ export function MeScreen(): React.JSX.Element {
                   <Text style={styles.avatarText}>{p.name.charAt(0)}</Text>
                 </View>
                 <View style={base.grow}>
-                  <Text style={base.heading}>{p.name}</Text>
+                  {editingName ? (
+                    <TextInput
+                      value={nameDraft}
+                      onChangeText={setNameDraft}
+                      onSubmitEditing={saveName}
+                      autoFocus
+                      maxLength={40}
+                      returnKeyType="done"
+                      style={styles.nameInput}
+                      accessibilityLabel="Your name"
+                    />
+                  ) : (
+                    <Text style={base.heading}>{p.name}</Text>
+                  )}
                   <Text style={base.caption}>{p.levelNote}</Text>
                 </View>
+                <Text
+                  accessibilityRole="button"
+                  style={styles.editLink}
+                  onPress={() => {
+                    if (editingName) {
+                      saveName();
+                    } else {
+                      setNameDraft(p.name);
+                      setEditingName(true);
+                    }
+                  }}
+                >
+                  {editingName ? 'Save' : 'Edit'}
+                </Text>
               </View>
+              {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
             </Card>
             <View style={base.row}>
               <Stat value={String(p.stats.tango)} label="Tango" />
@@ -205,7 +256,9 @@ export function MeScreen(): React.JSX.Element {
               <Pressable
                 key={lang.value}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: settings.explanationsLanguage === lang.value }}
+                accessibilityState={{
+                  selected: settings.explanationsLanguage === lang.value,
+                }}
                 onPress={() => update({ explanationsLanguage: lang.value })}
                 style={[base.rowBetween, styles.language]}
               >
@@ -219,8 +272,9 @@ export function MeScreen(): React.JSX.Element {
               </Pressable>
             ))}
             <Text style={styles.note}>
-              ✦ Explanations are written by Gemini in the language you choose, so
-              new languages need no extra content. (Not wired up in this pass.)
+              ✦ Explanations are written by Gemini in the language you choose,
+              so new languages need no extra content. (Not wired up in this
+              pass.)
             </Text>
           </View>
         ) : null}
@@ -231,19 +285,29 @@ export function MeScreen(): React.JSX.Element {
         <Text style={base.caption}>
           Data:{' '}
           {USE_MOCKS
-            ? `mock data${LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''}`
+            ? `mock data${
+                LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''
+              }`
             : 'backend'}{' '}
           · {API_BASE_URL}
         </Text>
         <Text style={base.caption}>Backend health: {health}</Text>
-        <Button label="Check backend health" variant="secondary" onPress={ping} />
+        <Button
+          label="Check backend health"
+          variant="secondary"
+          onPress={ping}
+        />
         <Text style={base.caption}>
           Sign-in: {AUTH_LABEL[auth.status]}
           {auth.user ? ` · uid ${auth.user.uid.slice(0, 8)}…` : ''}
           {auth.error ? ` · ${auth.error}` : ''}
         </Text>
         <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
-        <Button label="Check sign-in with backend" variant="secondary" onPress={checkAuth} />
+        <Button
+          label="Check sign-in with backend"
+          variant="secondary"
+          onPress={checkAuth}
+        />
         <Button
           label="Restart onboarding"
           variant="ghost"
@@ -254,7 +318,13 @@ export function MeScreen(): React.JSX.Element {
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }): React.JSX.Element {
+function Stat({
+  value,
+  label,
+}: {
+  value: string;
+  label: string;
+}): React.JSX.Element {
   return (
     <View style={[base.card, styles.stat]}>
       <Text style={styles.statValue}>{value}</Text>
@@ -277,6 +347,22 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     color: colors.accent,
+  },
+  nameInput: {
+    ...base.heading,
+    borderBottomWidth: sizes.hairline,
+    borderBottomColor: colors.accent,
+    paddingVertical: space.xxs,
+  },
+  editLink: {
+    ...base.caption,
+    color: colors.accent,
+    fontWeight: fontWeights.bold,
+    padding: space.sm,
+  },
+  error: {
+    ...base.caption,
+    color: colors.caution,
   },
   stat: {
     flex: 1,

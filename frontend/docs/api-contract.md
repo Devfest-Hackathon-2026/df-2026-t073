@@ -180,13 +180,28 @@ interface SessionResultResponse {
 
 Detection boxes are stored in **display orientation**: `POST /captures` reads the photo's EXIF orientation and rotates Cloud Vision's boxes to match.
 
-### Me (`api/user.ts`)
+### Me (`api/user.ts`) — **implemented in P2**
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/me/profile` | `{ name: string; levelNote: string; stats: { tango: number; stars: number; places: number } }` |
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/api/v1/me/profile` | – | `ProfileResponse` |
+| PUT | `/api/v1/me/profile` | `{ name?, reading_level?, home_area? }` (fields left out stay as they are) | `ProfileResponse` |
 
-Settings are stored on the device only (AsyncStorage) in this pass. A `GET/PUT /me/settings` can come later if settings should follow the user across devices.
+```ts
+// snake_case on the wire (backend/app/schemas/user.py)
+type ReadingLevel = 'none' | 'kana' | 'some_kanji' | 'most';
+interface HomeArea { label: string; lat: number; lng: number; radius_m: number }  // 100-3000 m
+interface ProfileResponse {
+  uid: string;
+  name: string;            // chosen name, else sign-in name, else "Learner"
+  level_note: string;      // e.g. "Reads some everyday kanji"
+  reading_level: ReadingLevel | null;
+  home_area: HomeArea | null;
+  stats: { tango: number; stars: number; places: number };  // stars = strength 4; places = distinct place names
+}
+```
+
+The chosen name is stored as `display_name` on `users/{uid}`, separate from the token `name` that `GET /me` syncs, so anonymous sign-ins never wipe it. The Welcome screen saves `reading_level` when onboarding finishes. `home_area` is stored but not used yet; P4 must keep pins out of it. Display settings (kanji/romaji, furigana…) stay on the device.
 
 ## 3. The shared `Tango` type
 
