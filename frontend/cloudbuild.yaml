@@ -58,6 +58,9 @@ steps:
       - '--release-notes'
       - 'Automated Android build from commit $SHORT_SHA'
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+  
 substitutions:
   _FIREBASE_ANDROID_APP_ID: '1:166488207235:android:30da40c2a9509a1d2990b6'
   _TESTER_GROUPS: 'hackathon-testers'

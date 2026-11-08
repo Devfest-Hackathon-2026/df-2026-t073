@@ -31,6 +31,9 @@ steps:
       - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB,GCS_BUCKET_NAME=$_GCS_BUCKET_NAME'
       - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest'
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+  
 substitutions:
   _REGION: 'asia-east1'
   _AR_REPO: 'devfest-repo'
