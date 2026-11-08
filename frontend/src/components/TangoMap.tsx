@@ -24,6 +24,9 @@ const CENTER = { x: 0.5, y: 0.5 };
 const LABELLED_ANCHOR = { x: 0.5, y: 0.3 };
 /** Breathing room around the outermost pins, in pixels. */
 const FIT_EDGE = { top: 80, right: 80, bottom: 80, left: 80 };
+/** Zoom used when there is a single pin (a few streets around it). */
+const SINGLE_PIN_DELTA = 0.008;
+const COMPACT_EDGE = { top: 40, right: 40, bottom: 40, left: 40 };
 
 /** Koenji to Nakano, with Asagaya at the west edge. */
 const INITIAL_REGION: Region = {
@@ -34,9 +37,10 @@ const INITIAL_REGION: Region = {
 };
 
 /**
- * Google map of the user's Tango (Today screen). Pins show the Tango count,
- * or mastered stars when `showStars` is on. Needs GOOGLE_MAPS_API_KEY in the
- * root .env at build time; without it the map renders blank.
+ * Google map of the user's Tango. Full-screen on Today; `compact` for small
+ * static maps (Tango detail). Pins show the Tango count, or mastered stars
+ * when `showStars` is on. Needs GOOGLE_MAPS_API_KEY in the root .env at
+ * build time; without it the map renders blank.
  */
 export function TangoMap({
   pins,
@@ -44,6 +48,7 @@ export function TangoMap({
   interactive = true,
   onPinPress,
   bottomInset = 0,
+  compact = false,
 }: {
   pins: MapPin[];
   showStars?: boolean;
@@ -51,10 +56,13 @@ export function TangoMap({
   onPinPress?: (pin: MapPin) => void;
   /** Height covered by the bottom sheet, so centering and the Google logo stay visible. */
   bottomInset?: number;
+  /** Small embedded map: no search-bar padding, tighter framing. */
+  compact?: boolean;
 }): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  // Keep the Tango area clear of the floating search bar.
-  const topInset = insets.top + sizes.touch + space.lg;
+  // Keep the Tango area clear of the floating search bar (Today only).
+  const topInset = compact ? 0 : insets.top + sizes.touch + space.lg;
+  const edge = compact ? COMPACT_EDGE : FIT_EDGE;
   // Android draws custom markers as a snapshot; keep redrawing for a moment so
   // the badge is captured after layout, then stop to save work.
   const [tracking, setTracking] = useState(true);
@@ -75,16 +83,24 @@ export function TangoMap({
       if (!ready.current || !mapRef.current) {
         return;
       }
-      if (coords.length < 2) {
+      if (coords.length === 0) {
         mapRef.current.animateToRegion(INITIAL_REGION, animated ? FIT_MS : 0);
         return;
       }
-      mapRef.current.fitToCoordinates(coords, {
-        edgePadding: FIT_EDGE,
-        animated,
-      });
+      if (coords.length === 1) {
+        mapRef.current.animateToRegion(
+          {
+            ...coords[0],
+            latitudeDelta: SINGLE_PIN_DELTA,
+            longitudeDelta: SINGLE_PIN_DELTA,
+          },
+          animated ? FIT_MS : 0,
+        );
+        return;
+      }
+      mapRef.current.fitToCoordinates(coords, { edgePadding: edge, animated });
     },
-    [coordsKey],
+    [coordsKey, edge],
   );
 
   // Re-frame when the sheet opens or closes (the visible area changes).

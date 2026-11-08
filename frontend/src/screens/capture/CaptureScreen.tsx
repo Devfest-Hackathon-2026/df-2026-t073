@@ -20,7 +20,8 @@ import {
 import { fromByteArray } from 'base64-js';
 import {
   catchTango,
-  getCurrentPlaceName,
+  type CurrentPlace,
+  getCurrentPlace,
   getTodaysCatch,
   readSelection,
   recordRecognition,
@@ -156,7 +157,18 @@ export function CaptureScreen({
   const [mode, setMode] = useState<DetectorMode>('text');
   const [frame, setFrame] = useState<DetectorFrame>(EMPTY_FRAME);
   const [phase, setPhase] = useState<Phase>('live');
-  const [placeName, setPlaceName] = useState('Finding your place…');
+  const [place, setPlace] = useState<CurrentPlace>({
+    name: 'Finding your place…',
+    lat: null,
+    lng: null,
+  });
+  const placeName = place.name;
+  // Sent with every catch so the Tango gets a pin on the map.
+  const where = {
+    placeName,
+    lat: place.lat ?? undefined,
+    lng: place.lng ?? undefined,
+  };
   const [count, setCount] = useState(0);
   const [caught, setCaught] = useState<Record<string, boolean>>({});
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -170,9 +182,9 @@ export function CaptureScreen({
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    getCurrentPlaceName()
-      .then(setPlaceName)
-      .catch(() => setPlaceName('Unknown place'));
+    getCurrentPlace()
+      .then(setPlace)
+      .catch(() => setPlace({ name: 'Unknown place', lat: null, lng: null }));
     getTodaysCatch()
       .then(list => setCount(list.length))
       .catch(() => {});
@@ -219,7 +231,7 @@ export function CaptureScreen({
     try {
       const { tango, created, sightingId } = await catchTango({
         detection,
-        placeName,
+        ...where,
       });
       setCaught(ids => ({ ...ids, [detection.item_id]: true }));
       if (created) {
@@ -249,7 +261,7 @@ export function CaptureScreen({
     try {
       const { tango, created, sightingId } = await catchTango({
         tangoId: reading.tango.id,
-        placeName,
+        ...where,
       });
       if (created) {
         setCount(n => n + 1);
@@ -340,7 +352,7 @@ export function CaptureScreen({
       const { tango, created, sightingId } = await catchTango({
         detection: { ...item, known: false },
         captureId: found.captureId,
-        placeName,
+        ...where,
       });
       setCaught(ids => ({ ...ids, [item.item_id]: true }));
       if (created) {
@@ -441,7 +453,7 @@ export function CaptureScreen({
   const answerRecognition = async (tango: Tango, recognized: boolean) => {
     setSheet(null);
     try {
-      await recordRecognition(tango.id, recognized, placeName);
+      await recordRecognition(tango.id, recognized, where);
       setToast({
         jp: tango,
         text: recognized

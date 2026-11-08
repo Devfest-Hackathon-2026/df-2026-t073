@@ -3,6 +3,7 @@ import {
   SELECTION_READING,
   todaysCatch,
 } from '../mocks/capture';
+import { PLACES } from '../mocks/places';
 import { TANGO } from '../mocks/tango';
 import type {
   CatchEntry,
@@ -27,11 +28,24 @@ export interface CaptureResponse {
   created_at: string;
 }
 
-export const getCurrentPlaceName = pick(
+export interface CurrentPlace {
+  name: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+/** Where the user is now. Mock: a fixed place. TODO(location): device GPS + reverse geocode. */
+export const getCurrentPlace = pick(
   'places',
-  () => mockDelay(CURRENT_PLACE_NAME, 100),
+  () => {
+    const place = PLACES['nakano-supermarket'];
+    return mockDelay<CurrentPlace>(
+      { name: CURRENT_PLACE_NAME, lat: place.lat, lng: place.lng },
+      100,
+    );
+  },
   // TODO confirm endpoint with backend (reverse geocode via Google Maps)
-  async () => (await request<{ name: string }>(`${API_V1}/places/nearby`)).name,
+  () => request<CurrentPlace>(`${API_V1}/places/nearby`),
 );
 
 /** Uploads a photo for server-side recognition (Cloud Vision / Gemini). */
@@ -53,12 +67,16 @@ export const uploadCapture = pick(
     }),
 );
 
-export interface CatchInput {
-  detection?: Detection;
-  tangoId?: string;
+/** Where a Tango was found, sent with each catch. */
+export interface PlaceInput {
   placeName: string;
   lat?: number;
   lng?: number;
+}
+
+export interface CatchInput extends PlaceInput {
+  detection?: Detection;
+  tangoId?: string;
   /** Required by the real backend: the upload the detection came from. */
   captureId?: string;
 }
@@ -197,16 +215,21 @@ export const readSelection = pick(
 /** "Did you recognize this Tango?" answer from the camera. */
 export const recordRecognition = pick(
   'capture',
-  (_tangoId: string, _recognized: boolean, _placeName?: string) => {
+  (_tangoId: string, _recognized: boolean, _where?: PlaceInput) => {
     return mockDelay<void>(undefined, 100);
   },
   // POST /api/v1/flashcards/{id}/sightings: "seen again" adds a sighting and counts as a review.
-  async (tangoId: string, recognized: boolean, placeName?: string) => {
+  async (tangoId: string, recognized: boolean, where?: PlaceInput) => {
     await request<FlashcardCatchResponse>(
       `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/sightings`,
       {
         method: 'POST',
-        body: { recognized, place_name: placeName },
+        body: {
+          recognized,
+          place_name: where?.placeName,
+          lat: where?.lat,
+          lng: where?.lng,
+        },
       },
     );
   },

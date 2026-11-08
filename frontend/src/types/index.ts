@@ -30,8 +30,9 @@ export interface Visit {
 export interface Sighting {
   placeId: string;
   placeName: string;
-  lat: number;
-  lng: number;
+  /** Null when the location wasn't known at catch time. */
+  lat: number | null;
+  lng: number | null;
   /** ISO date-time */
   seenAt: string;
   imageUrl?: string;

@@ -122,8 +122,8 @@ export function flashcardToTango(card: FlashcardResponse): Tango {
     sightings: (card.sightings ?? []).map(s => ({
       placeId: s.place_id ?? '',
       placeName: s.place_name,
-      lat: s.lat ?? 0,
-      lng: s.lng ?? 0,
+      lat: s.lat,
+      lng: s.lng,
       seenAt: s.seen_at,
       imageUrl: s.image_url ?? undefined,
     })),
