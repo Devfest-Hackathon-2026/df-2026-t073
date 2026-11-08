@@ -65,7 +65,7 @@ options:
 substitutions:
   _FIREBASE_ANDROID_APP_ID: '1:166488207235:android:30da40c2a9509a1d2990b6'
   _TESTER_GROUPS: 'hackathon-testers'
-  _API_BASE_URL: 'https://fastapi-backend-166488207235.asia-east1.run.app'
+  _API_BASE_URL: 'https://fastapi-backend-ekebktvkka-de.a.run.app'
   _FIREBASE_PROJECT_ID: 'project-79470ae0-a7db-4972-b22'
   _FIREBASE_AUTH_DOMAIN: 'project-79470ae0-a7db-4972-b22.firebaseapp.com'
   _FIREBASE_API_KEY: 'AIzaSyBT6IJtakkhOyNzRjCkGpiBsmpo6kHbRbQ'
