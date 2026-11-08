@@ -7,4 +7,6 @@ declare module '@env' {
   export const FIREBASE_AUTH_DOMAIN: string | undefined;
   export const FIREBASE_PROJECT_ID: string | undefined;
   export const FIREBASE_APP_ID: string | undefined;
+  export const TEST_USER_EMAIL: string | undefined;
+  export const TEST_USER_PASSWORD: string | undefined;
 }

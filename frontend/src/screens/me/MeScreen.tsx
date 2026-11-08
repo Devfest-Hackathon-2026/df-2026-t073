@@ -5,10 +5,11 @@ import { getProfile } from '../../api/user';
 import { Hanamaru } from '../../components/Hanamaru';
 import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
-import { Card, Loadable, SectionTitle } from '../../components/ui';
+import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { type MeSectionId, useRootNav } from '../../navigation/types';
+import { useAuth } from '../../state/AuthContext';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
@@ -26,6 +27,7 @@ const LINES = ['Tallying your Tango…', 'Counting your hanamaru…'];
 export function MeScreen(): React.JSX.Element {
   const nav = useRootNav();
   const { settings } = useSettings();
+  const auth = useAuth();
   const profile = useAsync(getProfile);
   const review = useAsync(getReviewSummary);
   useReloadOnFocus(profile.reload, review.reload);
@@ -116,15 +118,37 @@ export function MeScreen(): React.JSX.Element {
         ))}
       </Card>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => nav.navigate('MeSection', { section: 'developer' })}
-        style={styles.row}
-      >
-        <Icon name="developer" color={colors.textMuted} />
-        <Text style={[base.caption, base.grow]}>Developer</Text>
-        <Icon name="forward" color={colors.textMuted} />
-      </Pressable>
+      {auth.user ? (
+        <Card>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              auth.signOut().catch(err => {
+                console.warn('Sign out error:', err);
+              });
+            }}
+            style={styles.row}
+          >
+            <Icon name="remove" color={colors.caution} />
+            <Text style={[styles.rowLabel, { color: colors.caution }, base.grow]}>
+              Log out of this device
+            </Text>
+            <Icon name="forward" color={colors.textMuted} />
+          </Pressable>
+        </Card>
+      ) : null}
+
+      {auth.user?.email?.toLowerCase() === 'test@tankengo.com' ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => nav.navigate('MeSection', { section: 'developer' })}
+          style={styles.row}
+        >
+          <Icon name="developer" color={colors.textMuted} />
+          <Text style={[base.caption, base.grow]}>Developer</Text>
+          <Icon name="forward" color={colors.textMuted} />
+        </Pressable>
+      ) : null}
 
       <Text style={base.caption}>
         Dictionary data: JMdict, © Electronic Dictionary Research and

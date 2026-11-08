@@ -74,6 +74,9 @@ jest.mock('firebase/auth', () => ({
     return () => {};
   },
   signInAnonymously: async () => ({ user: null }),
+  signInWithEmailAndPassword: async () => ({ user: { uid: 'test-user-uid', email: 'test@tankengo.com' } }),
+  createUserWithEmailAndPassword: async () => ({ user: { uid: 'test-user-uid', email: 'test@tankengo.com' } }),
+  signOut: async () => {},
 }));
 
 jest.mock('react-native-maps', () => {

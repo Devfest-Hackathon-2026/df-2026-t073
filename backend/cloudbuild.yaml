@@ -36,7 +36,7 @@ substitutions:
   _AR_REPO: 'devfest-repo'
   _SERVICE_NAME: 'fastapi-backend'
   _FIRESTORE_DB: '(default)'
-  _GCS_BUCKET_NAME: ''
+  _GCS_BUCKET_NAME: 'project-79470ae0-a7db-4972-b22.firebasestorage.app'
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$COMMIT_SHA'

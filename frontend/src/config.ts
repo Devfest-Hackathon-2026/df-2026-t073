@@ -5,11 +5,17 @@ import {
   FIREBASE_AUTH_DOMAIN,
   FIREBASE_PROJECT_ID,
   LIVE_APIS as RAW_LIVE_APIS,
+  TEST_USER_EMAIL as RAW_TEST_USER_EMAIL,
+  TEST_USER_PASSWORD as RAW_TEST_USER_PASSWORD,
   USE_MOCKS as RAW_USE_MOCKS,
 } from '@env';
 
 /** Mock data is the default; set USE_MOCKS=false in frontend/.env to call the backend. */
 export const USE_MOCKS = RAW_USE_MOCKS !== 'false';
+
+/** Optional test user credentials: keeps the same UID across app launches & devices. */
+export const TEST_USER_EMAIL = (RAW_TEST_USER_EMAIL ?? '').trim();
+export const TEST_USER_PASSWORD = (RAW_TEST_USER_PASSWORD ?? '').trim();
 
 export type ApiArea =
   | 'places'

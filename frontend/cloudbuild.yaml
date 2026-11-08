@@ -5,19 +5,44 @@ steps:
     entrypoint: 'npm'
     args: ['ci']
 
-  # 2. Run Lint & Jest Unit Tests
+  # 2. Write frontend/.env & root .env for production release bundle & Maps SDK
+  - name: 'node:22'
+    dir: 'frontend'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cat <<EOF > .env
+        USE_MOCKS=false
+        LIVE_APIS=capture,tango,review,user,places,prepare,rehearse
+        API_BASE_URL=${_API_BASE_URL}
+        FIREBASE_API_KEY=${_FIREBASE_API_KEY}
+        FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}
+        FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}
+        FIREBASE_APP_ID=${_FIREBASE_WEB_APP_ID}
+        EOF
+        echo "Generated frontend/.env successfully (USE_MOCKS=false)"
+
+        cat <<EOF > ../.env
+        GOOGLE_MAPS_API_KEY=${_GOOGLE_MAPS_API_KEY}
+        EOF
+        echo "Generated root .env for Android Google Maps"
+
+  # 3. Run Lint & Jest Unit Tests
   - name: 'node:22'
     dir: 'frontend'
     entrypoint: 'npm'
     args: ['test', '--', '--watchAll=false']
 
-  # 3. Compile Signed Android Release APK
+  # 4. Compile Signed Android Release APK
   - name: 'reactnativecommunity/react-native-android:latest'
     dir: 'frontend/android'
     entrypoint: './gradlew'
     args: ['assembleRelease']
+    env:
+      - 'GOOGLE_MAPS_API_KEY=${_GOOGLE_MAPS_API_KEY}'
 
-  # 4. Distribute Android APK exclusively via Firebase App Distribution
+  # 5. Distribute Android APK exclusively via Firebase App Distribution
   - name: 'node:22'
     dir: 'frontend'
     entrypoint: 'npx'
@@ -34,6 +59,12 @@ steps:
       - 'Automated Android build from commit $SHORT_SHA'
 
 substitutions:
-  _FIREBASE_ANDROID_APP_ID: '1:000000000000:android:0000000000000000000000'
+  _FIREBASE_ANDROID_APP_ID: '1:166488207235:android:30da40c2a9509a1d2990b6'
   _TESTER_GROUPS: 'hackathon-testers'
+  _API_BASE_URL: 'https://fastapi-backend-166488207235.asia-east1.run.app'
+  _FIREBASE_PROJECT_ID: 'project-79470ae0-a7db-4972-b22'
+  _FIREBASE_AUTH_DOMAIN: 'project-79470ae0-a7db-4972-b22.firebaseapp.com'
+  _FIREBASE_API_KEY: 'AIzaSyBT6IJtakkhOyNzRjCkGpiBsmpo6kHbRbQ'
+  _FIREBASE_WEB_APP_ID: ''
+  _GOOGLE_MAPS_API_KEY: ''
 

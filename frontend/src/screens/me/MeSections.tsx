@@ -12,9 +12,15 @@ import {
   SegmentedControl,
   ToggleRow,
 } from '../../components/ui';
-import { API_BASE_URL, LIVE_APIS, USE_MOCKS } from '../../config';
+import {
+  API_BASE_URL,
+  LIVE_APIS,
+  TEST_USER_EMAIL,
+  TEST_USER_PASSWORD,
+  USE_MOCKS,
+} from '../../config';
 import { useAsync } from '../../hooks/useAsync';
-import { useAuth } from '../../state/AuthContext';
+import { type AuthStatus, useAuth } from '../../state/AuthContext';
 import {
   settingsForReadingLevel,
   useSettings,
@@ -34,12 +40,13 @@ export const LANGUAGES = [
   { value: 'Spanish', native: 'Español' },
 ];
 
-const AUTH_LABEL = {
+const AUTH_LABEL: Record<AuthStatus, string> = {
   not_configured: 'off (Firebase values not set in .env)',
   signing_in: 'signing in…',
-  signed_in: 'signed in anonymously',
+  signed_in: 'signed in',
+  signed_out: 'signed out',
   error: 'failed',
-} as const;
+};
 
 const PREVIEW = {
   text: '食券',
@@ -54,6 +61,7 @@ const HOME_RADIUS_M = 500;
 
 export function ProfileSection(): React.JSX.Element {
   const { settings, update } = useSettings();
+  const auth = useAuth();
   const profile = useAsync(getProfile);
   const [name, setName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +129,27 @@ export function ProfileSection(): React.JSX.Element {
           </Card>
 
           <HomeAreaCard current={p.homeArea ?? null} onSaved={profile.reload} />
+
+          {auth.user ? (
+            <Card>
+              <Text style={base.label}>Account</Text>
+              <Text style={base.caption}>
+                {auth.user.email
+                  ? `Signed in as ${auth.user.email}`
+                  : auth.user.isAnonymous
+                  ? 'Signed in as Guest (Anonymous)'
+                  : 'Signed in'}
+              </Text>
+              <Text style={base.caption}>UID: {auth.user.uid}</Text>
+              <Button
+                label="Log out of this device"
+                variant="ghost"
+                onPress={() => {
+                  auth.signOut().catch(() => {});
+                }}
+              />
+            </Card>
+          ) : null}
         </View>
       )}
     </Loadable>
@@ -390,6 +419,15 @@ export function DeveloperSection(): React.JSX.Element {
   const auth = useAuth();
   const [health, setHealth] = useState('Not checked');
   const [backendAuth, setBackendAuth] = useState('Not checked');
+  const [testEmail, setTestEmail] = useState(
+    TEST_USER_EMAIL || 'test@tankengo.com',
+  );
+  const [testPassword, setTestPassword] = useState(
+    TEST_USER_PASSWORD || 'password123',
+  );
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMsg, setAuthMsg] = useState<string | null>(null);
+
   const ping = async () => {
     setHealth('Checking…');
     try {
@@ -401,6 +439,7 @@ export function DeveloperSection(): React.JSX.Element {
       );
     }
   };
+
   const checkAuth = async () => {
     setBackendAuth('Checking…');
     try {
@@ -412,36 +451,117 @@ export function DeveloperSection(): React.JSX.Element {
       );
     }
   };
+
+  const handleTestSignIn = async () => {
+    setAuthBusy(true);
+    setAuthMsg('Signing in / creating test account…');
+    try {
+      const u = await auth.signInWithTest(testEmail, testPassword);
+      setAuthMsg(`Signed in as ${u?.email} (uid: ${u?.uid.slice(0, 8)}…)`);
+    } catch (err) {
+      setAuthMsg(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthBusy(true);
+    try {
+      await auth.signOut();
+      setAuthMsg('Signed out.');
+    } catch (err) {
+      setAuthMsg(`Sign out error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   return (
-    <Card>
-      <Text style={base.caption}>
-        Data:{' '}
-        {USE_MOCKS
-          ? `mock data${
-              LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''
-            }`
-          : 'backend'}{' '}
-        · {API_BASE_URL}
-      </Text>
-      <Text style={base.caption}>Backend health: {health}</Text>
-      <Button label="Check backend health" variant="secondary" onPress={ping} />
-      <Text style={base.caption}>
-        Sign-in: {AUTH_LABEL[auth.status]}
-        {auth.user ? ` · uid ${auth.user.uid.slice(0, 8)}…` : ''}
-        {auth.error ? ` · ${auth.error}` : ''}
-      </Text>
-      <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
-      <Button
-        label="Check sign-in with backend"
-        variant="secondary"
-        onPress={checkAuth}
-      />
-      <Button
-        label="Restart onboarding"
-        variant="ghost"
-        onPress={() => update({ onboarded: false, dayOne: false })}
-      />
-    </Card>
+    <View style={base.stack}>
+      <Card>
+        <Text style={base.label}>Backend Connection</Text>
+        <Text style={base.caption}>
+          Data:{' '}
+          {USE_MOCKS
+            ? `mock data${
+                LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''
+              }`
+            : 'backend'}{' '}
+          · {API_BASE_URL}
+        </Text>
+        <Text style={base.caption}>Backend health: {health}</Text>
+        <Button
+          label="Check backend health"
+          variant="secondary"
+          onPress={ping}
+        />
+        <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
+        <Button
+          label="Check sign-in with backend"
+          variant="secondary"
+          onPress={checkAuth}
+        />
+      </Card>
+
+      <Card>
+        <Text style={base.label}>User Account</Text>
+        <Text style={base.caption}>
+          Status: {AUTH_LABEL[auth.status]}
+          {auth.user?.email
+            ? ` · Email: ${auth.user.email}`
+            : auth.user?.isAnonymous
+            ? ' · (Anonymous user)'
+            : ''}
+          {auth.user ? ` · UID: ${auth.user.uid.slice(0, 8)}…` : ''}
+          {auth.error ? ` · ${auth.error}` : ''}
+        </Text>
+
+        <Text style={styles.subLabel}>Test user credentials</Text>
+        <TextInput
+          value={testEmail}
+          onChangeText={setTestEmail}
+          placeholder="Test email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+        />
+        <TextInput
+          value={testPassword}
+          onChangeText={setTestPassword}
+          placeholder="Test password"
+          secureTextEntry
+          autoCapitalize="none"
+          style={styles.input}
+        />
+
+        {authMsg ? <Text style={styles.authNotice}>{authMsg}</Text> : null}
+
+        <Button
+          label={authBusy ? 'Please wait…' : 'Sign in as test user'}
+          variant="secondary"
+          disabled={authBusy}
+          onPress={handleTestSignIn}
+        />
+
+        {auth.user ? (
+          <Button
+            label="Sign out"
+            variant="ghost"
+            disabled={authBusy}
+            onPress={handleSignOut}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
+        <Button
+          label="Restart onboarding"
+          variant="ghost"
+          onPress={() => update({ onboarded: false, dayOne: false })}
+        />
+      </Card>
+    </View>
   );
 }
 
@@ -492,5 +612,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: space.md,
+  },
+  subLabel: {
+    ...base.label,
+    marginTop: space.sm,
+    color: colors.textMuted,
+  },
+  authNotice: {
+    ...base.caption,
+    color: colors.accent,
+    marginVertical: space.xs,
   },
 });

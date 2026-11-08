@@ -11,6 +11,6 @@ module.exports = {
       },
     ],
     // Live camera text reading runs on the camera thread. Must stay last.
-    'react-native-worklets/plugin',
+    require.resolve('react-native-worklets/plugin'),
   ],
 };

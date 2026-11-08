@@ -27,6 +27,7 @@ export type MeSectionId =
 
 export type RootStackParamList = {
   Welcome: undefined;
+  Login: undefined;
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Prepare: { placeId: string };
   Rehearse: { placeId: string };
