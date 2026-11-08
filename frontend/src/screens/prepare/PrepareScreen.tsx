@@ -120,21 +120,28 @@ export function PrepareScreen({
 
             <Card>
               <Text style={base.heading}>✦ Tango for this visit</Text>
-              {data.tango.map(tango => (
-                <View key={tango.id} style={styles.tangoRow}>
-                  <View style={styles.tangoWord}>
-                    <Jp {...tango} bold size="lg" />
+              {data.tango.map(tango => {
+                const owned = tango.tangoId;
+                return (
+                  <View key={tango.text} style={styles.tangoRow}>
+                    <View style={styles.tangoWord}>
+                      <Jp {...tango} bold size="lg" />
+                    </View>
+                    <Text
+                      style={[base.caption, base.grow]}
+                      onPress={
+                        owned
+                          ? () =>
+                              navigation.navigate('TangoDetail', { id: owned })
+                          : undefined
+                      }
+                    >
+                      {tango.meaning}
+                      {owned ? ' ›' : ''}
+                    </Text>
                   </View>
-                  <Text
-                    style={[base.caption, base.grow]}
-                    onPress={() =>
-                      navigation.navigate('TangoDetail', { id: tango.id })
-                    }
-                  >
-                    {tango.meaning} ›
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </Card>
 
             <Card>

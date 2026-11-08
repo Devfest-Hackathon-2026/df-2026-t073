@@ -1,7 +1,7 @@
 import type { RehearsalResult, RehearsalScript } from '../types';
 import { PLACES } from './places';
 
-export function scriptFor(placeId: string): RehearsalScript {
+export function scriptFor(placeId: string): Omit<RehearsalScript, 'rehearsalId'> {
   const place = PLACES[placeId] ?? PLACES['menya-taiki'];
   return {
     place,

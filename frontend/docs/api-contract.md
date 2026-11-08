@@ -98,43 +98,50 @@ interface TodayResponse {
 - Today pins: one per area (from the place cache, else the sighting's place name). **Sightings inside the user's home area are never pinned.**
 - The "you are here" pin is added by the app from device GPS. Review accepts `collection=area:<area_id>` for the area card's "Review these".
 
-### Prepare (`api/prepare.ts`)
+### Prepare (`api/prepare.ts`) — **implemented in P5**
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/places/{placeId}/briefing` | `PrepareBriefing` (Gemini, grounded in Google Maps reviews) |
+| GET | `/api/v1/places/{place_id}/briefing?language=English` | `BriefingResponse` |
 
 ```ts
-interface PrepareBriefing {
+// snake_case on the wire (backend/app/schemas/prepare.py)
+interface BriefingResponse {
   place: Place;
-  steps: string[];               // "what to expect", in order
-  tango: Tango[];                // Tango likely needed at this place
-  tips: { id: string; quote: string; learners: number; when: string; inRehearsal: boolean }[];
-  source: string;                // e.g. "Prepared by Gemini · grounded in Google Maps"
+  steps: string[];               // 3 "what to expect" steps, in order
+  tango: { text: string; reading: string; romaji: string; meaning: string;
+           flashcard_id: string | null }[];   // id set only if the user already has it
+  tips: { id: string; quote: string; learners: number; when: string; in_rehearsal: boolean }[];
+  source: string;                // short line on what the briefing is based on
 }
 ```
-Tips are anonymous: only the tip and the place. No user id, no exact time.
+- One Places Details call (reviews) + one Gemini call per place and language, cached in `places/{id}/briefing/{language}` for 7 days and shared by all users. Built-in places skip the reviews.
+- Tips are read-only from the `tips` collection (filtered by place, max 5). Anonymous: only the tip and the place.
 
-### Rehearse (`api/rehearse.ts`)
+### Rehearse (`api/rehearse.ts`) — **implemented in P5**
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| POST | `/rehearsals` | `{ placeId: string, speed: 'slower' \| 'natural' }` | `RehearsalScript` |
-| GET | `/rehearsals/latest/results?placeId=` | – | `RehearsalResult` |
+| POST | `/api/v1/rehearsals` | `{ place_id, language }` | 201 `RehearsalStartResponse` |
+| POST | `/api/v1/rehearsals/{id}/turns/{turn_id}` | `{ choice_index }` **or** `{ audio_base64, mime_type }` | `TurnResult` |
+| GET | `/api/v1/rehearsals/{id}/results` | – | `RehearsalResult` |
+| POST | `/api/v1/speech/tts` | `{ text, speed: 'slower' \| 'natural' }` | `{ audio_url }` |
 
 ```ts
-interface RehearsalTurn {
-  id: string; speaker: 'staff' | 'user'; jp: JpText; en: string;
-  naturalness?: { ok: boolean; label: string };                          // user turns
-  hint?: { explanation: string; model: JpText; modelEn: string };        // user turns
-}
-interface RehearsalScript { place: Place; staffVoice: string; turns: RehearsalTurn[] }
-interface RehearsalResult {
-  place: Place;
-  lines: { staff: JpText; said: JpText; ok: boolean; note: string; suggestion?: { jp: JpText; why: string } }[];
-}
+// snake_case on the wire (backend/app/schemas/rehearsal.py)
+interface ReplyChoice { jp: JpName; en: string; ok: boolean; label: string; note: string;
+                        suggestion: { jp: JpName; why: string } | null }
+interface RehearsalTurn { id: string; speaker: 'staff' | 'user'; jp: JpName; en: string;
+                          hint: string | null;     // user turns; the model answer is the natural choice
+                          choices: ReplyChoice[] }        // 3 on user turns, [] on staff turns
+interface RehearsalStartResponse { rehearsal_id: string; place: Place; staff_voice: string; turns: RehearsalTurn[] }
+interface TurnResult { turn_id: string; staff: JpName; said: JpName; spoken: boolean; ok: boolean;
+                       label: string; note: string; suggestion: { jp: JpName; why: string } | null }
+interface RehearsalResult { place: Place; lines: TurnResult[] }
 ```
-Open question: the real role-play is turn-by-turn with speech. Likely shape: `POST /rehearsals` → `{ rehearsalId, firstTurn }`, then `POST /rehearsals/{id}/turns` with audio or text → `{ userTurn (with naturalness), staffTurn }`, then `GET /rehearsals/{id}/results`. The mock uses a fixed script for now.
+- Script: one Gemini call per place and language, cached in `places/{id}/rehearsal/{language}`. Each start makes a session at `users/{uid}/rehearsals/{id}`.
+- Spoken reply: AAC audio (`audio/mp4`, max 2 MB) → one Gemini call (transcript + rating). Chosen reply: feedback comes from the script, no Gemini call.
+- Staff voice: Cloud Text-to-Speech (`ja-JP-Neural2-B`, rate 0.8 slower / 1.0 natural), MP3 cached in Cloud Storage under `tts/`. If TTS is unavailable the app shows text only.
 
 ### Capture (`api/capture.ts`)
 

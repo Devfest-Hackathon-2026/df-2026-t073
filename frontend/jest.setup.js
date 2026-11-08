@@ -78,3 +78,13 @@ jest.mock('@react-native-community/geolocation', () => ({
     getCurrentPosition: (_ok, fail) => fail({ code: 1, message: 'No location in tests' }),
   },
 }));
+
+jest.mock('react-native-nitro-sound', () => {
+  const sound = () => ({
+    startPlayer: async () => '',
+    stopPlayer: async () => '',
+    startRecorder: async () => '',
+    stopRecorder: async () => '',
+  });
+  return { __esModule: true, createSound: sound, default: sound() };
+});

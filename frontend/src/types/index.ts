@@ -125,10 +125,13 @@ export interface HistoryTip {
   inRehearsal: boolean;
 }
 
+/** A word worth knowing for a visit; links to Tango detail when the user has it. */
+export type BriefingTango = JpText & { tangoId: string | null };
+
 export interface PrepareBriefing {
   place: Place;
   steps: string[];
-  tango: Tango[];
+  tango: BriefingTango[];
   tips: HistoryTip[];
   source: string;
 }
@@ -147,9 +150,37 @@ export interface RehearsalTurn {
   naturalness?: Naturalness;
   /** User turns only: help shown by "Need a hint?". */
   hint?: { explanation: string; model: JpText; modelEn: string };
+  /** User turns only: replies to pick from when the user can't speak. */
+  choices?: ReplyChoice[];
+}
+
+export interface Suggestion {
+  jp: JpText;
+  why: string;
+}
+
+export interface ReplyChoice {
+  jp: JpText;
+  en: string;
+  ok: boolean;
+  label: string;
+  note: string;
+  suggestion?: Suggestion;
+}
+
+/** How one reply was rated (spoken or chosen). */
+export interface TurnAnswer {
+  said: JpText;
+  spoken: boolean;
+  ok: boolean;
+  label: string;
+  note: string;
+  suggestion?: Suggestion;
 }
 
 export interface RehearsalScript {
+  /** Null for mock rehearsals. Answers and results are keyed by it. */
+  rehearsalId: string | null;
   place: Place;
   staffVoice: string;
   turns: RehearsalTurn[];

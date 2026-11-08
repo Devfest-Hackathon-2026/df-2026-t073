@@ -1,4 +1,7 @@
-import type { PrepareBriefing } from '../types';
+import type { PrepareBriefing, Tango } from '../types';
+
+/** Mock briefings list full Tango; the API layer turns them into BriefingTango. */
+export type MockBriefing = Omit<PrepareBriefing, 'tango'> & { tango: Tango[] };
 import { PLACES } from './places';
 import { TANGO } from './tango';
 
@@ -8,7 +11,7 @@ const GENERIC_STEPS = [
   'If you miss something, ask them to repeat it slowly.',
 ];
 
-export const BRIEFINGS: Record<string, PrepareBriefing> = {
+export const BRIEFINGS: Record<string, MockBriefing> = {
   'menya-taiki': {
     place: PLACES['menya-taiki'],
     source: 'Prepared by Gemini · grounded in Google Maps (mock)',
@@ -37,7 +40,7 @@ export const BRIEFINGS: Record<string, PrepareBriefing> = {
   },
 };
 
-export function briefingFor(placeId: string): PrepareBriefing {
+export function briefingFor(placeId: string): MockBriefing {
   const known = BRIEFINGS[placeId];
   if (known) {
     return known;

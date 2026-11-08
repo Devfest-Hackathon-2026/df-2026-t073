@@ -13,8 +13,11 @@ export function RehearseResultsScreen({
   route,
   navigation,
 }: RootScreenProps<'RehearseResults'>): React.JSX.Element {
-  const { placeId, hintsUsed } = route.params;
-  const result = useAsync(() => getRehearsalResult(placeId), placeId);
+  const { placeId, hintsUsed, rehearsalId } = route.params;
+  const result = useAsync(
+    () => getRehearsalResult(rehearsalId, placeId),
+    rehearsalId ?? placeId,
+  );
 
   return (
     <Screen
@@ -47,7 +50,7 @@ export function RehearseResultsScreen({
                 · used {hintsUsed} hint{hintsUsed === 1 ? '' : 's'}
               </Text>
             </View>
-            <Text style={styles.eyebrow}>✦ Feedback by Gemini (mock)</Text>
+            <Text style={styles.eyebrow}>✦ Feedback by Gemini</Text>
             {data.lines.map(line => (
               <Card key={line.staff.text}>
                 <View style={base.row}>
@@ -67,7 +70,10 @@ export function RehearseResultsScreen({
                       <Jp {...line.suggestion.jp} size="lg" bold />
                       <Text style={base.caption}>{line.suggestion.why}</Text>
                     </View>
-                    <IconButton glyph="🔈" label="Play suggestion (coming soon)" />
+                    <IconButton
+                      glyph="🔈"
+                      label="Play suggestion (coming soon)"
+                    />
                   </View>
                 ) : (
                   <Text style={styles.ok}>{line.note}</Text>

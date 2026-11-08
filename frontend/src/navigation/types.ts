@@ -21,7 +21,11 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Prepare: { placeId: string };
   Rehearse: { placeId: string };
-  RehearseResults: { placeId: string; hintsUsed: number };
+  RehearseResults: {
+    placeId: string;
+    hintsUsed: number;
+    rehearsalId: string | null;
+  };
   Capture: undefined;
   CaptureToday: undefined;
   TangoDetail: { id: string };
