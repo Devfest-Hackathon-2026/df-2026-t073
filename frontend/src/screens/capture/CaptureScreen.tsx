@@ -25,6 +25,7 @@ import {
   readSelection,
   recordRecognition,
   undoCatch,
+  type UndoTarget,
   uploadCapture,
 } from '../../api/capture';
 import { isLive } from '../../config';
@@ -85,7 +86,11 @@ interface Found {
 interface ToastState {
   jp?: JpText;
   text: string;
-  undo?: { tangoId: string; itemId?: string };
+  undo?: UndoTarget & {
+    itemId?: string;
+    /** Undoing a new card takes one off today's count; a repeat catch does not. */
+    created: boolean;
+  };
 }
 
 const FILL = {
@@ -212,15 +217,25 @@ export function CaptureScreen({
   const doCatch = async (detection: Detection) => {
     setPhase('caught');
     try {
-      const tango = await catchTango({ detection, placeName });
+      const { tango, created, sightingId } = await catchTango({
+        detection,
+        placeName,
+      });
       setCaught(ids => ({ ...ids, [detection.item_id]: true }));
-      setCount(n => n + 1);
+      if (created) {
+        setCount(n => n + 1);
+      }
       later(() => {
         setPhase('live');
         setToast({
           jp: tango,
-          text: 'caught here',
-          undo: { tangoId: tango.id, itemId: detection.item_id },
+          text: created ? 'caught here' : 'seen again, added here',
+          undo: {
+            tangoId: tango.id,
+            sightingId,
+            itemId: detection.item_id,
+            created,
+          },
         });
       }, CAUGHT_MS);
     } catch (err) {
@@ -232,12 +247,17 @@ export function CaptureScreen({
   const catchFromReading = async (reading: SelectionReading) => {
     setSheet(null);
     try {
-      const tango = await catchTango({ tangoId: reading.tango.id, placeName });
-      setCount(n => n + 1);
+      const { tango, created, sightingId } = await catchTango({
+        tangoId: reading.tango.id,
+        placeName,
+      });
+      if (created) {
+        setCount(n => n + 1);
+      }
       setToast({
         jp: tango,
-        text: 'saved, pinned here',
-        undo: { tangoId: tango.id },
+        text: created ? 'saved, pinned here' : 'seen again, added here',
+        undo: { tangoId: tango.id, sightingId, created },
       });
       unfreeze();
     } catch (err) {
@@ -245,11 +265,16 @@ export function CaptureScreen({
     }
   };
 
-  const undo = async (target: { tangoId: string; itemId?: string }) => {
+  const undo = async (target: NonNullable<ToastState['undo']>) => {
     setToast(null);
     try {
-      await undoCatch(target.tangoId);
-      setCount(n => Math.max(0, n - 1));
+      await undoCatch({
+        tangoId: target.tangoId,
+        sightingId: target.sightingId,
+      });
+      if (target.created) {
+        setCount(n => Math.max(0, n - 1));
+      }
       if (target.itemId) {
         const itemId = target.itemId;
         setCaught(ids => ({ ...ids, [itemId]: false }));
@@ -291,6 +316,8 @@ export function CaptureScreen({
   /** Sends a photo to the backend and lists what it found. */
   const readPhoto = async (base64: string, mimeType: string) => {
     setError(null);
+    // Item IDs repeat across photos, so "saved" marks belong to one photo only.
+    setCaught({});
     setBusy(true);
     try {
       const result = await uploadCapture(base64, mimeType);
@@ -310,17 +337,19 @@ export function CaptureScreen({
     setError(null);
     setSaving(item.item_id);
     try {
-      const tango = await catchTango({
+      const { tango, created, sightingId } = await catchTango({
         detection: { ...item, known: false },
         captureId: found.captureId,
         placeName,
       });
       setCaught(ids => ({ ...ids, [item.item_id]: true }));
-      setCount(n => n + 1);
+      if (created) {
+        setCount(n => n + 1);
+      }
       setToast({
         jp: tango,
-        text: 'caught here',
-        undo: { tangoId: tango.id, itemId: item.item_id },
+        text: created ? 'caught here' : 'seen again, added here',
+        undo: { tangoId: tango.id, sightingId, itemId: item.item_id, created },
       });
     } catch (err) {
       showError(err);
@@ -412,7 +441,7 @@ export function CaptureScreen({
   const answerRecognition = async (tango: Tango, recognized: boolean) => {
     setSheet(null);
     try {
-      await recordRecognition(tango.id, recognized);
+      await recordRecognition(tango.id, recognized, placeName);
       setToast({
         jp: tango,
         text: recognized
@@ -815,7 +844,16 @@ export function CaptureScreen({
             {toast && !error ? (
               <View style={base.row}>
                 {toast.jp ? <Jp {...toast.jp} bold /> : null}
-                <Text style={base.caption}>{toast.text}</Text>
+                <Text style={[base.caption, base.grow]}>{toast.text}</Text>
+                {toast.undo ? (
+                  <Text
+                    accessibilityRole="button"
+                    style={styles.sheetUndo}
+                    onPress={() => toast.undo && undo(toast.undo)}
+                  >
+                    Undo
+                  </Text>
+                ) : null}
               </View>
             ) : null}
             {found.items.length === 0 ? (
@@ -1074,6 +1112,12 @@ const styles = StyleSheet.create({
   },
   strong: {
     fontWeight: fontWeights.bold,
+  },
+  sheetUndo: {
+    ...base.caption,
+    color: colors.accent,
+    fontWeight: fontWeights.bold,
+    padding: space.xs,
   },
   sheetError: {
     ...base.caption,

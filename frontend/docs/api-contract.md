@@ -18,12 +18,14 @@ These are called as-is. The frontend converts the responses to its own types.
 | POST | `/api/v1/captures` | `{ image_base64: string, mime_type?: "image/jpeg" \| "image/png" \| "image/webp" }` | `CaptureResponse` | `uploadCapture()` |
 | GET | `/api/v1/captures?limit=` | – | `CaptureResponse[]` | not used yet |
 | GET | `/api/v1/captures/{capture_id}` | – | `CaptureResponse` | not used yet |
-| POST | `/api/v1/flashcards/generate` | `{ capture_id: string, item_id?: string, selected_text?: string }` | `FlashcardResponse` | `catchTango()` |
+| POST | `/api/v1/flashcards/generate` | `{ capture_id, item_id?, selected_text?, place_id?, place_name?, lat?, lng?, language? }` | `FlashcardCatchResponse` (one card per word: a repeat catch adds a sighting) | `catchTango()` |
 | GET | `/api/v1/flashcards?due_only=&mastered=&capture_id=&limit=` | – | `FlashcardResponse[]` | `listTango()` (search is client-side) |
 | GET | `/api/v1/flashcards/{id}` | – | `FlashcardResponse` | `getTango()` |
 | POST | `/api/v1/flashcards/{id}/review` | `{ rating: "again" \| "good" \| "easy" }` | `FlashcardResponse` | `submitAnswer()`, `recordRecognition()` |
 | POST | `/api/v1/flashcards/{id}/expand?refresh=` | – | `RelatedVocabItem[]` | not used yet |
-| DELETE | `/api/v1/flashcards/{id}` | – | 204 | `undoCatch()` |
+| DELETE | `/api/v1/flashcards/{id}` | – | 204 | `undoCatch()` fallback |
+| POST | `/api/v1/flashcards/{id}/sightings` | `{ recognized?, capture_id?, place_id?, place_name?, lat?, lng? }` | `FlashcardCatchResponse` ("seen again": sighting + review) | `recordRecognition()` |
+| DELETE | `/api/v1/flashcards/{id}/sightings/{sighting_id}` | – | `FlashcardResponse \| null` (null = card deleted, it was the only sighting) | `undoCatch()` |
 
 ```ts
 // From backend/app/schemas/capture.py
@@ -196,11 +198,11 @@ interface Tango {
 
 ## 4. Gaps to agree on
 
-1. **Places on Tango.** Every Tango is tied to where it was found, but flashcards have no place. Proposal: `POST /flashcards/generate` also takes `{ placeId?, placeName, lat, lng }`, and flashcards return `sightings[]`. Home-area pins must never be stored (privacy screen promise).
-2. **Strength 0–4.** The frontend shows a 0–4 strength bar; the backend has `review_count` + `mastered`. Proposal: the backend returns `strength` directly.
-3. **Kind.** Frontend: `word | phrase | object | menu_item`. Backend `DetectedItem.item_type`: `object | text`. Proposal: add `kind` to flashcards (Gemini can classify text into word / phrase / menu item).
+1. ~~Places on Tango~~ **Done in P1:** flashcards have `sightings[]`; generate and captures accept place fields. Still open: home-area pins must never be stored (privacy screen promise).
+2. ~~Strength 0–4~~ **Done in P1:** `strength` (review good +1, easy +2, again −1, seen again +1, max 4; 4 = mastered).
+3. ~~Kind~~ **Done in P1:** Gemini classifies `kind`; examples carry `register` (`easy`/`keigo`).
 4. **Naming.** "Tango" (frontend, product) vs "flashcard" (backend). Either is fine; we should pick one for new endpoints.
-5. **History.** "How it grew" (caught, got it in review, seen again) needs an event list per Tango.
-6. **"Seen again".** Recognizing a known Tango in the camera should count as a sighting and a review (`POST /flashcards/{id}/review` covers the review part only).
+5. ~~History~~ **Done in P1:** `history[]` with `caught | reviewed | seen_again` and `strength_after`.
+6. ~~"Seen again"~~ **Done in P1:** `POST /flashcards/{id}/sightings`.
 7. **Auth.** The frontend needs Firebase Auth before any real call works.
 8. **Live detection.** Lens-style live highlights should run on the device (ML Kit text recognition with the Japanese script model + object detection on VisionCamera frames; seam in `frontend/src/features/capture/detector.ts`). The backend stays the source for the shutter, "Read this" and Gemini explanations. Google Lens itself has no public API.

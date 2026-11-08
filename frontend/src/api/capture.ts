@@ -13,7 +13,11 @@ import type {
   Tango,
 } from '../types';
 import { API_V1, ApiError, mockDelay, pick, request } from './client';
-import { flashcardToTango, type FlashcardResponse } from './tango';
+import {
+  type FlashcardCatchResponse,
+  flashcardToTango,
+  type FlashcardResponse,
+} from './tango';
 
 /** Shape returned by the existing backend (app/schemas/capture.py). */
 export interface CaptureResponse {
@@ -53,8 +57,24 @@ export interface CatchInput {
   detection?: Detection;
   tangoId?: string;
   placeName: string;
+  lat?: number;
+  lng?: number;
   /** Required by the real backend: the upload the detection came from. */
   captureId?: string;
+}
+
+export interface CatchResult {
+  tango: Tango;
+  /** False when the word already had a card and this catch added a sighting. */
+  created: boolean;
+  /** What Undo removes. Null for mock catches. */
+  sightingId: string | null;
+}
+
+/** What the Undo button needs to take back a catch. */
+export interface UndoTarget {
+  tangoId: string;
+  sightingId: string | null;
 }
 
 export const catchTango = pick(
@@ -75,17 +95,16 @@ export const catchTango = pick(
       examples: [],
     };
     todaysCatch.unshift({ tango, placeName, status: 'new' });
-    return mockDelay<Tango>(tango);
+    return mockDelay<CatchResult>({ tango, created: true, sightingId: null });
   },
-  // Existing endpoint: POST /api/v1/flashcards/generate
-  // TODO agree with backend: send the catch location (placeName, lat, lng) too.
-  async ({ detection, captureId }: CatchInput) => {
+  // POST /api/v1/flashcards/generate. One card per word: a repeat catch adds a sighting.
+  async ({ detection, captureId, placeName, lat, lng }: CatchInput) => {
     if (!captureId) {
       throw new ApiError(
         'Upload the photo with uploadCapture() before catching.',
       );
     }
-    const card = await request<FlashcardResponse>(
+    const result = await request<FlashcardCatchResponse>(
       `${API_V1}/flashcards/generate`,
       {
         method: 'POST',
@@ -93,46 +112,71 @@ export const catchTango = pick(
           capture_id: captureId,
           item_id: detection?.item_id,
           selected_text: detection?.japanese_text,
+          place_name: placeName,
+          lat,
+          lng,
         },
       },
     );
-    return flashcardToTango(card);
+    return {
+      tango: flashcardToTango(result.card),
+      created: result.created,
+      sightingId: result.sighting_id,
+    };
   },
 );
 
 export const undoCatch = pick(
   'capture',
-  (tangoId: string) => {
+  ({ tangoId }: UndoTarget) => {
     const index = todaysCatch.findIndex(entry => entry.tango.id === tangoId);
     if (index >= 0) {
       todaysCatch.splice(index, 1);
     }
     return mockDelay<void>(undefined, 100);
   },
-  // Existing endpoint: DELETE /api/v1/flashcards/{flashcard_id}
-  (tangoId: string) =>
-    request<void>(`${API_V1}/flashcards/${encodeURIComponent(tangoId)}`, {
-      method: 'DELETE',
-    }),
+  // Removes just this catch's sighting (the card goes too if it was the only one).
+  // Without a sighting id, falls back to deleting the card.
+  async ({ tangoId, sightingId }: UndoTarget) => {
+    const card = encodeURIComponent(tangoId);
+    if (sightingId) {
+      await request<FlashcardResponse | null>(
+        `${API_V1}/flashcards/${card}/sightings/${encodeURIComponent(
+          sightingId,
+        )}`,
+        { method: 'DELETE' },
+      );
+      return;
+    }
+    await request<void>(`${API_V1}/flashcards/${card}`, { method: 'DELETE' });
+  },
 );
 
 export const getTodaysCatch = pick(
   'capture',
   () => mockDelay<CatchEntry[]>(todaysCatch),
-  // Built from the existing GET /api/v1/flashcards: cards created today (device time).
-  // TODO agree with backend: a place name per catch (flashcards have none yet).
+  // Built from GET /api/v1/flashcards: cards with a sighting today (device time),
+  // labelled with today's latest place.
   async () => {
     const cards = await request<FlashcardResponse[]>(`${API_V1}/flashcards`, {
       query: { limit: 100 },
     });
     const today = new Date().toDateString();
-    return cards
-      .filter(card => new Date(card.created_at).toDateString() === today)
-      .map(card => ({
+    const entries: CatchEntry[] = [];
+    for (const card of cards) {
+      const todays = (card.sightings ?? []).filter(
+        s => new Date(s.seen_at).toDateString() === today,
+      );
+      if (todays.length === 0) {
+        continue;
+      }
+      entries.push({
         tango: flashcardToTango(card),
-        placeName: '',
+        placeName: todays[todays.length - 1].place_name,
         status: card.review_stats.review_count > 0 ? 'reviewed' : 'new',
-      }));
+      });
+    }
+    return entries;
   },
 );
 
@@ -153,16 +197,17 @@ export const readSelection = pick(
 /** "Did you recognize this Tango?" answer from the camera. */
 export const recordRecognition = pick(
   'capture',
-  (_tangoId: string, _recognized: boolean) => {
+  (_tangoId: string, _recognized: boolean, _placeName?: string) => {
     return mockDelay<void>(undefined, 100);
   },
-  // Existing endpoint: POST /api/v1/flashcards/{flashcard_id}/review
-  (tangoId: string, recognized: boolean) =>
-    request<void>(
-      `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/review`,
+  // POST /api/v1/flashcards/{id}/sightings: "seen again" adds a sighting and counts as a review.
+  async (tangoId: string, recognized: boolean, placeName?: string) => {
+    await request<FlashcardCatchResponse>(
+      `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/sightings`,
       {
         method: 'POST',
-        body: { rating: recognized ? 'good' : 'again' },
+        body: { recognized, place_name: placeName },
       },
-    ),
+    );
+  },
 );
