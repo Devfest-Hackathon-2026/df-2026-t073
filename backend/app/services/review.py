@@ -24,6 +24,7 @@ from app.services.firestore import (
     save_distractors,
 )
 from app.services.flashcard_generator import generate_distractors
+from app.services.places import areas_for
 
 # Enough for a hackathon-sized collection; all review screens look at the whole set.
 MAX_CARDS = 200
@@ -105,7 +106,11 @@ async def build_session(
     """Pick cards, make sure each has wrong answers, build questions, save the session."""
     now = datetime.now(timezone.utc)
     cards = await _all_cards(db, uid)
-    picked = rules.pick_session_cards(cards, now, collection)
+    area_by_place: dict[str, str] | None = None
+    if collection and collection.startswith(rules.AREA_PREFIX):
+        place_ids = {s.place_id for c in cards for s in c.sightings if s.place_id}
+        area_by_place = await areas_for(db, place_ids)
+    picked = rules.pick_session_cards(cards, now, collection, area_by_place=area_by_place)
     session_id = f"rs_{uuid.uuid4().hex[:16]}"
 
     # One Gemini call for every card that has no cached wrong answers yet.

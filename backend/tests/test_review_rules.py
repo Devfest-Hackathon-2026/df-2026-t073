@@ -65,6 +65,15 @@ class TestPicking:
         picked = rules.pick_session_cards(cards, NOW, collection=rules.PLACE_CUE_COLLECTION)
         assert [c.flashcard_id for c in picked] == ["named"]
 
+    def test_area_collection_uses_place_areas(self) -> None:
+        koenji = card("k", places=("Koenji Station",))
+        koenji.sightings[0].place_id = "p1"
+        nakano = card("n", places=("Nakano Station",))
+        picked = rules.pick_session_cards(
+            [koenji, nakano], NOW, collection="area:koenji", area_by_place={"p1": "Koenji"}
+        )
+        assert [c.flashcard_id for c in picked] == ["k"]
+
     def test_session_size_cap(self) -> None:
         cards = [card(str(i)) for i in range(15)]
         assert len(rules.pick_session_cards(cards, NOW)) == rules.SESSION_SIZE

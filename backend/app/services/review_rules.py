@@ -27,6 +27,7 @@ OPTIONS_PER_QUESTION = 4
 WRONG_PER_QUESTION = OPTIONS_PER_QUESTION - 1
 PLACE_CUE_COLLECTION = "place-cue"
 PLACE_PREFIX = "place:"
+AREA_PREFIX = "area:"
 # Padding around a detected item so the whole word is hidden, in normalized units.
 GAP_PADDING = 0.02
 
@@ -62,9 +63,25 @@ def estimate_minutes(card_count: int) -> int:
     return math.ceil(card_count * SECONDS_PER_CARD / 60) if card_count else 0
 
 
-def in_collection(card: FlashcardResponse, collection: str | None) -> bool:
+def area_id(name: str) -> str:
+    """Stable id for an area name, e.g. 'Koenji' -> 'koenji' (matches the Today map)."""
+    return name.strip().lower().replace(" ", "-")
+
+
+def in_collection(
+    card: FlashcardResponse,
+    collection: str | None,
+    area_by_place: dict[str, str] | None = None,
+) -> bool:
     if not collection:
         return True
+    if collection.startswith(AREA_PREFIX):
+        wanted = collection[len(AREA_PREFIX) :]
+        areas = area_by_place or {}
+        return any(
+            area_id(areas.get(s.place_id or "", "") or s.place_name) == wanted
+            for s in card.sightings
+        )
     if collection == PLACE_CUE_COLLECTION:
         return bool(area_of(card))
     if collection.startswith(PLACE_PREFIX):
@@ -78,13 +95,14 @@ def pick_session_cards(
     now: datetime,
     collection: str | None = None,
     limit: int = SESSION_SIZE,
+    area_by_place: dict[str, str] | None = None,
 ) -> list[FlashcardResponse]:
     """Weakest due cards first.
 
     Without a collection, only due cards. With a collection (the user chose
     "Review these"), not-yet-due cards fill the rest so practice is always possible.
     """
-    chosen = [c for c in cards if in_collection(c, collection)]
+    chosen = [c for c in cards if in_collection(c, collection, area_by_place)]
     due = [c for c in chosen if is_due(c, now)]
     due.sort(key=lambda c: (c.strength, _aware(c.review_stats.next_review_at)))
     if not collection:

@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     # Cloud Storage & Gemini AI settings for Tankengo
     GCS_BUCKET_NAME: str | None = None
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    # 3.8-flash timed out (90 s+) in testing; 3.5-flash answers in ~9 s.
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+    # Server-side key for Places API (New). Separate from the Android Maps key.
+    GOOGLE_PLACES_API_KEY: str | None = None
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MiB
 
     model_config = SettingsConfigDict(
