@@ -41,6 +41,19 @@ export interface Sighting {
 }
 
 export type TangoKind = 'word' | 'phrase' | 'object' | 'menu_item';
+export type CaptureFormat = 'object' | 'text';
+export type ReviewStage = 'flashcard' | 'mcq_photo' | 'mcq' | 'fill';
+export type QuestionType =
+  | 'flashcard_text'
+  | 'flashcard_object'
+  | 'mcq_text_reading'
+  | 'mcq_text_translate'
+  | 'mcq_text_reverse'
+  | 'mcq_object_name'
+  | 'fill_text_reading'
+  | 'fill_text_translate'
+  | 'fill_text_reverse'
+  | 'fill_object_name';
 export type Strength = 0 | 1 | 2 | 3 | 4;
 
 export interface TangoEvent {
@@ -80,6 +93,9 @@ export interface Tango {
   explanation?: string;
   /** Marked by the user; reviewable as "Favourites". */
   favorite?: boolean;
+  /** Current review stage (flashcard -> mcq_photo -> mcq -> fill). */
+  stage?: ReviewStage;
+  captureFormat?: CaptureFormat;
 }
 
 /** A user-made review list. */
@@ -287,35 +303,90 @@ export interface ReviewSummary {
   minutes: number;
   placeCueCount: number;
   collections: Collection[];
-  exerciseTypes: { id: string; label: string; enabled: boolean }[];
+  exerciseTypes: { id: string; label: string; enabled: boolean; count?: number }[];
   totalTango: number;
 }
 
-export interface MultipleChoiceExercise {
+export interface PhotoLayer {
+  imageUrl?: string;
+  box: NormalizedBox;
+  caption: string;
+  /** Optional sign text lines for mock-mode photos without an imageUrl. */
+  lines?: string[];
+}
+
+export interface FlashcardExercise {
   id: string;
-  type: 'multiple_choice';
+  type: 'flashcard';
+  questionType: 'flashcard_text' | 'flashcard_object';
+  stage: ReviewStage;
   tangoId: string;
+  photo: PhotoLayer | null;
+  front: JpText | null;
+  back: {
+    text: string;
+    reading: string;
+    romaji: string;
+    meaning: string;
+    example?: JpText & { en: string };
+  };
+  placeHint: string;
+  nextStep: string;
+  promotedTo?: ReviewStage | null;
+  demotedTo?: ReviewStage | null;
+}
+
+export interface McqExercise {
+  id: string;
+  type: 'mcq';
+  questionType:
+    | 'mcq_text_reading'
+    | 'mcq_text_translate'
+    | 'mcq_text_reverse'
+    | 'mcq_object_name';
+  stage: ReviewStage;
+  tangoId: string;
+  photo: PhotoLayer | null;
+  promptKind: 'jp' | 'meaning' | 'photo';
   prompt: JpText;
-  options: string[];
+  meaningPrompt: string;
+  options: (JpText | string)[];
   answerIndex: number;
   placeHint: string;
   example?: JpText & { en: string };
   nextStep: string;
+  promotedTo?: ReviewStage | null;
+  demotedTo?: ReviewStage | null;
 }
 
-export interface FillGapExercise {
+export interface FillBlankExercise {
   id: string;
-  type: 'fill_gap';
+  type: 'fill';
+  questionType:
+    | 'fill_text_reading'
+    | 'fill_text_translate'
+    | 'fill_text_reverse'
+    | 'fill_object_name';
+  stage: ReviewStage;
   tangoId: string;
-  /** Photo the learner took. Placeholder text is drawn when imageUrl is missing. */
-  photo: { imageUrl?: string; caption: string; lines: string[] };
-  gap: NormalizedBox;
-  options: JpText[];
-  answerIndex: number;
-  note: string;
+  photo: PhotoLayer | null;
+  prompt: JpText;
+  meaningPrompt: string;
+  cloze?: JpText & { en: string };
+  answerKind: 'kana' | 'meaning';
+  acceptedAnswers: string[];
+  answerDisplay: string;
+  placeHint: string;
+  example?: JpText & { en: string };
+  nextStep: string;
+  promotedTo?: ReviewStage | null;
+  demotedTo?: ReviewStage | null;
 }
 
-export type Exercise = MultipleChoiceExercise | FillGapExercise;
+export type Exercise =
+  | FlashcardExercise
+  | McqExercise
+  | FillBlankExercise;
 
 export interface ReviewSession {
   /** Null for mock sessions. Answers are recorded against it. */

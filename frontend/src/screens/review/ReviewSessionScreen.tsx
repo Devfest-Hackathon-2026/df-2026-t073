@@ -1,19 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   getReviewSession,
   getSessionResult,
   submitAnswer,
 } from '../../api/review';
+import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
+import { Screen } from '../../components/layout';
 import {
   Button,
   Card,
@@ -22,8 +25,18 @@ import {
   Loadable,
   ProgressBar,
 } from '../../components/ui';
+import {
+  checkFillAnswer,
+  hasNonKanaForReading,
+  QUESTION_TYPE_LABEL,
+  STAGE_LABEL,
+} from '../../features/review/answerCheck';
+import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
-import type { RootNavigation, RootScreenProps } from '../../navigation/types';
+import type {
+  RootNavigation,
+  RootScreenProps,
+} from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
@@ -36,16 +49,25 @@ import {
 } from '../../styles/tokens';
 import type {
   Exercise,
-  FillGapExercise,
-  MultipleChoiceExercise,
+  FillBlankExercise,
+  FlashcardExercise,
+  JpText,
+  McqExercise,
+  PhotoLayer,
 } from '../../types';
-import { Icon } from '../../components/Icon';
 
-/** Shown while loading: build anticipation, not impatience. */
 const SESSION_LINES = [
-  'Shuffling your Tango…',
-  "Picking today's best practice…",
+  'Picking your weakest Tango…',
+  'Setting up your questions…',
 ];
+
+/** Until the real size is known: the upload size is 4:3. */
+const PHOTO_ASPECT = 4 / 3;
+
+interface Outcome {
+  correct: boolean;
+  typedAnswer?: string;
+}
 
 export function ReviewSessionScreen({
   route,
@@ -55,28 +77,27 @@ export function ReviewSessionScreen({
   const { settings } = useSettings();
   const session = useAsync(
     () => getReviewSession(collectionId, settings.explanationsLanguage),
-    `${collectionId ?? 'all'}:${settings.explanationsLanguage}`,
+    `${collectionId ?? 'due'}:${settings.explanationsLanguage}`,
   );
-  const [finished, setFinished] = useState(false);
-  const sessionId = session.data?.sessionId ?? null;
+  const [done, setDone] = useState(false);
 
   return (
-    <SafeAreaView style={base.screen}>
-      {finished ? (
-        <Results navigation={navigation} sessionId={sessionId} />
-      ) : (
-        <Loadable state={session} messages={SESSION_LINES}>
-          {data => (
+    <Screen scroll={false}>
+      <Loadable state={session} messages={SESSION_LINES}>
+        {s =>
+          done ? (
+            <Results navigation={navigation} sessionId={s.sessionId} />
+          ) : (
             <Session
-              exercises={data.exercises}
-              sessionId={data.sessionId}
+              exercises={s.exercises}
+              sessionId={s.sessionId}
               onClose={() => navigation.goBack()}
-              onFinish={() => setFinished(true)}
+              onFinish={() => setDone(true)}
             />
-          )}
-        </Loadable>
-      )}
-    </SafeAreaView>
+          )
+        }
+      </Loadable>
+    </Screen>
   );
 }
 
@@ -92,7 +113,7 @@ function Session({
   onFinish: () => void;
 }): React.JSX.Element {
   const [index, setIndex] = useState(0);
-  const [picked, setPicked] = useState<number | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [showPlace, setShowPlace] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const inFlightSubmitsRef = useRef<Promise<unknown>[]>([]);
@@ -107,13 +128,16 @@ function Session({
     );
   }
 
-  const pick = (option: number) => {
-    setPicked(option);
-    const p = submitAnswer(
-      exercise.tangoId,
-      option === exercise.answerIndex,
-      sessionId,
-    ).catch(() => {
+  const recordOutcome = (
+    correct: boolean,
+    opts?: { rating?: 'again' | 'good' | 'easy'; answer?: string },
+  ) => {
+    setOutcome({ correct, typedAnswer: opts?.answer });
+    const p = submitAnswer(exercise.tangoId, correct, sessionId, {
+      questionType: exercise.questionType,
+      rating: opts?.rating,
+      answer: opts?.answer,
+    }).catch(() => {
       // Not fatal for the session; the answer just won't count.
     });
     inFlightSubmitsRef.current.push(p);
@@ -128,7 +152,7 @@ function Session({
       await Promise.all(inFlightSubmitsRef.current);
       onFinish();
     } else {
-      setPicked(null);
+      setOutcome(null);
       setShowPlace(false);
       setIndex(index + 1);
     }
@@ -139,9 +163,14 @@ function Session({
       <View style={[base.row, styles.header]}>
         <IconButton icon="close" label="End review" onPress={onClose} />
         <ProgressBar
-          value={(index + (picked === null ? 0 : 1)) / exercises.length}
+          value={(index + (outcome === null ? 0 : 1)) / exercises.length}
         />
-        {exercise.type === 'multiple_choice' && picked === null ? (
+        <View style={styles.stageBadge} accessibilityRole="text">
+          <Text style={styles.stageBadgeText}>
+            {STAGE_LABEL[exercise.stage]}
+          </Text>
+        </View>
+        {outcome === null ? (
           <IconButton
             icon="hint"
             label="Where did I see this Tango?"
@@ -149,33 +178,53 @@ function Session({
           />
         ) : null}
       </View>
-      <ScrollView contentContainerStyle={base.content}>
-        {picked === null ? (
-          exercise.type === 'multiple_choice' ? (
-            <MultipleChoice
+      <ScrollView
+        contentContainerStyle={base.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {outcome === null ? (
+          exercise.type === 'flashcard' ? (
+            <Flashcard
+              key={exercise.id}
               exercise={exercise}
               index={index}
               total={exercises.length}
               showPlace={showPlace}
-              onPick={pick}
+              onRate={rating =>
+                recordOutcome(rating !== 'again', { rating })
+              }
               onShowPlace={() => setShowPlace(true)}
             />
-          ) : (
-            <FillGap
+          ) : exercise.type === 'mcq' ? (
+            <Mcq
+              key={exercise.id}
               exercise={exercise}
               index={index}
               total={exercises.length}
-              onPick={pick}
+              showPlace={showPlace}
+              onPick={pickedIndex =>
+                recordOutcome(pickedIndex === exercise.answerIndex)
+              }
+              onShowPlace={() => setShowPlace(true)}
+            />
+          ) : (
+            <FillBlank
+              key={exercise.id}
+              exercise={exercise}
+              index={index}
+              total={exercises.length}
+              showPlace={showPlace}
+              onAnswer={(correct, typed) =>
+                recordOutcome(correct, { answer: typed })
+              }
+              onShowPlace={() => setShowPlace(true)}
             />
           )
         ) : (
-          <Feedback
-            exercise={exercise}
-            correct={picked === exercise.answerIndex}
-          />
+          <Feedback exercise={exercise} correct={outcome.correct} />
         )}
       </ScrollView>
-      {picked !== null ? (
+      {outcome !== null ? (
         <View style={styles.footer}>
           <Button
             label="Continue"
@@ -189,72 +238,13 @@ function Session({
   );
 }
 
-function MultipleChoice({
-  exercise,
-  index,
-  total,
-  showPlace,
-  onPick,
-  onShowPlace,
+/** Shared capture photo renderer with highlight box. Renders nothing when photo is null. */
+export function PhotoLayerView({
+  photo,
 }: {
-  exercise: MultipleChoiceExercise;
-  index: number;
-  total: number;
-  showPlace: boolean;
-  onPick: (option: number) => void;
-  onShowPlace: () => void;
-}): React.JSX.Element {
-  return (
-    <View style={base.stack}>
-      <Text style={base.label}>
-        Multiple choice · {index + 1} of {total}
-      </Text>
-      <View style={styles.prompt}>
-        <Jp {...exercise.prompt} size="jumbo" bold />
-        <Text style={base.caption}>What does this mean?</Text>
-      </View>
-      {exercise.options.map((option, i) => (
-        <Pressable
-          key={option}
-          accessibilityRole="button"
-          onPress={() => onPick(i)}
-          style={styles.option}
-        >
-          <Text style={base.text}>{option}</Text>
-        </Pressable>
-      ))}
-      {showPlace ? (
-        <View style={styles.centerRow}>
-          <IconLabel icon="pin" style={base.caption}>
-            {exercise.placeHint}
-          </IconLabel>
-        </View>
-      ) : (
-        <Text style={[styles.link, styles.center]} onPress={onShowPlace}>
-          Where did I see this Tango?
-        </Text>
-      )}
-    </View>
-  );
-}
-
-/** Until the real size is known: the upload size is 4:3. */
-const PHOTO_ASPECT = 4 / 3;
-
-function FillGap({
-  exercise,
-  index,
-  total,
-  onPick,
-}: {
-  exercise: FillGapExercise;
-  index: number;
-  total: number;
-  onPick: (option: number) => void;
-}): React.JSX.Element {
-  const { gap } = exercise;
-  const imageUrl = exercise.photo.imageUrl;
-  // Frame matches the photo's shape, so the normalized gap box lines up.
+  photo: PhotoLayer | null;
+}): React.JSX.Element | null {
+  const imageUrl = photo?.imageUrl;
   const [aspect, setAspect] = useState(PHOTO_ASPECT);
   useEffect(() => {
     if (!imageUrl) {
@@ -270,39 +260,40 @@ function FillGap({
       alive = false;
     };
   }, [imageUrl]);
-  const gapStyle = {
-    left: `${gap.x * 100}%` as const,
-    top: `${gap.y * 100}%` as const,
-    width: `${gap.w * 100}%` as const,
-    height: `${gap.h * 100}%` as const,
+
+  if (!photo) {
+    return null;
+  }
+
+  const { box } = photo;
+  const boxStyle = {
+    left: `${box.x * 100}%` as const,
+    top: `${box.y * 100}%` as const,
+    width: `${box.w * 100}%` as const,
+    height: `${box.h * 100}%` as const,
   };
+
   return (
-    <View style={base.stack}>
-      <Text style={base.label}>
-        Fill the gap · {index + 1} of {total}
-      </Text>
+    <View style={base.stackSm}>
       {imageUrl ? (
-        // The user's own photo, with the caught item covered.
         <View style={[styles.realPhoto, { aspectRatio: aspect }]}>
           <Image
             source={{ uri: imageUrl }}
             style={StyleSheet.absoluteFill}
             resizeMode="stretch"
-            accessibilityLabel="Your photo with one item covered"
+            accessibilityLabel="Your capture photo with the target highlighted"
           />
-          <View style={[styles.gap, styles.gapSolid, gapStyle]}>
-            <Text style={styles.gapMark}>?</Text>
-          </View>
+          <View style={[styles.highlightBox, boxStyle]} />
         </View>
       ) : (
         <View style={styles.photo}>
           <View style={styles.sign}>
             <Icon
-              name="forbidden"
-              size={fontSizes.xxl}
+              name="camera"
+              size={fontSizes.xl}
               color={colors.hanamaru}
             />
-            {exercise.photo.lines.map((line, i) =>
+            {(photo.lines ?? []).map((line, i) =>
               line ? (
                 <Jp
                   key={`${line}-${i}`}
@@ -315,31 +306,443 @@ function FillGap({
                 <View key={`gap-${i}`} style={styles.gapRow} />
               ),
             )}
-            <View style={[styles.gap, gapStyle]} />
+            <View style={[styles.highlightBox, boxStyle]} />
           </View>
         </View>
       )}
       <IconLabel icon="pin" style={base.caption}>
-        {exercise.photo.caption}
-      </IconLabel>
-      <Text style={base.heading}>What goes in the gap?</Text>
-      <View style={base.wrap}>
-        {exercise.options.map((option, i) => (
-          <Pressable
-            key={option.text}
-            accessibilityRole="button"
-            onPress={() => onPick(i)}
-            style={[styles.option, styles.gridOption]}
-          >
-            <Jp {...option} size="lg" alwaysKanji />
-          </Pressable>
-        ))}
-      </View>
-      <IconLabel icon="ai" style={styles.note}>
-        {exercise.note}
+        {photo.caption}
       </IconLabel>
     </View>
   );
+}
+
+function PlaceCueLink({
+  placeHint,
+  showPlace,
+  onShowPlace,
+}: {
+  placeHint: string;
+  showPlace: boolean;
+  onShowPlace: () => void;
+}): React.JSX.Element {
+  return showPlace ? (
+    <View style={styles.centerRow}>
+      <IconLabel icon="pin" style={base.caption}>
+        {placeHint}
+      </IconLabel>
+    </View>
+  ) : (
+    <Text style={[styles.link, styles.center]} onPress={onShowPlace}>
+      Where did I see this Tango?
+    </Text>
+  );
+}
+
+function Flashcard({
+  exercise,
+  index,
+  total,
+  showPlace,
+  onRate,
+  onShowPlace,
+}: {
+  exercise: FlashcardExercise;
+  index: number;
+  total: number;
+  showPlace: boolean;
+  onRate: (rating: 'again' | 'good' | 'easy') => void;
+  onShowPlace: () => void;
+}): React.JSX.Element {
+  const [flipped, setFlipped] = useState(false);
+  const flipAnim = useRef(new Animated.Value(0)).current;
+
+  const flip = () => {
+    if (flipped) {
+      return;
+    }
+    setFlipped(true);
+    Animated.timing(flipAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <View style={base.stack}>
+      <Text style={base.label}>
+        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+      </Text>
+      <PhotoLayerView photo={exercise.photo} />
+
+      {!flipped ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Flip flashcard"
+          onPress={flip}
+        >
+          <Card>
+            <View style={styles.prompt}>
+              {exercise.front ? (
+                <>
+                  <Jp
+                    text={exercise.front.text}
+                    size="jumbo"
+                    bold
+                    alwaysKanji
+                  />
+                  <Text style={base.caption}>
+                    Do you remember how to read and translate this?
+                  </Text>
+                </>
+              ) : (
+                <Text style={base.heading}>
+                  Do you remember the Japanese word for this object?
+                </Text>
+              )}
+              <Text style={styles.link}>Tap to flip</Text>
+            </View>
+          </Card>
+        </Pressable>
+      ) : (
+        <Animated.View style={{ opacity: flipAnim }}>
+          <Card>
+            <View style={styles.prompt}>
+              <View style={base.row}>
+                <Jp
+                  text={exercise.back.text}
+                  reading={exercise.back.reading}
+                  romaji={exercise.back.romaji}
+                  size="jumbo"
+                  bold
+                />
+                <IconButton
+                  icon="play"
+                  label={`Play ${exercise.back.text}`}
+                  onPress={() => playWord(exercise.back.text)}
+                />
+              </View>
+              {exercise.back.reading &&
+              exercise.back.reading !== exercise.back.text ? (
+                <Text style={base.text}>{exercise.back.reading}</Text>
+              ) : null}
+              {exercise.back.romaji ? (
+                <Text style={base.caption}>{exercise.back.romaji}</Text>
+              ) : null}
+              <Text style={styles.meaningPrompt}>{exercise.back.meaning}</Text>
+            </View>
+            {exercise.back.example ? (
+              <View style={styles.example}>
+                <Jp
+                  text={exercise.back.example.text}
+                  reading={exercise.back.example.reading}
+                  romaji={exercise.back.example.romaji}
+                />
+                <Text style={base.caption}>{exercise.back.example.en}</Text>
+              </View>
+            ) : null}
+          </Card>
+        </Animated.View>
+      )}
+
+      {!flipped ? (
+        <Button label="Flip card" variant="secondary" onPress={flip} />
+      ) : (
+        <View style={base.stackSm}>
+          <Text style={[base.caption, styles.center]}>
+            How well did you know it?
+          </Text>
+          <View style={base.row}>
+            <Button
+              label="Again"
+              variant="secondary"
+              style={base.grow}
+              onPress={() => onRate('again')}
+            />
+            <Button
+              label="Good"
+              variant="primary"
+              style={base.grow}
+              onPress={() => onRate('good')}
+            />
+            <Button
+              label="Easy"
+              variant="dark"
+              style={base.grow}
+              onPress={() => onRate('easy')}
+            />
+          </View>
+        </View>
+      )}
+
+      <PlaceCueLink
+        placeHint={exercise.placeHint}
+        showPlace={showPlace}
+        onShowPlace={onShowPlace}
+      />
+    </View>
+  );
+}
+
+function mcqHeading(exercise: McqExercise): string {
+  switch (exercise.questionType) {
+    case 'mcq_text_reading':
+      return 'How do you read this?';
+    case 'mcq_text_translate':
+      return exercise.promptKind === 'photo'
+        ? 'What does the highlighted text mean?'
+        : 'What does this mean?';
+    case 'mcq_text_reverse':
+      return 'How do you say this in Japanese?';
+    case 'mcq_object_name':
+      return 'What is this called in Japanese?';
+  }
+}
+
+function Mcq({
+  exercise,
+  index,
+  total,
+  showPlace,
+  onPick,
+  onShowPlace,
+}: {
+  exercise: McqExercise;
+  index: number;
+  total: number;
+  showPlace: boolean;
+  onPick: (option: number) => void;
+  onShowPlace: () => void;
+}): React.JSX.Element {
+  return (
+    <View style={base.stack}>
+      <Text style={base.label}>
+        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+      </Text>
+      <PhotoLayerView photo={exercise.photo} />
+
+      <View style={styles.prompt}>
+        {exercise.promptKind === 'jp' ? (
+          <Jp
+            text={exercise.prompt.text}
+            reading={
+              exercise.questionType === 'mcq_text_reading'
+                ? undefined
+                : exercise.prompt.reading
+            }
+            romaji={
+              exercise.questionType === 'mcq_text_reading'
+                ? undefined
+                : exercise.prompt.romaji
+            }
+            size="jumbo"
+            bold
+            alwaysKanji={exercise.questionType === 'mcq_text_reading'}
+          />
+        ) : exercise.promptKind === 'meaning' ? (
+          <Text style={styles.meaningPrompt}>{exercise.meaningPrompt}</Text>
+        ) : null}
+        <Text style={base.caption}>{mcqHeading(exercise)}</Text>
+      </View>
+
+      {exercise.options.map((option, i) => {
+        const isJp = typeof option !== 'string';
+        const key = isJp ? `${option.text}-${i}` : `${option}-${i}`;
+        return (
+          <Pressable
+            key={key}
+            accessibilityRole="button"
+            onPress={() => onPick(i)}
+            style={styles.option}
+          >
+            {isJp ? (
+              <Jp {...(option as JpText)} size="lg" alwaysKanji />
+            ) : (
+              <Text style={base.text}>{option}</Text>
+            )}
+          </Pressable>
+        );
+      })}
+
+      <PlaceCueLink
+        placeHint={exercise.placeHint}
+        showPlace={showPlace}
+        onShowPlace={onShowPlace}
+      />
+    </View>
+  );
+}
+
+function fillInstruction(exercise: FillBlankExercise): string {
+  switch (exercise.questionType) {
+    case 'fill_text_reading':
+      return 'Type the reading in kana';
+    case 'fill_text_translate':
+      return 'Type the meaning';
+    case 'fill_text_reverse':
+      return 'Type the Japanese word (kanji or kana)';
+    case 'fill_object_name':
+      return 'Type the Japanese name for this object (kanji or kana)';
+  }
+}
+
+function fillPlaceholder(exercise: FillBlankExercise): string {
+  switch (exercise.questionType) {
+    case 'fill_text_reading':
+      return 'かな (hiragana or katakana)…';
+    case 'fill_text_translate':
+      return 'Meaning…';
+    case 'fill_text_reverse':
+    case 'fill_object_name':
+      return '日本語 (kanji or kana)…';
+  }
+}
+
+function FillBlank({
+  exercise,
+  index,
+  total,
+  showPlace,
+  onAnswer,
+  onShowPlace,
+}: {
+  exercise: FillBlankExercise;
+  index: number;
+  total: number;
+  showPlace: boolean;
+  onAnswer: (correct: boolean, typedAnswer?: string) => void;
+  onShowPlace: () => void;
+}): React.JSX.Element {
+  const [text, setText] = useState('');
+  const [kanaWarning, setKanaWarning] = useState(false);
+
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (
+      exercise.questionType === 'fill_text_reading' &&
+      hasNonKanaForReading(trimmed)
+    ) {
+      setKanaWarning(true);
+      return;
+    }
+    setKanaWarning(false);
+    const ok = checkFillAnswer(
+      trimmed,
+      exercise.acceptedAnswers,
+      exercise.answerKind,
+      exercise.questionType,
+    );
+    onAnswer(ok, trimmed);
+  };
+
+  return (
+    <View style={base.stack}>
+      <Text style={base.label}>
+        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+      </Text>
+      <PhotoLayerView photo={exercise.photo} />
+
+      <View style={styles.prompt}>
+        {exercise.questionType === 'fill_text_reading' ? (
+          <Jp
+            text={exercise.prompt.text}
+            size="jumbo"
+            bold
+            alwaysKanji
+          />
+        ) : exercise.questionType === 'fill_text_translate' ? (
+          <Jp {...exercise.prompt} size="jumbo" bold />
+        ) : exercise.questionType === 'fill_text_reverse' ? (
+          <Text style={styles.meaningPrompt}>{exercise.meaningPrompt}</Text>
+        ) : null}
+        <Text style={base.caption}>{fillInstruction(exercise)}</Text>
+      </View>
+
+      {exercise.cloze ? (
+        <View style={styles.example}>
+          <Jp
+            text={exercise.cloze.text}
+            reading={
+              exercise.questionType === 'fill_text_reading'
+                ? undefined
+                : exercise.cloze.reading
+            }
+            alwaysKanji={exercise.questionType === 'fill_text_reading'}
+          />
+          <Text style={base.caption}>{exercise.cloze.en}</Text>
+        </View>
+      ) : null}
+
+      <View style={base.stackSm}>
+        <TextInput
+          value={text}
+          onChangeText={val => {
+            setText(val);
+            if (kanaWarning) {
+              setKanaWarning(false);
+            }
+          }}
+          placeholder={fillPlaceholder(exercise)}
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={submit}
+          style={styles.input}
+          accessibilityLabel={fillInstruction(exercise)}
+        />
+        <Text style={base.caption}>
+          {exercise.answerKind === 'kana'
+            ? exercise.questionType === 'fill_text_reading'
+              ? 'Japanese keyboard · hiragana and katakana both count'
+              : 'Japanese keyboard · kanji or kana accepted (no romaji)'
+            : 'Synonyms are accepted'}
+        </Text>
+        {kanaWarning ? (
+          <Text style={styles.kanaWarning} accessibilityRole="alert">
+            Please answer in kana
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={base.row}>
+        <Button
+          label="Show answer"
+          variant="secondary"
+          style={base.grow}
+          onPress={() => onAnswer(false)}
+        />
+        <Button
+          label="Check"
+          variant="primary"
+          style={base.grow}
+          disabled={!text.trim()}
+          onPress={submit}
+        />
+      </View>
+
+      <PlaceCueLink
+        placeHint={exercise.placeHint}
+        showPlace={showPlace}
+        onShowPlace={onShowPlace}
+      />
+    </View>
+  );
+}
+
+function answerTextFor(exercise: Exercise): string {
+  if (exercise.type === 'flashcard') {
+    return `${exercise.back.text} (${exercise.back.reading}) · ${exercise.back.meaning}`;
+  }
+  if (exercise.type === 'mcq') {
+    const right = exercise.options[exercise.answerIndex];
+    return typeof right === 'string' ? right : right.text;
+  }
+  return exercise.answerDisplay;
 }
 
 function Feedback({
@@ -349,10 +752,29 @@ function Feedback({
   exercise: Exercise;
   correct: boolean;
 }): React.JSX.Element {
-  const answer =
-    exercise.type === 'multiple_choice'
-      ? exercise.options[exercise.answerIndex]
-      : exercise.options[exercise.answerIndex].text;
+  const answer = answerTextFor(exercise);
+  const stageChange = correct ? exercise.promotedTo : exercise.demotedTo;
+  const wordJp: JpText =
+    exercise.type === 'flashcard'
+      ? {
+          text: exercise.back.text,
+          reading: exercise.back.reading,
+          romaji: exercise.back.romaji,
+        }
+      : exercise.prompt;
+  const meaning =
+    exercise.type === 'flashcard'
+      ? exercise.back.meaning
+      : exercise.meaningPrompt;
+  const example =
+    exercise.type === 'flashcard' ? exercise.back.example : exercise.example;
+  const synonyms =
+    exercise.type === 'fill' &&
+    exercise.questionType === 'fill_text_translate' &&
+    exercise.acceptedAnswers.length > 1
+      ? exercise.acceptedAnswers.slice(1).join(', ')
+      : '';
+
   return (
     <View style={base.stack}>
       <View style={styles.prompt}>
@@ -369,48 +791,63 @@ function Feedback({
         {!correct ? (
           <Text style={base.caption}>The answer was “{answer}”.</Text>
         ) : null}
+        {synonyms ? (
+          <Text style={base.caption}>Also accepted: {synonyms}</Text>
+        ) : null}
       </View>
-      {exercise.type === 'multiple_choice' ? (
-        <>
-          <Card>
-            <View style={base.row}>
-              <Jp {...exercise.prompt} size="xl" bold />
-              <Text style={base.caption}>
-                {exercise.prompt.reading} ·{' '}
-                {exercise.options[exercise.answerIndex]}
-              </Text>
-            </View>
-            {exercise.example ? (
-              <View style={styles.example}>
-                <Jp
-                  text={exercise.example.text ?? ''}
-                  reading={exercise.example.reading}
-                  romaji={exercise.example.romaji}
-                />
-                <Text style={base.caption}>{exercise.example.en}</Text>
-              </View>
-            ) : null}
-            <IconLabel icon="pin" style={base.caption}>
-              {exercise.placeHint}
-            </IconLabel>
-          </Card>
-          {correct ? (
-            <Text style={styles.next}>{exercise.nextStep}</Text>
-          ) : null}
-        </>
-      ) : (
-        <Card>
-          <Jp
-            {...exercise.options[exercise.answerIndex]}
-            size="xl"
-            bold
-            alwaysKanji
+
+      {stageChange ? (
+        <View
+          style={[
+            styles.stageBanner,
+            !correct && styles.stageBannerDemote,
+          ]}
+        >
+          <Text
+            style={[
+              styles.stageBannerText,
+              !correct && styles.stageBannerTextDemote,
+            ]}
+          >
+            {correct
+              ? `Level up → ${STAGE_LABEL[stageChange]}`
+              : `Back to ${STAGE_LABEL[stageChange]}`}
+          </Text>
+        </View>
+      ) : null}
+
+      <Card>
+        <View style={base.rowBetween}>
+          <View style={base.row}>
+            <Jp {...wordJp} size="xl" bold />
+            <Text style={base.caption}>
+              {[wordJp.reading, meaning].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
+          <IconButton
+            icon="play"
+            label={`Play ${wordJp.text}`}
+            onPress={() => playWord(wordJp.text)}
           />
-          <IconLabel icon="pin" style={base.caption}>
-            {exercise.photo.caption}
-          </IconLabel>
-        </Card>
-      )}
+        </View>
+        {example ? (
+          <View style={styles.example}>
+            <Jp
+              text={example.text ?? ''}
+              reading={example.reading}
+              romaji={example.romaji}
+            />
+            <Text style={base.caption}>{example.en}</Text>
+          </View>
+        ) : null}
+        <IconLabel icon="pin" style={base.caption}>
+          {exercise.placeHint}
+        </IconLabel>
+      </Card>
+
+      {correct && exercise.nextStep ? (
+        <Text style={styles.next}>{exercise.nextStep}</Text>
+      ) : null}
     </View>
   );
 }
@@ -525,6 +962,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
   },
+  stageBadge: {
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xxs,
+    borderRadius: radii.pill,
+  },
+  stageBadgeText: {
+    ...base.caption,
+    color: colors.accent,
+    fontWeight: fontWeights.bold,
+  },
   footer: {
     padding: space.lg,
   },
@@ -533,6 +981,10 @@ const styles = StyleSheet.create({
     gap: space.sm,
     paddingVertical: space.lg,
   },
+  meaningPrompt: {
+    ...base.title,
+    textAlign: 'center',
+  },
   option: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
@@ -540,10 +992,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
   },
-  gridOption: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    alignItems: 'center',
+  input: {
+    ...base.text,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    borderWidth: sizes.hairline,
+    borderColor: colors.border,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    fontSize: fontSizes.lg,
+  },
+  kanaWarning: {
+    ...base.caption,
+    color: colors.caution,
+    fontWeight: fontWeights.bold,
   },
   center: {
     textAlign: 'center',
@@ -579,27 +1041,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.camera,
   },
-  gapSolid: {
-    borderStyle: 'solid',
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gapMark: {
-    ...base.heading,
-    color: colors.accent,
-  },
-  gap: {
+  highlightBox: {
     position: 'absolute',
     borderWidth: sizes.border,
     borderStyle: 'dashed',
     borderColor: colors.accent,
     borderRadius: radii.sm,
     backgroundColor: colors.accentSoft,
-  },
-  note: {
-    ...base.caption,
-    color: colors.accent,
   },
   badge: {
     width: sizes.shutter,
@@ -625,6 +1073,23 @@ const styles = StyleSheet.create({
     color: colors.positive,
   },
   wrong: {
+    color: colors.caution,
+  },
+  stageBanner: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.md,
+    padding: space.md,
+    alignItems: 'center',
+  },
+  stageBannerDemote: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  stageBannerText: {
+    ...base.text,
+    color: colors.accent,
+    fontWeight: fontWeights.bold,
+  },
+  stageBannerTextDemote: {
     color: colors.caution,
   },
   example: {

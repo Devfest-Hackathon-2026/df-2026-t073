@@ -19,6 +19,7 @@ import {
   StrengthBar,
   strengthLabel,
 } from '../../components/ui';
+import { STAGE_LABEL } from '../../features/review/answerCheck';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
@@ -279,7 +280,22 @@ export function TangoDetailScreen({
             {settings.mapFeatures ? <PlacesCard tango={t} /> : null}
 
             <Card>
-              <Text style={base.heading}>History</Text>
+              <View style={base.rowBetween}>
+                <Text style={base.heading}>History</Text>
+                <Text style={styles.badge}>
+                  Stage:{' '}
+                  {
+                    STAGE_LABEL[
+                      t.stage ??
+                        (t.strength <= 1
+                          ? 'flashcard'
+                          : t.strength < 4
+                          ? 'mcq'
+                          : 'fill')
+                    ]
+                  }
+                </Text>
+              </View>
               {t.history.map((event, i) => (
                 <View key={`${event.type}-${i}`} style={styles.event}>
                   <View style={[styles.eventIcon, eventStyles[event.type]]}>

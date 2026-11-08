@@ -7,6 +7,20 @@ from app.schemas.capture import Vertex
 
 TangoKind = Literal["word", "phrase", "object", "menu_item"]
 Register = Literal["easy", "keigo"]
+CaptureFormat = Literal["object", "text"]
+ReviewStage = Literal["flashcard", "mcq_photo", "mcq", "fill"]
+QuestionType = Literal[
+    "flashcard_text",
+    "flashcard_object",
+    "mcq_text_reading",
+    "mcq_text_translate",
+    "mcq_text_reverse",
+    "mcq_object_name",
+    "fill_text_reading",
+    "fill_text_translate",
+    "fill_text_reverse",
+    "fill_object_name",
+]
 
 
 class UseCaseExample(BaseModel):
@@ -44,6 +58,10 @@ class ReviewStats(BaseModel):
     last_reviewed_at: datetime | None = None
     next_review_at: datetime
     mastered: bool = False
+    stage: ReviewStage | None = None
+    stage_streak: int = 0
+    miss_streak: int = 0
+    last_question_type: QuestionType | None = None
 
 
 class Sighting(BaseModel):
@@ -97,9 +115,18 @@ class FlashcardCreateRequest(BaseModel):
 
 
 class FlashcardReviewRequest(BaseModel):
-    rating: Literal["again", "good", "easy"]
+    rating: Literal["again", "good", "easy"] | None = None
+    correct: bool | None = None
+    answer: str | None = None
+    question_type: QuestionType | None = None
     # Set when the answer comes from a review session, so the result screen can use it.
     session_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome(self) -> "FlashcardReviewRequest":
+        if self.rating is None and self.correct is None and self.answer is None:
+            raise ValueError("One of rating, correct, or answer must be provided.")
+        return self
 
 
 class JpOption(BaseModel):
@@ -115,6 +142,8 @@ class Distractors(BaseModel):
 
     meanings: list[str] = Field(default_factory=list)
     words: list[JpOption] = Field(default_factory=list)
+    readings: list[str] = Field(default_factory=list)
+    synonyms: list[str] = Field(default_factory=list)
 
 
 class SightingCreateRequest(BaseModel):
@@ -144,8 +173,34 @@ class FlashcardResponse(GeneratedFlashcardContent):
     history: list[HistoryEvent] = Field(default_factory=list)
     # Filled on first review; reused by later sessions.
     distractors: Distractors | None = None
+    meaning_synonyms: list[str] = Field(default_factory=list)
+    # Whether the Tango came from Vision object recognition ("object") or OCR ("text").
+    capture_format: CaptureFormat | None = None
     # Marked by the user; reviewable as the "favorites" collection.
     favorite: bool = False
+
+    @model_validator(mode="after")
+    def populate_defaults(self) -> "FlashcardResponse":
+        if self.capture_format is None:
+            self.capture_format = "object" if self.kind == "object" else "text"
+        has_photo = bool(self.image_url) and len(self.bounding_box) >= 2
+        if self.review_stats.stage is None:
+            if self.strength <= 1:
+                inferred: ReviewStage = "flashcard"
+            elif self.strength == 2:
+                inferred = "mcq_photo" if (self.capture_format == "text" and has_photo) else "mcq"
+            elif self.strength == 3:
+                inferred = "mcq"
+            else:
+                inferred = "fill"
+            self.review_stats = self.review_stats.model_copy(update={"stage": inferred})
+        elif self.review_stats.stage == "mcq_photo" and (
+            self.capture_format == "object" or not has_photo
+        ):
+            self.review_stats = self.review_stats.model_copy(update={"stage": "mcq"})
+        if not self.meaning_synonyms and self.distractors and self.distractors.synonyms:
+            self.meaning_synonyms = list(self.distractors.synonyms)
+        return self
 
 
 class FlashcardCatchResponse(BaseModel):

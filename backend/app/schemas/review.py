@@ -3,7 +3,13 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.flashcard import FlashcardResponse, JpOption
+from app.schemas.flashcard import (
+    CaptureFormat,
+    FlashcardResponse,
+    JpOption,
+    QuestionType,
+    ReviewStage,
+)
 
 
 class ReviewCardResponse(BaseModel):
@@ -31,6 +37,7 @@ class ExerciseType(BaseModel):
     id: str
     label: str
     enabled: bool
+    count: int = 0
 
 
 class ReviewSummaryResponse(BaseModel):
@@ -53,37 +60,96 @@ class GapBox(BaseModel):
     h: float
 
 
+class PhotoLayer(BaseModel):
+    """Capture photo and highlight box for questions that show the photo."""
+
+    image_url: str
+    box: GapBox
+    caption: str
+
+
 class Example(BaseModel):
     japanese: str
     reading: str
     english: str
 
 
-class MultipleChoiceExercise(BaseModel):
+class FlashcardBack(BaseModel):
+    text: str
+    reading: str
+    romaji: str
+    meaning: str
+    example: Example | None = None
+
+
+class FlashcardExercise(BaseModel):
     id: str
-    type: Literal["multiple_choice"] = "multiple_choice"
+    type: Literal["flashcard"] = "flashcard"
+    question_type: Literal["flashcard_text", "flashcard_object"]
+    stage: ReviewStage = "flashcard"
     flashcard_id: str
+    photo: PhotoLayer | None = None
+    front: JpOption | None = None
+    back: FlashcardBack
+    place_hint: str
+    next_step: str
+    promoted_to: ReviewStage | None = None
+    demoted_to: ReviewStage | None = None
+
+
+class McqExercise(BaseModel):
+    id: str
+    type: Literal["mcq"] = "mcq"
+    question_type: Literal[
+        "mcq_text_reading",
+        "mcq_text_translate",
+        "mcq_text_reverse",
+        "mcq_object_name",
+    ]
+    stage: ReviewStage = "mcq"
+    flashcard_id: str
+    photo: PhotoLayer | None = None
+    prompt_kind: Literal["jp", "meaning", "photo"]
     prompt: JpOption
-    options: list[str]
+    meaning_prompt: str = ""
+    options: list[JpOption | str]
     answer_index: int
     place_hint: str
     example: Example | None = None
     next_step: str
+    promoted_to: ReviewStage | None = None
+    demoted_to: ReviewStage | None = None
 
 
-class FillGapExercise(BaseModel):
+class FillBlankExercise(BaseModel):
     id: str
-    type: Literal["fill_gap"] = "fill_gap"
+    type: Literal["fill"] = "fill"
+    question_type: Literal[
+        "fill_text_reading",
+        "fill_text_translate",
+        "fill_text_reverse",
+        "fill_object_name",
+    ]
+    stage: ReviewStage = "fill"
     flashcard_id: str
-    image_url: str
-    caption: str
-    gap: GapBox
-    options: list[JpOption]
-    answer_index: int
-    note: str
+    photo: PhotoLayer | None = None
+    prompt: JpOption
+    meaning_prompt: str = ""
+    cloze: Example | None = None
+    answer_kind: Literal["kana", "meaning"]
+    accepted_answers: list[str]
+    answer_display: str
+    place_hint: str = ""
+    example: Example | None = None
+    next_step: str = ""
+    promoted_to: ReviewStage | None = None
+    demoted_to: ReviewStage | None = None
 
 
-Exercise = Annotated[MultipleChoiceExercise | FillGapExercise, Field(discriminator="type")]
+Exercise = Annotated[
+    FlashcardExercise | McqExercise | FillBlankExercise,
+    Field(discriminator="type"),
+]
 
 
 class ReviewSessionResponse(BaseModel):

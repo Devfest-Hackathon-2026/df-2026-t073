@@ -217,26 +217,50 @@ interface TangoList { list_id: string; name: string; tango_ids: string[]; create
 - Lists live at `users/{uid}/lists/{list_id}`; `tango_ids` are flashcard ids in the order added (no duplicates; deleting a list keeps the Tango).
 - `review/summary` collections now also include `Favourites` (`is_favorites`, only if any) first and one entry per list (`is_list`, id `list:<list_id>`, count = Tango still owned).
 
-Answers go to `POST /api/v1/flashcards/{id}/review` with `{ rating: 'good' | 'again', session_id }` (correct → `good`). The `session_id` makes the answer count in the results.
+Answers go to `POST /api/v1/flashcards/{id}/review` with `FlashcardReviewRequest: { rating?: 'again' | 'good' | 'easy', correct?: boolean, answer?: string, question_type?: QuestionType, session_id?: string }`. The backend derives the rating from `question_type` + `correct` (fill-in correct → `easy` +2, MCQ correct → `good` +1, flashcard → user's rating, any miss → `again` -1) and grades typed `answer` strings for fill-in-the-blank exercises.
 
-Rules: up to 10 cards, weakest first; without a collection only due cards, with a collection not-yet-due cards fill the rest. Cards with a photo and a box alternate as fill-the-gap; the rest are multiple choice. Wrong choices come from one batched Gemini call per session, cached on each card (`distractors`); if Gemini fails they come from the user's other cards, then a built-in list.
+Rules: up to 10 cards, weakest first, ordered easiest to hardest (`flashcard` → `mcq_photo` → `mcq` → `fill`). Text Tango move `flashcard` (2 good) → `mcq_photo` (2 right) → `mcq` (3 right) → `fill`; object Tango (and text Tango without a photo) skip `mcq_photo`. Two misses in a row demote one step. Wrong choices, reading distractors, and meaning synonyms come from one batched Gemini call per session, cached on each card (`distractors`, `meaning_synonyms`).
 
 ```ts
 // snake_case on the wire (backend/app/schemas/review.py); frontend adapters convert.
+type ReviewStage = 'flashcard' | 'mcq_photo' | 'mcq' | 'fill';
+type QuestionType =
+  | 'flashcard_text' | 'flashcard_object'
+  | 'mcq_text_reading' | 'mcq_text_translate' | 'mcq_text_reverse' | 'mcq_object_name'
+  | 'fill_text_reading' | 'fill_text_translate' | 'fill_text_reverse' | 'fill_object_name';
+interface PhotoLayer {
+  image_url: string;
+  box: { x: number; y: number; w: number; h: number };   // normalized, display orientation
+  caption: string;
+}
 interface ReviewCardResponse { due_count: number; minutes: number; areas: string[]; sample: FlashcardResponse[]; more_count: number }
 interface ReviewSummaryResponse {
   due_count: number; minutes: number; place_cue_count: number; total_tango: number;
   collections: { id: string; label: string; count: number; is_place: boolean; is_place_cue: boolean }[];
-  exercise_types: { id: string; label: string; enabled: boolean }[];
+  exercise_types: { id: string; label: string; enabled: boolean; count: number }[];
 }
 type JpOption = { text: string; reading: string; romaji: string };
 type Exercise =
-  | { id: string; type: 'multiple_choice'; flashcard_id: string; prompt: JpOption; options: string[];
-      answer_index: number; place_hint: string;
-      example: { japanese: string; reading: string; english: string } | null; next_step: string }
-  | { id: string; type: 'fill_gap'; flashcard_id: string; image_url: string; caption: string;
-      gap: { x: number; y: number; w: number; h: number };   // normalized, display orientation
-      options: JpOption[]; answer_index: number; note: string };
+  | { id: string; type: 'flashcard'; question_type: 'flashcard_text' | 'flashcard_object'; stage: ReviewStage;
+      flashcard_id: string; photo: PhotoLayer | null; front: JpOption | null;
+      back: { text: string; reading: string; romaji: string; meaning: string;
+              example: { japanese: string; reading: string; english: string } | null };
+      place_hint: string; next_step: string; promoted_to: ReviewStage | null; demoted_to: ReviewStage | null }
+  | { id: string; type: 'mcq';
+      question_type: 'mcq_text_reading' | 'mcq_text_translate' | 'mcq_text_reverse' | 'mcq_object_name';
+      stage: ReviewStage; flashcard_id: string; photo: PhotoLayer | null;
+      prompt_kind: 'jp' | 'meaning' | 'photo'; prompt: JpOption; meaning_prompt: string;
+      options: (JpOption | string)[]; answer_index: number; place_hint: string;
+      example: { japanese: string; reading: string; english: string } | null; next_step: string;
+      promoted_to: ReviewStage | null; demoted_to: ReviewStage | null }
+  | { id: string; type: 'fill';
+      question_type: 'fill_text_reading' | 'fill_text_translate' | 'fill_text_reverse' | 'fill_object_name';
+      stage: ReviewStage; flashcard_id: string; photo: PhotoLayer | null;
+      prompt: JpOption; meaning_prompt: string;
+      cloze: { japanese: string; reading: string; english: string } | null;
+      answer_kind: 'kana' | 'meaning'; accepted_answers: string[]; answer_display: string;
+      place_hint: string; example: { japanese: string; reading: string; english: string } | null;
+      next_step: string; promoted_to: ReviewStage | null; demoted_to: ReviewStage | null };
 interface ReviewSessionResponse { session_id: string; exercises: Exercise[] }
 interface SessionResultResponse {
   reviewed: number; minutes: number;

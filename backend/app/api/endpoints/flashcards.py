@@ -161,17 +161,23 @@ async def create_flashcard(
             lng=payload.lng,
         )
 
+    source_label = matched_item.source_label if matched_item else target_word
+    item_type = matched_item.item_type if matched_item else "text"
+    bounding_box: list[Vertex] = matched_item.bounding_box if matched_item else []
+
     flashcard_id = make_flashcard_id(uid, target_word)
     existing = await get_flashcard_if_exists(db=db, uid=uid, flashcard_id=flashcard_id)
     if existing is not None:
         if payload.only_if_new:
             return FlashcardCatchResponse(card=existing, created=False, sighting_id="")
-        card = await add_sighting(db=db, uid=uid, card=existing, sighting=sighting)
+        card = await add_sighting(
+            db=db,
+            uid=uid,
+            card=existing,
+            sighting=sighting,
+            bounding_box=bounding_box,
+        )
         return FlashcardCatchResponse(card=card, created=False, sighting_id=sighting.sighting_id)
-
-    source_label = matched_item.source_label if matched_item else target_word
-    item_type = matched_item.item_type if matched_item else "text"
-    bounding_box: list[Vertex] = matched_item.bounding_box if matched_item else []
 
     # Dictionary words are saved at once; Gemini adds examples afterwards.
     generated = _from_dictionary(target_word, item_type, payload.language)
@@ -207,6 +213,7 @@ async def create_flashcard(
         bounding_box=bounding_box,
         generated=generated,
         sighting=sighting,
+        capture_format="object" if item_type == "object" else "text",
     )
     return FlashcardCatchResponse(card=card, created=True, sighting_id=sighting.sighting_id)
 
@@ -275,6 +282,9 @@ async def review_flashcard(
         uid=current_user["uid"],
         flashcard_id=flashcard_id,
         rating=payload.rating,
+        correct=payload.correct,
+        answer_text=payload.answer,
+        question_type=payload.question_type,
         session_id=payload.session_id,
     )
 

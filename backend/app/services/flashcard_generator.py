@@ -215,13 +215,17 @@ async def generate_distractors(
         for c in cards
     ]
     prompt = (
-        "You write wrong answer choices for a Japanese vocabulary quiz for learners living in Japan.\n"
+        "You write wrong answer choices and accepted synonyms for a Japanese vocabulary quiz for learners living in Japan.\n"
         "For each item give:\n"
         f"- wrong_meanings: 3 short meanings in {language} that a learner could confuse with the "
-        "correct meaning (same category, similar situation), never the correct meaning itself.\n"
+        "correct meaning (same category, similar situation), never the correct meaning or a synonym.\n"
         "- look_alike_words: 3 different real Japanese words that look or sound similar or appear "
         "in the same places (shared kanji, similar katakana, same kind of sign), never the word "
-        "itself. Give each with its hiragana reading and Hepburn romaji.\n\n"
+        "itself. Give each with its hiragana reading and Hepburn romaji.\n"
+        "- wrong_readings: 3 plausible wrong hiragana readings for the word (similar sound, alternate "
+        "kanji reading, or long/short vowel difference), never the true reading itself.\n"
+        f"- meaning_synonyms: 2 to 3 concise synonyms or alternate English/{language} translations "
+        "that mean the exact same thing and should be accepted when the learner types the meaning.\n\n"
         f"Items:\n{json.dumps(items, ensure_ascii=False)}"
     )
     body = {
@@ -248,8 +252,16 @@ async def generate_distractors(
                                 "required": ["text", "reading", "romaji"],
                             },
                         },
+                        "wrong_readings": {"type": "ARRAY", "items": {"type": "STRING"}},
+                        "meaning_synonyms": {"type": "ARRAY", "items": {"type": "STRING"}},
                     },
-                    "required": ["flashcard_id", "wrong_meanings", "look_alike_words"],
+                    "required": [
+                        "flashcard_id",
+                        "wrong_meanings",
+                        "look_alike_words",
+                        "wrong_readings",
+                        "meaning_synonyms",
+                    ],
                 },
             },
         },
@@ -280,6 +292,8 @@ async def generate_distractors(
             result[card_id] = Distractors(
                 meanings=[m for m in entry.get("wrong_meanings", []) if isinstance(m, str)],
                 words=[JpOption.model_validate(w) for w in entry.get("look_alike_words", [])],
+                readings=[r for r in entry.get("wrong_readings", []) if isinstance(r, str)],
+                synonyms=[s for s in entry.get("meaning_synonyms", []) if isinstance(s, str)],
             )
         except Exception:
             logger.warning("Skipping malformed distractors for %s", card_id)

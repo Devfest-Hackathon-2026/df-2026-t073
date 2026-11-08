@@ -7,8 +7,11 @@ import {
 import type {
   Exercise,
   JpText,
+  PhotoLayer,
+  QuestionType,
   ReviewCard,
   ReviewSession,
+  ReviewStage,
   ReviewSummary,
   SessionResult,
 } from '../types';
@@ -23,6 +26,18 @@ interface JpOptionResponse {
   text: string;
   reading: string;
   romaji: string;
+}
+
+interface ExampleResponse {
+  japanese: string;
+  reading: string;
+  english: string;
+}
+
+interface PhotoLayerResponse {
+  image_url: string;
+  box: { x: number; y: number; w: number; h: number };
+  caption: string;
 }
 
 interface ReviewCardResponse {
@@ -46,32 +61,75 @@ interface ReviewSummaryResponse {
     is_favorites?: boolean;
     is_list?: boolean;
   }[];
-  exercise_types: { id: string; label: string; enabled: boolean }[];
+  exercise_types: { id: string; label: string; enabled: boolean; count?: number }[];
   total_tango: number;
 }
 
 type ExerciseResponse =
   | {
       id: string;
-      type: 'multiple_choice';
+      type: 'flashcard';
+      question_type: 'flashcard_text' | 'flashcard_object';
+      stage: ReviewStage;
       flashcard_id: string;
-      prompt: JpOptionResponse;
-      options: string[];
-      answer_index: number;
+      photo: PhotoLayerResponse | null;
+      front: JpOptionResponse | null;
+      back: {
+        text: string;
+        reading: string;
+        romaji: string;
+        meaning: string;
+        example: ExampleResponse | null;
+      };
       place_hint: string;
-      example: { japanese: string; reading: string; english: string } | null;
       next_step: string;
+      promoted_to?: ReviewStage | null;
+      demoted_to?: ReviewStage | null;
     }
   | {
       id: string;
-      type: 'fill_gap';
+      type: 'mcq';
+      question_type:
+        | 'mcq_text_reading'
+        | 'mcq_text_translate'
+        | 'mcq_text_reverse'
+        | 'mcq_object_name';
+      stage: ReviewStage;
       flashcard_id: string;
-      image_url: string;
-      caption: string;
-      gap: { x: number; y: number; w: number; h: number };
-      options: JpOptionResponse[];
+      photo: PhotoLayerResponse | null;
+      prompt_kind: 'jp' | 'meaning' | 'photo';
+      prompt: JpOptionResponse;
+      meaning_prompt: string;
+      options: (JpOptionResponse | string)[];
       answer_index: number;
-      note: string;
+      place_hint: string;
+      example: ExampleResponse | null;
+      next_step: string;
+      promoted_to?: ReviewStage | null;
+      demoted_to?: ReviewStage | null;
+    }
+  | {
+      id: string;
+      type: 'fill';
+      question_type:
+        | 'fill_text_reading'
+        | 'fill_text_translate'
+        | 'fill_text_reverse'
+        | 'fill_object_name';
+      stage: ReviewStage;
+      flashcard_id: string;
+      photo: PhotoLayerResponse | null;
+      prompt: JpOptionResponse;
+      meaning_prompt: string;
+      cloze: ExampleResponse | null;
+      answer_kind: 'kana' | 'meaning';
+      accepted_answers: string[];
+      answer_display: string;
+      place_hint: string;
+      example: ExampleResponse | null;
+      next_step: string;
+      promoted_to?: ReviewStage | null;
+      demoted_to?: ReviewStage | null;
     };
 
 interface ReviewSessionResponse {
@@ -93,6 +151,12 @@ interface SessionResultResponse {
   next: null;
 }
 
+export interface SubmitAnswerOptions {
+  questionType?: QuestionType;
+  rating?: 'again' | 'good' | 'easy';
+  answer?: string;
+}
+
 // ---- Adapters ----
 
 function toJp(option: JpOptionResponse, meaning?: string): JpText {
@@ -104,35 +168,89 @@ function toJp(option: JpOptionResponse, meaning?: string): JpText {
   };
 }
 
+function toExample(ex: ExampleResponse | null | undefined): (JpText & { en: string }) | undefined {
+  if (!ex) {
+    return undefined;
+  }
+  return {
+    text: ex.japanese,
+    reading: ex.reading,
+    en: ex.english,
+  };
+}
+
+function toPhoto(photo: PhotoLayerResponse | null | undefined): PhotoLayer | null {
+  if (!photo) {
+    return null;
+  }
+  return {
+    imageUrl: photo.image_url || undefined,
+    box: photo.box,
+    caption: photo.caption,
+  };
+}
+
 function toExercise(e: ExerciseResponse): Exercise {
-  if (e.type === 'fill_gap') {
+  if (e.type === 'flashcard') {
     return {
       id: e.id,
-      type: 'fill_gap',
+      type: 'flashcard',
+      questionType: e.question_type,
+      stage: e.stage,
       tangoId: e.flashcard_id,
-      photo: { imageUrl: e.image_url, caption: e.caption, lines: [] },
-      gap: e.gap,
-      options: e.options.map(o => toJp(o)),
+      photo: toPhoto(e.photo),
+      front: e.front ? toJp(e.front) : null,
+      back: {
+        text: e.back.text,
+        reading: e.back.reading,
+        romaji: e.back.romaji,
+        meaning: e.back.meaning,
+        example: toExample(e.back.example),
+      },
+      placeHint: e.place_hint,
+      nextStep: e.next_step,
+      promotedTo: e.promoted_to ?? null,
+      demotedTo: e.demoted_to ?? null,
+    };
+  }
+  if (e.type === 'mcq') {
+    return {
+      id: e.id,
+      type: 'mcq',
+      questionType: e.question_type,
+      stage: e.stage,
+      tangoId: e.flashcard_id,
+      photo: toPhoto(e.photo),
+      promptKind: e.prompt_kind,
+      prompt: toJp(e.prompt),
+      meaningPrompt: e.meaning_prompt,
+      options: e.options.map(opt => (typeof opt === 'string' ? opt : toJp(opt))),
       answerIndex: e.answer_index,
-      note: e.note,
+      placeHint: e.place_hint,
+      example: toExample(e.example),
+      nextStep: e.next_step,
+      promotedTo: e.promoted_to ?? null,
+      demotedTo: e.demoted_to ?? null,
     };
   }
   return {
     id: e.id,
-    type: 'multiple_choice',
+    type: 'fill',
+    questionType: e.question_type,
+    stage: e.stage,
     tangoId: e.flashcard_id,
+    photo: toPhoto(e.photo),
     prompt: toJp(e.prompt),
-    options: e.options,
-    answerIndex: e.answer_index,
+    meaningPrompt: e.meaning_prompt,
+    cloze: toExample(e.cloze),
+    answerKind: e.answer_kind,
+    acceptedAnswers: e.accepted_answers,
+    answerDisplay: e.answer_display,
     placeHint: e.place_hint,
-    example: e.example
-      ? {
-          text: e.example.japanese,
-          reading: e.example.reading,
-          en: e.example.english,
-        }
-      : undefined,
+    example: toExample(e.example),
     nextStep: e.next_step,
+    promotedTo: e.promoted_to ?? null,
+    demotedTo: e.demoted_to ?? null,
   };
 }
 
@@ -224,15 +342,35 @@ export const getReviewSession = pick(
 /** Records one answer (POST /flashcards/{id}/review), inside the session when there is one. */
 export const submitAnswer = pick(
   'review',
-  (_tangoId: string, _correct: boolean, _sessionId: string | null) =>
-    mockDelay<void>(undefined, 100),
-  async (tangoId: string, correct: boolean, sessionId: string | null) => {
+  (
+    _tangoId: string,
+    _correct: boolean,
+    _sessionId: string | null,
+    _options?: SubmitAnswerOptions,
+  ) => mockDelay<void>(undefined, 100),
+  async (
+    tangoId: string,
+    correct: boolean,
+    sessionId: string | null,
+    options?: SubmitAnswerOptions,
+  ) => {
+    const qtype = options?.questionType;
+    let rating: 'again' | 'good' | 'easy' =
+      options?.rating ?? (correct ? 'good' : 'again');
+    if (qtype?.startsWith('fill_')) {
+      rating = correct ? 'easy' : 'again';
+    } else if (qtype?.startsWith('mcq_')) {
+      rating = correct ? 'good' : 'again';
+    }
     await request<FlashcardResponse>(
       `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/review`,
       {
         method: 'POST',
         body: {
-          rating: correct ? 'good' : 'again',
+          rating,
+          correct,
+          question_type: qtype,
+          answer: options?.answer,
           session_id: sessionId ?? undefined,
         },
       },

@@ -7,19 +7,21 @@ from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud.firestore import ArrayUnion, AsyncClient, Query
 
-from app.schemas.capture import CaptureResponse, DetectedItem
+from app.schemas.capture import CaptureResponse, DetectedItem, Vertex
 from app.schemas.flashcard import (
+    CaptureFormat,
     Distractors,
     FlashcardResponse,
     GeneratedFlashcardContent,
     HistoryEvent,
+    QuestionType,
     RelatedVocabItem,
     ReviewStats,
     Sighting,
 )
 from app.schemas.review import ReviewSessionRecord, SessionAnswer
 from app.schemas.user import UserProfile
-from app.services import tango_rules
+from app.services import review_rules, tango_rules
 from app.services.review_rules import area_of
 
 Rating = Literal["again", "good", "easy"]
@@ -185,11 +187,13 @@ def next_review_stats(stats: ReviewStats, rating: Rating, now: datetime, strengt
         next_due = now + timedelta(days=min(30, 2 ** min(count - 1, 4)))
     else:  # "easy"
         next_due = now + timedelta(days=min(60, 4 * max(1, count)))
-    return ReviewStats(
-        review_count=count,
-        last_reviewed_at=now,
-        next_review_at=next_due,
-        mastered=tango_rules.is_mastered(strength),
+    return stats.model_copy(
+        update={
+            "review_count": count,
+            "last_reviewed_at": now,
+            "next_review_at": next_due,
+            "mastered": tango_rules.is_mastered(strength),
+        }
     )
 
 
@@ -238,6 +242,7 @@ async def save_flashcard(
     bounding_box: list[Any],
     generated: GeneratedFlashcardContent,
     sighting: Sighting,
+    capture_format: CaptureFormat = "text",
 ) -> FlashcardResponse:
     """Save a newly generated flashcard to users/{uid}/flashcards/{flashcard_id}."""
     now = datetime.now(timezone.utc)
@@ -260,6 +265,7 @@ async def save_flashcard(
         meaning=generated.meaning,
         part_of_speech=generated.part_of_speech,
         kind=generated.kind,
+        capture_format=capture_format,
         use_cases=generated.use_cases,
         related_vocab=[],
         review_stats=ReviewStats(
@@ -267,6 +273,9 @@ async def save_flashcard(
             last_reviewed_at=None,
             next_review_at=now,
             mastered=False,
+            stage="flashcard",
+            stage_streak=0,
+            miss_streak=0,
         ),
         created_at=now,
         strength=0,
@@ -292,11 +301,13 @@ async def add_sighting(
     sighting: Sighting,
     recognized: bool = True,
     count_as_review: bool = False,
+    bounding_box: list[Vertex] | None = None,
 ) -> FlashcardResponse:
     """Record that the Tango was found again (re-catch A3, or camera "seen again" B1).
 
     Recognized: strength +1. Not recognized: treated like a failed review (strength -1).
     With count_as_review, the review schedule moves too.
+    If the card had no photo and this sighting comes from a photo, backfill the photo.
     """
     now = datetime.now(timezone.utc)
     if recognized:
@@ -310,12 +321,18 @@ async def add_sighting(
         sighting_id=sighting.sighting_id,
         strength_after=strength,
     )
+    backfill = review_rules.backfill_photo_fields(card, sighting, bounding_box)
     updates: dict[str, Any] = {
         "sightings": ArrayUnion([sighting.model_dump(mode="python")]),
         "history": ArrayUnion([event.model_dump(mode="python")]),
         "strength": strength,
         "review_stats.mastered": tango_rules.is_mastered(strength),
     }
+    if backfill:
+        updates["image_url"] = backfill["image_url"]
+        updates["capture_id"] = backfill["capture_id"]
+        if "bounding_box" in backfill:
+            updates["bounding_box"] = [v.model_dump(mode="python") for v in backfill["bounding_box"]]
     stats = card.review_stats.model_copy(update={"mastered": tango_rules.is_mastered(strength)})
     if count_as_review:
         stats = next_review_stats(card.review_stats, "good" if recognized else "again", now, strength)
@@ -332,6 +349,7 @@ async def add_sighting(
 
     return card.model_copy(
         update={
+            **backfill,
             "strength": strength,
             "review_stats": stats,
             "sightings": [*card.sightings, sighting],
@@ -465,21 +483,41 @@ async def update_flashcard_review(
     db: AsyncClient,
     uid: str,
     flashcard_id: str,
-    rating: Literal["again", "good", "easy"],
+    rating: Literal["again", "good", "easy"] | None = None,
+    correct: bool | None = None,
+    answer_text: str | None = None,
+    question_type: QuestionType | None = None,
     session_id: str | None = None,
 ) -> FlashcardResponse:
-    """Record a review: update strength, schedule the next review, add a history event.
+    """Record a review: update strength, stage progression, schedule next review, add history.
 
     With a session_id, the answer is also added to that review session.
     """
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
-    strength = tango_rules.apply_review(card.strength, rating)
-    new_stats = next_review_stats(card.review_stats, rating, now, strength)
+
+    # Backend is source of truth for fill-in-the-blank answers when answer_text is sent.
+    if question_type and question_type.startswith("fill_") and answer_text is not None:
+        is_correct = review_rules.check_card_answer(card, question_type, answer_text)
+    elif correct is not None:
+        is_correct = correct
+    else:
+        is_correct = rating != "again"
+
+    effective_rating = review_rules.rating_for_answer(question_type, is_correct, rating)
+    strength = tango_rules.apply_review(card.strength, effective_rating)
+    scheduled_stats = next_review_stats(card.review_stats, effective_rating, now, strength)
+    new_stats = review_rules.next_stage(
+        scheduled_stats,
+        review_rules.capture_format(card),
+        is_correct,
+        has_photo=review_rules.can_fill_gap(card),
+        question_type=question_type,
+    )
     event = tango_rules.history_event(
         now=now,
         type="reviewed",
-        detail=rating,
+        detail=question_type or effective_rating,
         strength_after=strength,
     )
     try:
@@ -500,7 +538,7 @@ async def update_flashcard_review(
     if session_id:
         answer = SessionAnswer(
             flashcard_id=flashcard_id,
-            correct=rating != "again",
+            correct=is_correct,
             strength_before=card.strength,
             strength_after=strength,
             at=now,
@@ -574,13 +612,16 @@ async def record_session_answer(
 async def save_distractors(
     *, db: AsyncClient, uid: str, distractors: dict[str, Distractors]
 ) -> None:
-    """Cache wrong-answer choices on each card. Best effort: a failure only
-    means they get generated again next time."""
+    """Cache wrong-answer choices and meaning synonyms on each card. Best effort:
+    a failure only means they get generated again next time."""
     if not distractors:
         return
     batch = db.batch()
     for flashcard_id, d in distractors.items():
-        batch.update(_flashcard_ref(db, uid, flashcard_id), {"distractors": d.model_dump(mode="python")})
+        updates: dict[str, Any] = {"distractors": d.model_dump(mode="python")}
+        if d.synonyms:
+            updates["meaning_synonyms"] = list(d.synonyms)
+        batch.update(_flashcard_ref(db, uid, flashcard_id), updates)
     try:
         await batch.commit()
     except (GoogleAPICallError, GoogleAuthError):

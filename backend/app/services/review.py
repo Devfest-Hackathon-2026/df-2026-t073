@@ -32,10 +32,9 @@ MAX_CARDS = 200
 SAMPLE_SIZE = 4
 
 EXERCISE_TYPES = [
-    ExerciseType(id="multiple_choice", label="Multiple choice", enabled=True),
-    ExerciseType(id="fill_gap", label="Fill the gap", enabled=True),
-    ExerciseType(id="type_it", label="Type it", enabled=False),
-    ExerciseType(id="say_it", label="Say it", enabled=False),
+    ExerciseType(id="flashcard", label="Flashcard", enabled=True, count=0),
+    ExerciseType(id="mcq", label="Multiple choice", enabled=True, count=0),
+    ExerciseType(id="fill", label="Fill in the blank", enabled=True, count=0),
 ]
 
 
@@ -116,7 +115,7 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
         minutes=rules.estimate_minutes(min(len(due), rules.SESSION_SIZE)),
         place_cue_count=len(place_cue),
         collections=collections,
-        exercise_types=EXERCISE_TYPES,
+        exercise_types=rules.exercise_types_summary(cards),
         total_tango=len(cards),
     )
 
@@ -140,19 +139,21 @@ async def build_session(
     if collection and collection.startswith(rules.LIST_PREFIX):
         chosen = await get_list(db=db, uid=uid, list_id=collection[len(rules.LIST_PREFIX) :])
         list_ids = set(chosen.tango_ids)
-    picked = rules.pick_session_cards(
-        cards, now, collection, area_by_place=area_by_place, list_ids=list_ids
+    picked = rules.order_session_cards(
+        rules.pick_session_cards(
+            cards, now, collection, area_by_place=area_by_place, list_ids=list_ids
+        )
     )
     session_id = f"rs_{uuid.uuid4().hex[:16]}"
 
-    # One Gemini call for every card that has no cached wrong answers yet.
-    missing = [c for c in picked if c.distractors is None]
+    # One Gemini call for every card that has no cached wrong answers or lacks reading distractors.
+    missing = [c for c in picked if c.distractors is None or not c.distractors.readings]
     generated = await generate_distractors(http_client=http_client, cards=missing, language=language)
     await save_distractors(db=db, uid=uid, distractors=generated)
 
     exercises = []
     for position, card in enumerate(picked):
-        found = card.distractors or generated.get(card.flashcard_id)
+        found = generated.get(card.flashcard_id) or card.distractors
         distractors = rules.complete_distractors(card, found, cards)
         exercises.append(rules.build_exercise(card, distractors, position, session_id))
 
