@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -6,16 +5,21 @@ from typing import Any, Literal
 from fastapi import HTTPException, status
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
-from google.cloud.firestore import AsyncClient, Query
+from google.cloud.firestore import ArrayUnion, AsyncClient, Query
 
 from app.schemas.capture import CaptureResponse, DetectedItem
 from app.schemas.flashcard import (
     FlashcardResponse,
     GeneratedFlashcardContent,
+    HistoryEvent,
     RelatedVocabItem,
     ReviewStats,
+    Sighting,
 )
 from app.schemas.user import UserProfile
+from app.services import tango_rules
+
+Rating = Literal["again", "good", "easy"]
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +65,10 @@ async def save_capture(
     capture_id: str,
     image_url: str,
     detected_items: list[DetectedItem],
+    place_id: str | None = None,
+    place_name: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
 ) -> CaptureResponse:
     """Store a processed image capture and its Vision detections in users/{uid}/captures/{capture_id}."""
     now = datetime.now(timezone.utc)
@@ -69,6 +77,10 @@ async def save_capture(
         image_url=image_url,
         detected_items=detected_items,
         created_at=now,
+        place_id=place_id,
+        place_name=place_name,
+        lat=lat,
+        lng=lng,
     )
     doc_ref = (
         db.collection(USERS_COLLECTION)
@@ -146,10 +158,35 @@ async def list_captures(
         ) from exc
 
 
-def make_flashcard_id(capture_id: str, target_word: str) -> str:
-    """Build a deterministic flashcard ID per (capture_id, target_word) to prevent duplicates."""
-    digest = hashlib.sha256(f"{capture_id}:{target_word.strip().lower()}".encode("utf-8")).hexdigest()
-    return f"fc_{digest[:20]}"
+def _flashcard_ref(db: AsyncClient, uid: str, flashcard_id: str) -> Any:
+    return (
+        db.collection(USERS_COLLECTION)
+        .document(uid)
+        .collection(FLASHCARDS_SUBCOLLECTION)
+        .document(flashcard_id)
+    )
+
+
+def make_flashcard_id(uid: str, target_word: str) -> str:
+    """One card per user and word, wherever it was found (see tango_rules)."""
+    return tango_rules.make_flashcard_id(uid, target_word)
+
+
+def next_review_stats(stats: ReviewStats, rating: Rating, now: datetime, strength: int) -> ReviewStats:
+    """Schedule the next review. Simple interval doubling (not SM-2); mastered follows strength."""
+    count = stats.review_count + 1
+    if rating == "again":
+        next_due = now + timedelta(minutes=10)
+    elif rating == "good":
+        next_due = now + timedelta(days=min(30, 2 ** min(count - 1, 4)))
+    else:  # "easy"
+        next_due = now + timedelta(days=min(60, 4 * max(1, count)))
+    return ReviewStats(
+        review_count=count,
+        last_reviewed_at=now,
+        next_review_at=next_due,
+        mastered=tango_rules.is_mastered(strength),
+    )
 
 
 async def get_flashcard_if_exists(
@@ -189,9 +226,17 @@ async def save_flashcard(
     image_url: str,
     bounding_box: list[Any],
     generated: GeneratedFlashcardContent,
+    sighting: Sighting,
 ) -> FlashcardResponse:
     """Save a newly generated flashcard to users/{uid}/flashcards/{flashcard_id}."""
     now = datetime.now(timezone.utc)
+    caught = tango_rules.history_event(
+        now=now,
+        type="caught",
+        detail=sighting.place_name,
+        sighting_id=sighting.sighting_id,
+        strength_after=0,
+    )
     card = FlashcardResponse(
         flashcard_id=flashcard_id,
         capture_id=capture_id,
@@ -203,6 +248,7 @@ async def save_flashcard(
         romaji=generated.romaji,
         meaning=generated.meaning,
         part_of_speech=generated.part_of_speech,
+        kind=generated.kind,
         use_cases=generated.use_cases,
         related_vocab=[],
         review_stats=ReviewStats(
@@ -212,15 +258,12 @@ async def save_flashcard(
             mastered=False,
         ),
         created_at=now,
-    )
-    doc_ref = (
-        db.collection(USERS_COLLECTION)
-        .document(uid)
-        .collection(FLASHCARDS_SUBCOLLECTION)
-        .document(flashcard_id)
+        strength=0,
+        sightings=[sighting],
+        history=[caught],
     )
     try:
-        await doc_ref.set(card.model_dump(mode="python"))
+        await _flashcard_ref(db, uid, flashcard_id).set(card.model_dump(mode="python"))
     except (GoogleAPICallError, GoogleAuthError) as exc:
         logger.exception("Failed to save flashcard %s for uid=%s", flashcard_id, uid)
         raise HTTPException(
@@ -228,6 +271,109 @@ async def save_flashcard(
             detail="Failed to save flashcard to Firestore.",
         ) from exc
     return card
+
+
+async def add_sighting(
+    *,
+    db: AsyncClient,
+    uid: str,
+    card: FlashcardResponse,
+    sighting: Sighting,
+    recognized: bool = True,
+    count_as_review: bool = False,
+) -> FlashcardResponse:
+    """Record that the Tango was found again (re-catch A3, or camera "seen again" B1).
+
+    Recognized: strength +1. Not recognized: treated like a failed review (strength -1).
+    With count_as_review, the review schedule moves too.
+    """
+    now = datetime.now(timezone.utc)
+    if recognized:
+        strength = tango_rules.apply_sighting(card.strength)
+    else:
+        strength = tango_rules.apply_review(card.strength, "again")
+    event = tango_rules.history_event(
+        now=now,
+        type="seen_again",
+        detail=sighting.place_name,
+        sighting_id=sighting.sighting_id,
+        strength_after=strength,
+    )
+    updates: dict[str, Any] = {
+        "sightings": ArrayUnion([sighting.model_dump(mode="python")]),
+        "history": ArrayUnion([event.model_dump(mode="python")]),
+        "strength": strength,
+        "review_stats.mastered": tango_rules.is_mastered(strength),
+    }
+    stats = card.review_stats.model_copy(update={"mastered": tango_rules.is_mastered(strength)})
+    if count_as_review:
+        stats = next_review_stats(card.review_stats, "good" if recognized else "again", now, strength)
+        updates["review_stats"] = stats.model_dump(mode="python")
+        del updates["review_stats.mastered"]
+    try:
+        await _flashcard_ref(db, uid, card.flashcard_id).update(updates)
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to add sighting to %s (uid=%s)", card.flashcard_id, uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to record sighting.",
+        ) from exc
+
+    return card.model_copy(
+        update={
+            "strength": strength,
+            "review_stats": stats,
+            "sightings": [*card.sightings, sighting],
+            "history": [*card.history, event],
+        }
+    )
+
+
+async def remove_sighting(
+    *,
+    db: AsyncClient,
+    uid: str,
+    flashcard_id: str,
+    sighting_id: str,
+) -> FlashcardResponse | None:
+    """Undo one catch: drop the sighting and its history event.
+
+    Deletes the card if that was its only sighting and returns None.
+    Strength goes back to the value after the last remaining event.
+    """
+    card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+    if not any(s.sighting_id == sighting_id for s in card.sightings):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Sighting '{sighting_id}' not found on flashcard '{flashcard_id}'.",
+        )
+    sightings = [s for s in card.sightings if s.sighting_id != sighting_id]
+    if not sightings:
+        await delete_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+        return None
+
+    history: list[HistoryEvent] = [e for e in card.history if e.sighting_id != sighting_id]
+    strength = history[-1].strength_after if history else 0
+    try:
+        await _flashcard_ref(db, uid, flashcard_id).update(
+            {
+                "sightings": [s.model_dump(mode="python") for s in sightings],
+                "history": [e.model_dump(mode="python") for e in history],
+                "strength": strength,
+                "review_stats.mastered": tango_rules.is_mastered(strength),
+            }
+        )
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to remove sighting %s from %s (uid=%s)", sighting_id, flashcard_id, uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to remove sighting.",
+        ) from exc
+
+    stats = card.review_stats.model_copy(update={"mastered": tango_rules.is_mastered(strength)})
+    return card.model_copy(
+        update={"sightings": sightings, "history": history, "strength": strength, "review_stats": stats}
+    )
 
 
 async def get_flashcard(
@@ -253,16 +399,20 @@ async def list_flashcards(
     due_only: bool = False,
     mastered: bool | None = None,
     capture_id: str | None = None,
+    place_id: str | None = None,
     limit: int = 100,
 ) -> list[FlashcardResponse]:
-    """List the user's flashcards, filtering in memory to avoid composite index requirements."""
+    """List the user's flashcards, filtering in memory to avoid composite index requirements.
+
+    The limit applies to the filtered result.
+    """
     col_ref: Any = (
         db.collection(USERS_COLLECTION)
         .document(uid)
         .collection(FLASHCARDS_SUBCOLLECTION)
         .order_by("created_at", direction=Query.DESCENDING)
     )
-    if not due_only and mastered is None and not capture_id:
+    if not due_only and mastered is None and not capture_id and not place_id:
         col_ref = col_ref.limit(limit)
     now = datetime.now(timezone.utc)
     try:
@@ -272,7 +422,12 @@ async def list_flashcards(
             if not data:
                 continue
             card = FlashcardResponse.model_validate(data)
-            if capture_id and card.capture_id != capture_id:
+            if capture_id and not (
+                card.capture_id == capture_id
+                or any(s.capture_id == capture_id for s in card.sightings)
+            ):
+                continue
+            if place_id and not any(s.place_id == place_id for s in card.sightings):
                 continue
             if mastered is not None and card.review_stats.mastered != mastered:
                 continue
@@ -301,37 +456,25 @@ async def update_flashcard_review(
     flashcard_id: str,
     rating: Literal["again", "good", "easy"],
 ) -> FlashcardResponse:
-    """Update spaced-repetition review statistics for a flashcard."""
+    """Record a review: update strength, schedule the next review, add a history event."""
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
-    count = card.review_stats.review_count + 1
-
-    if rating == "again":
-        next_due = now + timedelta(minutes=10)
-        mastered = False
-    elif rating == "good":
-        days = min(30, 2 ** min(count - 1, 4))
-        next_due = now + timedelta(days=days)
-        mastered = count >= 4
-    else:  # "easy"
-        days = min(60, 4 * max(1, count))
-        next_due = now + timedelta(days=days)
-        mastered = count >= 2
-
-    new_stats = ReviewStats(
-        review_count=count,
-        last_reviewed_at=now,
-        next_review_at=next_due,
-        mastered=mastered,
-    )
-    doc_ref = (
-        db.collection(USERS_COLLECTION)
-        .document(uid)
-        .collection(FLASHCARDS_SUBCOLLECTION)
-        .document(flashcard_id)
+    strength = tango_rules.apply_review(card.strength, rating)
+    new_stats = next_review_stats(card.review_stats, rating, now, strength)
+    event = tango_rules.history_event(
+        now=now,
+        type="reviewed",
+        detail=rating,
+        strength_after=strength,
     )
     try:
-        await doc_ref.update({"review_stats": new_stats.model_dump(mode="python")})
+        await _flashcard_ref(db, uid, flashcard_id).update(
+            {
+                "review_stats": new_stats.model_dump(mode="python"),
+                "strength": strength,
+                "history": ArrayUnion([event.model_dump(mode="python")]),
+            }
+        )
     except (GoogleAPICallError, GoogleAuthError) as exc:
         logger.exception("Failed to update review stats for %s (uid=%s)", flashcard_id, uid)
         raise HTTPException(
@@ -339,8 +482,9 @@ async def update_flashcard_review(
             detail="Failed to update flashcard review state.",
         ) from exc
 
-    card.review_stats = new_stats
-    return card
+    return card.model_copy(
+        update={"review_stats": new_stats, "strength": strength, "history": [*card.history, event]}
+    )
 
 
 async def save_related_vocab(

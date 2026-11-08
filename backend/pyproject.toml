@@ -11,3 +11,12 @@ dependencies = [
     "google-cloud-firestore>=2.19.0",
     "pydantic-settings>=2.16.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

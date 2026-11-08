@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -5,18 +6,23 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from app.api.deps import CurrentUser, Db, HttpClient
 from app.schemas.capture import DetectedItem, Vertex
 from app.schemas.flashcard import (
+    FlashcardCatchResponse,
     FlashcardCreateRequest,
     FlashcardResponse,
     FlashcardReviewRequest,
     RelatedVocabItem,
+    SightingCreateRequest,
 )
+from app.services import tango_rules
 from app.services.firestore import (
+    add_sighting,
     delete_flashcard,
     get_capture,
     get_flashcard,
     get_flashcard_if_exists,
     list_flashcards,
     make_flashcard_id,
+    remove_sighting,
     save_flashcard,
     save_related_vocab,
     update_flashcard_review,
@@ -31,7 +37,7 @@ router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 
 @router.post(
     "/generate",
-    response_model=FlashcardResponse,
+    response_model=FlashcardCatchResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_flashcard(
@@ -39,8 +45,12 @@ async def create_flashcard(
     current_user: CurrentUser,
     db: Db,
     http_client: HttpClient,
-) -> FlashcardResponse:
-    """Generate a review flashcard from a selected object or text in a captured picture."""
+) -> FlashcardCatchResponse:
+    """Catch a Tango from a selected object or text in a captured picture.
+
+    One card per user and word: catching a word that already has a card adds a
+    sighting (place and time) to it instead of creating a duplicate.
+    """
     uid = current_user["uid"]
     capture = await get_capture(db=db, uid=uid, capture_id=payload.capture_id)
 
@@ -67,11 +77,22 @@ async def create_flashcard(
             detail="No target word or object could be resolved for flashcard generation.",
         )
 
-    # Deduplicate: return existing flashcard if already generated for this (capture_id, target_word)
-    flashcard_id = make_flashcard_id(payload.capture_id, target_word)
+    # Place: request first, then whatever was stored with the capture.
+    sighting = tango_rules.new_sighting(
+        now=capture.created_at,
+        capture_id=capture.capture_id,
+        place_id=payload.place_id or capture.place_id,
+        place_name=payload.place_name or capture.place_name,
+        lat=payload.lat if payload.lat is not None else capture.lat,
+        lng=payload.lng if payload.lng is not None else capture.lng,
+        image_url=capture.image_url,
+    )
+
+    flashcard_id = make_flashcard_id(uid, target_word)
     existing = await get_flashcard_if_exists(db=db, uid=uid, flashcard_id=flashcard_id)
     if existing is not None:
-        return existing
+        card = await add_sighting(db=db, uid=uid, card=existing, sighting=sighting)
+        return FlashcardCatchResponse(card=card, created=False, sighting_id=sighting.sighting_id)
 
     source_label = matched_item.source_label if matched_item else target_word
     item_type = matched_item.item_type if matched_item else "text"
@@ -82,9 +103,10 @@ async def create_flashcard(
         target_word=target_word,
         source_label=source_label,
         item_type=item_type,
+        language=payload.language,
     )
 
-    return await save_flashcard(
+    card = await save_flashcard(
         db=db,
         uid=uid,
         flashcard_id=flashcard_id,
@@ -93,7 +115,9 @@ async def create_flashcard(
         image_url=capture.image_url,
         bounding_box=bounding_box,
         generated=generated,
+        sighting=sighting,
     )
+    return FlashcardCatchResponse(card=card, created=True, sighting_id=sighting.sighting_id)
 
 
 @router.get("", response_model=list[FlashcardResponse])
@@ -103,15 +127,17 @@ async def get_user_flashcards(
     due_only: bool = False,
     mastered: bool | None = None,
     capture_id: str | None = None,
+    place_id: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
 ) -> list[FlashcardResponse]:
-    """List saved flashcards for later review, optionally filtered by due status or capture."""
+    """List saved flashcards, optionally filtered by due status, capture or place."""
     return await list_flashcards(
         db=db,
         uid=current_user["uid"],
         due_only=due_only,
         mastered=mastered,
         capture_id=capture_id,
+        place_id=place_id,
         limit=limit,
     )
 
@@ -183,3 +209,59 @@ async def remove_flashcard(
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+@router.post(
+    "/{flashcard_id}/sightings",
+    response_model=FlashcardCatchResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_flashcard_sighting(
+    flashcard_id: str,
+    payload: SightingCreateRequest,
+    current_user: CurrentUser,
+    db: Db,
+) -> FlashcardCatchResponse:
+    """The camera spotted a Tango you already have ("seen again").
+
+    Adds a sighting and counts as a review: recognized moves strength up,
+    not recognized moves it down and brings the review sooner.
+    """
+    uid = current_user["uid"]
+    card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+    sighting = tango_rules.new_sighting(
+        now=datetime.now(timezone.utc),
+        capture_id=payload.capture_id,
+        place_id=payload.place_id,
+        place_name=payload.place_name,
+        lat=payload.lat,
+        lng=payload.lng,
+    )
+    updated = await add_sighting(
+        db=db,
+        uid=uid,
+        card=card,
+        sighting=sighting,
+        recognized=payload.recognized,
+        count_as_review=True,
+    )
+    return FlashcardCatchResponse(card=updated, created=False, sighting_id=sighting.sighting_id)
+
+
+@router.delete(
+    "/{flashcard_id}/sightings/{sighting_id}",
+    response_model=FlashcardResponse | None,
+)
+async def remove_flashcard_sighting(
+    flashcard_id: str,
+    sighting_id: str,
+    current_user: CurrentUser,
+    db: Db,
+) -> FlashcardResponse | None:
+    """Undo one catch. Returns the updated card, or null if the card was deleted
+    because that was its only sighting."""
+    return await remove_sighting(
+        db=db,
+        uid=current_user["uid"],
+        flashcard_id=flashcard_id,
+        sighting_id=sighting_id,
+    )

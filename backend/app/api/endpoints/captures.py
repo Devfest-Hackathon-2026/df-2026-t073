@@ -43,8 +43,16 @@ async def create_capture(
     current_user: CurrentUser,
     db: Db,
     http_client: HttpClient,
+    place_id: Annotated[str | None, Query(description="Raw-image uploads: place ID.")] = None,
+    place_name: Annotated[str | None, Query(description="Raw-image uploads: place name.")] = None,
+    lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    lng: Annotated[float | None, Query(ge=-180, le=180)] = None,
 ) -> CaptureResponse:
-    """Upload a picture (as JSON base64 or raw image binary), run Cloud Vision object/text recognition, and store the capture."""
+    """Upload a picture (as JSON base64 or raw image binary), run Cloud Vision object/text recognition, and store the capture.
+
+    Where the photo was taken is optional: JSON uploads send it in the body,
+    raw image uploads as query parameters.
+    """
     content_type = (request.headers.get("content-type") or "").lower().split(";", 1)[0].strip()
     content_length = request.headers.get("content-length")
 
@@ -71,6 +79,10 @@ async def create_capture(
         image_bytes, mime_type = decode_base64_image(
             payload.image_base64, payload.mime_type
         )
+        place_id = payload.place_id
+        place_name = payload.place_name
+        lat = payload.lat
+        lng = payload.lng
     else:
         # Validate MIME type and Content-Length header before reading the body into memory
         mime_type = validate_mime_type(content_type)
@@ -106,6 +118,10 @@ async def create_capture(
         capture_id=capture_id,
         image_url=image_url,
         detected_items=detected_items,
+        place_id=place_id,
+        place_name=place_name,
+        lat=lat,
+        lng=lng,
     )
 
 

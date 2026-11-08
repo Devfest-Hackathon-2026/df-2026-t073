@@ -25,6 +25,7 @@ async def generate_flashcard_content(
     target_word: str,
     source_label: str | None = None,
     item_type: str = "object",
+    language: str = "English",
 ) -> GeneratedFlashcardContent:
     """Generate structured Japanese vocabulary flashcard content via Gemini Structured Outputs."""
     api_key = _require_gemini_key()
@@ -44,10 +45,14 @@ async def generate_flashcard_content(
         "- kanji: The standard Japanese writing (kanji/kana, or katakana for loanwords).\n"
         "- reading: The full hiragana reading (furigana).\n"
         "- romaji: Standard Hepburn romaji.\n"
-        "- meaning: Clear, concise English translation and meaning.\n"
+        f"- meaning: Clear, concise meaning, written in {language}.\n"
         "- part_of_speech: Grammatical category (e.g., Noun, Ichidan Verb, i-Adjective, Expression).\n"
-        "- use_cases: 2 practical, natural everyday Japanese example sentences using this word, "
-        "each with its full hiragana reading and English translation."
+        "- kind: 'word' for a single word, 'phrase' for a multi-word expression or sentence, "
+        "'object' for a physical thing seen in a photo, 'menu_item' for food or drink on a menu.\n"
+        "- use_cases: exactly 2 natural example sentences a learner might hear in daily life: "
+        "one with register 'easy' (plain or simple polite) and one with register 'keigo' "
+        "(how shop staff or official signs would say it). Each has the Japanese, its full "
+        f"hiragana reading, and a translation in {language} (field name 'english')."
     )
 
     body = {
@@ -63,6 +68,10 @@ async def generate_flashcard_content(
                     "romaji": {"type": "STRING"},
                     "meaning": {"type": "STRING"},
                     "part_of_speech": {"type": "STRING"},
+                    "kind": {
+                        "type": "STRING",
+                        "enum": ["word", "phrase", "object", "menu_item"],
+                    },
                     "use_cases": {
                         "type": "ARRAY",
                         "items": {
@@ -71,8 +80,9 @@ async def generate_flashcard_content(
                                 "japanese": {"type": "STRING"},
                                 "reading": {"type": "STRING"},
                                 "english": {"type": "STRING"},
+                                "register": {"type": "STRING", "enum": ["easy", "keigo"]},
                             },
-                            "required": ["japanese", "reading", "english"],
+                            "required": ["japanese", "reading", "english", "register"],
                         },
                     },
                 },
@@ -82,6 +92,7 @@ async def generate_flashcard_content(
                     "romaji",
                     "meaning",
                     "part_of_speech",
+                    "kind",
                     "use_cases",
                 ],
             },
