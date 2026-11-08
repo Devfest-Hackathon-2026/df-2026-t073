@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getToday, searchPlaces } from '../../api/places';
+import { type Coords, getCurrentCoords } from '../../location/location';
 import { getReviewCard } from '../../api/review';
 import { Jp } from '../../components/Jp';
 import { TangoMap } from '../../components/TangoMap';
@@ -64,9 +65,18 @@ export function TodayScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const today = useAsync(getToday);
+  // Device position: the "you are here" pin, and search results near you.
+  const [here, setHere] = useState<Coords | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getCurrentCoords().then(coords => alive && setHere(coords));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const review = useAsync(getReviewCard);
   const [query, setQuery] = useState('');
-  const results = useAsync(() => searchPlaces(query), query);
+  const results = useAsync(() => searchPlaces(query, here), query);
 
   const [height, setHeight] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -146,7 +156,24 @@ export function TodayScreen(): React.JSX.Element {
   const onLayout = (e: LayoutChangeEvent) =>
     setHeight(e.nativeEvent.layout.height);
 
-  const allPins = today.data?.pins;
+  const allPins = useMemo(() => {
+    const fromServer = today.data?.pins ?? [];
+    // Live data has no "me" pin; add one from the device position.
+    if (!here || fromServer.some(p => p.kind === 'me')) {
+      return fromServer;
+    }
+    const me: MapPin = {
+      id: 'pin-me',
+      label: '',
+      count: 0,
+      x: 0.5,
+      y: 0.5,
+      lat: here.lat,
+      lng: here.lng,
+      kind: 'me',
+    };
+    return [...fromServer, me];
+  }, [today.data, here]);
   const pins = useMemo(
     () =>
       (allPins ?? []).filter(pin => {
@@ -341,14 +368,19 @@ function AreaCard({
           variant="secondary"
           style={base.grow}
           onPress={() =>
-            nav.navigate('ReviewSession', { collectionId: area.id })
+            nav.navigate('ReviewSession', { collectionId: `area:${area.id}` })
           }
         />
-        <Button
-          label="Plan a visit"
-          style={base.grow}
-          onPress={() => nav.navigate('Prepare', { placeId: area.planPlaceId })}
-        />
+        {area.planPlaceId ? (
+          <Button
+            label="Plan a visit"
+            style={base.grow}
+            onPress={() =>
+              area.planPlaceId &&
+              nav.navigate('Prepare', { placeId: area.planPlaceId })
+            }
+          />
+        ) : null}
       </View>
     </Card>
   );

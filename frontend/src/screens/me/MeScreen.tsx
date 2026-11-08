@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { checkBackendAuth, checkBackendHealth } from '../../api/health';
+import { searchPlaces } from '../../api/places';
 import { getProfile, updateProfile } from '../../api/user';
 import { Jp } from '../../components/Jp';
 import { Screen } from '../../components/layout';
@@ -16,6 +17,7 @@ import { API_BASE_URL, LIVE_APIS, USE_MOCKS } from '../../config';
 import { useAsync } from '../../hooks/useAsync';
 import { useAuth } from '../../state/AuthContext';
 import { useSettings } from '../../state/SettingsContext';
+import type { HomeArea, Place } from '../../types';
 import { base } from '../../styles/base';
 import {
   colors,
@@ -280,6 +282,11 @@ export function MeScreen(): React.JSX.Element {
         ) : null}
       </Card>
 
+      <HomeAreaCard
+        current={profile.data?.homeArea ?? null}
+        onSaved={profile.reload}
+      />
+
       <Card>
         <Text style={base.label}>Developer</Text>
         <Text style={base.caption}>
@@ -318,6 +325,97 @@ export function MeScreen(): React.JSX.Element {
   );
 }
 
+const HOME_RADIUS_M = 500;
+
+/** Privacy: pins within 500 m of home are never shown on the map. */
+function HomeAreaCard({
+  current,
+  onSaved,
+}: {
+  current: HomeArea | null;
+  onSaved: () => void;
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const results = useAsync(
+    () =>
+      query.trim().length >= 2 ? searchPlaces(query) : Promise.resolve([]),
+    query,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const choose = async (place: Place) => {
+    setError(null);
+    try {
+      await updateProfile({
+        homeArea: {
+          label: place.name.meaning || place.name.text,
+          lat: place.lat,
+          lng: place.lng,
+          radiusM: HOME_RADIUS_M,
+        },
+      });
+      setOpen(false);
+      setQuery('');
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save');
+    }
+  };
+
+  return (
+    <Card>
+      <Text style={base.label}>Privacy</Text>
+      <View style={base.rowBetween}>
+        <View style={base.grow}>
+          <Text style={styles.rowLabel}>Home area</Text>
+          <Text style={base.caption}>
+            {current
+              ? `${current.label} · nothing within ${current.radiusM} m is pinned`
+              : 'Not set. Pins near home are never shown once you set it.'}
+          </Text>
+        </View>
+        <Text
+          accessibilityRole="button"
+          style={styles.editLink}
+          onPress={() => setOpen(o => !o)}
+        >
+          {open ? 'Cancel' : current ? 'Change' : 'Set'}
+        </Text>
+      </View>
+      {open ? (
+        <View style={base.stackSm}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="⌕  A station or place near home"
+            placeholderTextColor={colors.textMuted}
+            style={styles.search}
+            autoFocus
+            accessibilityLabel="Search for your home area"
+          />
+          {(results.data ?? []).map(place => (
+            <Pressable
+              key={place.id}
+              accessibilityRole="button"
+              onPress={() => choose(place)}
+              style={styles.language}
+            >
+              <Text style={styles.rowLabel}>
+                {place.name.meaning || place.name.text}
+              </Text>
+              <Text style={base.caption}>
+                {[place.area, place.category].filter(Boolean).join(' · ')}
+              </Text>
+            </Pressable>
+          ))}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
 function Stat({
   value,
   label,
@@ -347,6 +445,13 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     color: colors.accent,
+  },
+  search: {
+    ...base.text,
+    backgroundColor: colors.bg,
+    borderRadius: radii.pill,
+    paddingHorizontal: space.lg,
+    minHeight: sizes.touch,
   },
   nameInput: {
     ...base.heading,

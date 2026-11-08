@@ -159,6 +159,7 @@ export function CaptureScreen({
   const [phase, setPhase] = useState<Phase>('live');
   const [place, setPlace] = useState<CurrentPlace>({
     name: 'Finding your place…',
+    placeId: null,
     lat: null,
     lng: null,
   });
@@ -166,6 +167,7 @@ export function CaptureScreen({
   // Sent with every catch so the Tango gets a pin on the map.
   const where = {
     placeName,
+    placeId: place.placeId ?? undefined,
     lat: place.lat ?? undefined,
     lng: place.lng ?? undefined,
   };
@@ -184,7 +186,14 @@ export function CaptureScreen({
   useEffect(() => {
     getCurrentPlace()
       .then(setPlace)
-      .catch(() => setPlace({ name: 'Unknown place', lat: null, lng: null }));
+      .catch(() =>
+        setPlace({
+          name: 'Unknown place',
+          placeId: null,
+          lat: null,
+          lng: null,
+        }),
+      );
     getTodaysCatch()
       .then(list => setCount(list.length))
       .catch(() => {});

@@ -3,6 +3,7 @@ import {
   SELECTION_READING,
   todaysCatch,
 } from '../mocks/capture';
+import { getCurrentCoords } from '../location/location';
 import { PLACES } from '../mocks/places';
 import { TANGO } from '../mocks/tango';
 import type {
@@ -14,6 +15,7 @@ import type {
   Tango,
 } from '../types';
 import { API_V1, ApiError, mockDelay, pick, request } from './client';
+import type { PlaceResponse } from './places';
 import {
   type FlashcardCatchResponse,
   flashcardToTango,
@@ -30,22 +32,54 @@ export interface CaptureResponse {
 
 export interface CurrentPlace {
   name: string;
+  /** Google place id (or built-in id) when the spot matched a known place. */
+  placeId: string | null;
   lat: number | null;
   lng: number | null;
 }
 
-/** Where the user is now. Mock: a fixed place. TODO(location): device GPS + reverse geocode. */
+/**
+ * Where the user is now: device GPS, then the place at that spot.
+ * Mock: a fixed place.
+ */
 export const getCurrentPlace = pick(
   'places',
   () => {
     const place = PLACES['nakano-supermarket'];
     return mockDelay<CurrentPlace>(
-      { name: CURRENT_PLACE_NAME, lat: place.lat, lng: place.lng },
+      {
+        name: CURRENT_PLACE_NAME,
+        placeId: place.id,
+        lat: place.lat,
+        lng: place.lng,
+      },
       100,
     );
   },
-  // TODO confirm endpoint with backend (reverse geocode via Google Maps)
-  () => request<CurrentPlace>(`${API_V1}/places/nearby`),
+  async (): Promise<CurrentPlace> => {
+    const coords = await getCurrentCoords();
+    if (!coords) {
+      return { name: 'Location off', placeId: null, lat: null, lng: null };
+    }
+    try {
+      const place = await request<PlaceResponse | null>(
+        `${API_V1}/places/nearby`,
+        { query: { lat: coords.lat, lng: coords.lng } },
+      );
+      if (place) {
+        // English name reads best in the place pill; Japanese is in the Tango itself.
+        return {
+          name: place.name.meaning || place.name.text,
+          placeId: place.id,
+          lat: coords.lat,
+          lng: coords.lng,
+        };
+      }
+    } catch {
+      // Lookup failed: keep the coordinates so the catch still gets a pin.
+    }
+    return { name: 'Near you', placeId: null, ...coords };
+  },
 );
 
 /** Uploads a photo for server-side recognition (Cloud Vision / Gemini). */
@@ -70,6 +104,7 @@ export const uploadCapture = pick(
 /** Where a Tango was found, sent with each catch. */
 export interface PlaceInput {
   placeName: string;
+  placeId?: string;
   lat?: number;
   lng?: number;
 }
@@ -116,7 +151,14 @@ export const catchTango = pick(
     return mockDelay<CatchResult>({ tango, created: true, sightingId: null });
   },
   // POST /api/v1/flashcards/generate. One card per word: a repeat catch adds a sighting.
-  async ({ detection, captureId, placeName, lat, lng }: CatchInput) => {
+  async ({
+    detection,
+    captureId,
+    placeName,
+    placeId,
+    lat,
+    lng,
+  }: CatchInput) => {
     if (!captureId) {
       throw new ApiError(
         'Upload the photo with uploadCapture() before catching.',
@@ -130,6 +172,7 @@ export const catchTango = pick(
           capture_id: captureId,
           item_id: detection?.item_id,
           selected_text: detection?.japanese_text,
+          place_id: placeId,
           place_name: placeName,
           lat,
           lng,
@@ -226,6 +269,7 @@ export const recordRecognition = pick(
         method: 'POST',
         body: {
           recognized,
+          place_id: where?.placeId,
           place_name: where?.placeName,
           lat: where?.lat,
           lng: where?.lng,

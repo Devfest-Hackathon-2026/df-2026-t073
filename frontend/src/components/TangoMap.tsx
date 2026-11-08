@@ -24,8 +24,13 @@ const CENTER = { x: 0.5, y: 0.5 };
 const LABELLED_ANCHOR = { x: 0.5, y: 0.3 };
 /** Breathing room around the outermost pins, in pixels. */
 const FIT_EDGE = { top: 80, right: 80, bottom: 80, left: 80 };
-/** Zoom used when there is a single pin (a few streets around it). */
-const SINGLE_PIN_DELTA = 0.008;
+/** Zoom used when there is a single pin (the neighborhood around it). */
+const SINGLE_PIN_DELTA = 0.025;
+/**
+ * Closest zoom allowed. Past this, Google's Android renderer draws road names
+ * even when the style hides all labels.
+ */
+const MAX_ZOOM = 14.5;
 const COMPACT_EDGE = { top: 40, right: 40, bottom: 40, left: 40 };
 
 /** Koenji to Nakano, with Asagaya at the west edge. */
@@ -125,6 +130,7 @@ export function TangoMap({
       }}
       provider={PROVIDER_GOOGLE}
       customMapStyle={TANGO_MAP_STYLE}
+      maxZoomLevel={MAX_ZOOM}
       mapPadding={{ top: topInset, right: 0, bottom: bottomInset, left: 0 }}
       showsBuildings={false}
       showsIndoors={false}

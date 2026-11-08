@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { updateProfile } from '../../api/user';
+import { requestLocationPermission } from '../../location/location';
 import { MapPlaceholder, Screen } from '../../components/layout';
 import { Button } from '../../components/ui';
 import {
@@ -63,8 +64,11 @@ export function WelcomeScreen(): React.JSX.Element {
   const { settings, update } = useSettings();
   const [step, setStep] = useState<0 | 1>(0);
 
-  const finish = (locationAllowed: boolean) => {
-    // No real location permission in this pass; we only record the choice.
+  const finish = async (wantsLocation: boolean) => {
+    // Android shows its own permission dialog; the app works either way.
+    const locationAllowed = wantsLocation
+      ? await requestLocationPermission().catch(() => false)
+      : false;
     update({ locationAllowed, onboarded: true, dayOne: true });
     // Best effort: the app works offline/signed out; the level is also kept locally.
     updateProfile({ readingLevel: settings.readingLevel }).catch(() => {});

@@ -140,42 +140,47 @@ export const PALE_DAWN_MAP_STYLE: MapStyleElement[] = [
 ];
 
 /**
- * Pale Dawn colors with every Google label and icon removed: area names come
- * from our own pins instead.
+ * Pale Dawn colors with no Google labels or icons: area names come from our
+ * own pins. Built hide-everything-first (like MINIMAL_MAP_STYLE) because the
+ * Android renderer ignored label-hiding rules layered on top of Pale Dawn at
+ * street zoom.
  */
 export const PALE_DAWN_NO_LABELS_MAP_STYLE: MapStyleElement[] = [
-  ...PALE_DAWN_MAP_STYLE,
-  { elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { stylers: [{ visibility: 'off' }] },
   {
-    featureType: 'administrative',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
+    featureType: 'landscape',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }, { color: pd.land }],
   },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
   {
     featureType: 'poi.park',
     elementType: 'geometry',
-    stylers: [{ visibility: 'on' }],
+    stylers: [{ visibility: 'on' }, { color: pd.park }],
   },
   {
-    featureType: 'poi.park',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
-  },
-  {
-    featureType: 'transit',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
-  },
-  {
-    featureType: 'administrative',
+    featureType: 'water',
     elementType: 'geometry',
-    stylers: [{ visibility: 'off' }],
+    stylers: [{ visibility: 'on' }, { color: pd.water }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }, { color: pd.highway }],
+  },
+  {
+    featureType: 'road.arterial',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }, { color: pd.arterial }],
+  },
+  {
+    featureType: 'road.local',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }, { color: pd.local }],
+  },
+  {
+    featureType: 'transit.line',
+    elementType: 'geometry',
+    stylers: [{ visibility: 'on' }, { color: pd.highway }],
   },
 ];
 

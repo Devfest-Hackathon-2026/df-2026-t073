@@ -13,10 +13,12 @@ export interface Place {
   id: string;
   name: JpText;
   category: string;
-  area: 'Koenji' | 'Nakano' | 'Asagaya' | 'Oshiage';
+  /** Neighborhood, e.g. "Koenji". */
+  area: string;
   lat: number;
   lng: number;
   note?: string;
+  address?: string;
 }
 
 export interface Visit {
@@ -96,7 +98,7 @@ export interface MapArea {
   sample: Tango[];
   moreCount: number;
   /** Place to plan a visit to from this area. */
-  planPlaceId: string;
+  planPlaceId: string | null;
 }
 
 export interface TodaySummary {

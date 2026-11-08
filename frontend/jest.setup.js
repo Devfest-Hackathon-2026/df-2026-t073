@@ -70,3 +70,11 @@ jest.mock('react-native-maps', () => {
   const Marker = props => <View {...props} />;
   return { __esModule: true, default: MapView, Marker, PROVIDER_GOOGLE: 'google' };
 });
+
+jest.mock('@react-native-community/geolocation', () => ({
+  __esModule: true,
+  default: {
+    setRNConfiguration: () => {},
+    getCurrentPosition: (_ok, fail) => fail({ code: 1, message: 'No location in tests' }),
+  },
+}));

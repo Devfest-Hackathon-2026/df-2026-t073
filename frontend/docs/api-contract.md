@@ -66,28 +66,37 @@ Mapping `FlashcardResponse` → `Tango` (`flashcardToTango()` in `src/api/tango.
 
 Paths are marked `// TODO confirm endpoint` in `frontend/src/api/`. All under `/api/v1`.
 
-### Places and visits (`api/places.ts`)
+### Places and visits (`api/places.ts`) — **implemented in P4**
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/today` | – | `TodaySummary` |
-| GET | `/places/search?q=` | – | `Place[]` (Google Maps Places, proxied so the key stays server-side) |
-| GET | `/places/{placeId}` | – | `Place` |
-| GET | `/places/nearby?lat=&lng=` | – | `{ name: string }` (reverse geocode for the camera's place pill) |
-| GET | `/visits` | – | `Visit[]` |
-| POST | `/visits` | `{ placeId: string, when: string }` | `Visit` |
+| GET | `/api/v1/today` | – | `TodayResponse` |
+| GET | `/api/v1/places/search?q=&lat=&lng=` | results near lat/lng first | `Place[]` |
+| GET | `/api/v1/places/nearby?lat=&lng=` | – | `Place \| null` (closest within ~120 m) |
+| GET | `/api/v1/places/{place_id}` | – | `Place` |
+| GET | `/api/v1/visits` | – | `Visit[]` (upcoming, soonest first; kept 3 h after start) |
+| POST | `/api/v1/visits` | `{ place_id, when }` | `Visit` |
+| DELETE | `/api/v1/visits/{visit_id}` | – | 204 |
 
 ```ts
-interface JpText { text: string; reading?: string; romaji?: string; meaning?: string }
-interface Place {
-  id: string; name: JpText; category: string;
-  area: string; lat: number; lng: number; note?: string;
+// snake_case on the wire (backend/app/schemas/place.py)
+interface JpName { text: string; reading: string | null; romaji: string | null; meaning: string | null }
+interface Place { id: string; name: JpName; category: string; area: string; lat: number; lng: number; address: string }
+interface Visit { visit_id: string; place: Place; when: string; tango_count: number }
+interface TodayResponse {
+  user_name: string;
+  up_next: Visit | null;
+  pins: { id: string; label: string; count: number; lat: number; lng: number;
+          kind: 'tango' | 'next'; area_id: string | null; stars: number }[];
+  areas: { id: string; label: string; tango_count: number; place_count: number;
+           sample: FlashcardResponse[]; more_count: number; plan_place_id: string | null }[];
+  starter_tango: JpName[];
 }
-interface Visit { id: string; place: Place; when: string; tangoCount: number }
-interface MapPin { id: string; label: string; count: number; x: number; y: number; kind: 'tango' | 'next' | 'me' }
-interface TodaySummary { userName: string; upNext: Visit | null; pins: MapPin[]; starterTango: JpText[] }
 ```
-`MapPin.x/y` are placeholder-map positions; once a map SDK is in, pins should carry `lat/lng` instead.
+
+- Places come from Google Places API (New) with `GOOGLE_PLACES_API_KEY` (Japanese + English names fetched in parallel, cached in `places/{id}`). Without the key, a built-in list of Koenji/Nakano/Asagaya places is used (ids `builtin:*`).
+- Today pins: one per area (from the place cache, else the sighting's place name). **Sightings inside the user's home area are never pinned.**
+- The "you are here" pin is added by the app from device GPS. Review accepts `collection=area:<area_id>` for the area card's "Review these".
 
 ### Prepare (`api/prepare.ts`)
 

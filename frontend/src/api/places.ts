@@ -1,8 +1,10 @@
 import { MAP_PINS, PLACES, USER_NAME, VISITS } from '../mocks/places';
 import { TANGO } from '../mocks/tango';
 import { STARTER_TANGO } from '../mocks/user';
-import type { MapArea, Place, TodaySummary, Visit } from '../types';
+import type { Coords } from '../location/location';
+import type { JpText, MapArea, Place, TodaySummary, Visit } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
+import { flashcardToTango, type FlashcardResponse } from './tango';
 
 const MAP_AREAS: MapArea[] = [
   {
@@ -39,6 +41,89 @@ const MAP_AREAS: MapArea[] = [
   },
 ];
 
+// ---- Backend shapes (backend/app/schemas/place.py) ----
+
+interface JpNameResponse {
+  text: string;
+  reading: string | null;
+  romaji: string | null;
+  meaning: string | null;
+}
+
+export interface PlaceResponse {
+  id: string;
+  name: JpNameResponse;
+  category: string;
+  area: string;
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+interface VisitResponse {
+  visit_id: string;
+  place: PlaceResponse;
+  when: string;
+  tango_count: number;
+}
+
+interface TodayResponse {
+  user_name: string;
+  up_next: VisitResponse | null;
+  pins: {
+    id: string;
+    label: string;
+    count: number;
+    lat: number;
+    lng: number;
+    kind: 'tango' | 'next';
+    area_id: string | null;
+    stars: number;
+  }[];
+  areas: {
+    id: string;
+    label: string;
+    tango_count: number;
+    place_count: number;
+    sample: FlashcardResponse[];
+    more_count: number;
+    plan_place_id: string | null;
+  }[];
+  starter_tango: JpNameResponse[];
+}
+
+function toJp(n: JpNameResponse): JpText {
+  return {
+    text: n.text,
+    reading: n.reading ?? undefined,
+    romaji: n.romaji ?? undefined,
+    meaning: n.meaning ?? undefined,
+  };
+}
+
+export function toPlace(p: PlaceResponse): Place {
+  return {
+    id: p.id,
+    name: toJp(p.name),
+    category: p.category,
+    area: p.area,
+    lat: p.lat,
+    lng: p.lng,
+    address: p.address || undefined,
+  };
+}
+
+function toVisit(v: VisitResponse): Visit {
+  return {
+    id: v.visit_id,
+    place: toPlace(v.place),
+    when: v.when,
+    tangoCount: v.tango_count,
+  };
+}
+
+// ---- API ----
+
 // Today screen: greeting, map pins and areas, next visit, day-one starter Tango.
 export const getToday = pick(
   'places',
@@ -50,13 +135,41 @@ export const getToday = pick(
       areas: MAP_AREAS,
       starterTango: STARTER_TANGO,
     }),
-  // TODO confirm endpoint with backend
-  () => request<TodaySummary>(`${API_V1}/today`),
+  async (): Promise<TodaySummary> => {
+    const r = await request<TodayResponse>(`${API_V1}/today`);
+    return {
+      userName: r.user_name,
+      upNext: r.up_next ? toVisit(r.up_next) : null,
+      pins: r.pins.map(p => ({
+        id: p.id,
+        label: p.label,
+        count: p.count,
+        x: 0.5,
+        y: 0.5,
+        lat: p.lat,
+        lng: p.lng,
+        kind: p.kind,
+        areaId: p.area_id ?? undefined,
+        stars: p.stars,
+      })),
+      areas: r.areas.map(a => ({
+        id: a.id,
+        label: a.label,
+        tangoCount: a.tango_count,
+        placeCount: a.place_count,
+        sample: a.sample.map(flashcardToTango),
+        moreCount: a.more_count,
+        planPlaceId: a.plan_place_id,
+      })),
+      starterTango: r.starter_tango.map(toJp),
+    };
+  },
 );
 
+/** Place search (Google Places on the backend). Results near `near` come first. */
 export const searchPlaces = pick(
   'places',
-  (query: string) => {
+  (query: string, _near?: Coords | null) => {
     const q = query.trim().toLowerCase();
     const results = Object.values(PLACES).filter(
       place =>
@@ -68,40 +181,67 @@ export const searchPlaces = pick(
     );
     return mockDelay<Place[]>(results, 200);
   },
-  // TODO confirm endpoint with backend (Google Maps Places search, proxied by the backend)
-  (query: string) =>
-    request<Place[]>(`${API_V1}/places/search`, { query: { q: query } }),
+  async (query: string, near?: Coords | null) => {
+    if (!query.trim()) {
+      return [];
+    }
+    const places = await request<PlaceResponse[]>(`${API_V1}/places/search`, {
+      query: { q: query, lat: near?.lat, lng: near?.lng },
+    });
+    return places.map(toPlace);
+  },
 );
 
 export const getPlace = pick(
   'places',
   (placeId: string) =>
     mockDelay<Place>(PLACES[placeId] ?? PLACES['menya-taiki']),
-  // TODO confirm endpoint with backend
-  (placeId: string) =>
-    request<Place>(`${API_V1}/places/${encodeURIComponent(placeId)}`),
+  async (placeId: string) =>
+    toPlace(
+      await request<PlaceResponse>(
+        `${API_V1}/places/${encodeURIComponent(placeId)}`,
+      ),
+    ),
 );
 
 export const listVisits = pick(
   'places',
   () => mockDelay<Visit[]>(VISITS),
-  // TODO confirm endpoint with backend
-  () => request<Visit[]>(`${API_V1}/visits`),
+  async () => (await request<VisitResponse[]>(`${API_V1}/visits`)).map(toVisit),
 );
 
 export const createVisit = pick(
   'places',
-  (placeId: string, when: string) =>
-    mockDelay<Visit>({
+  (placeId: string, when: string) => {
+    const visit: Visit = {
       id: `visit-${Date.now()}`,
       place: PLACES[placeId] ?? PLACES['menya-taiki'],
       when,
       tangoCount: 0,
-    }),
-  // TODO confirm endpoint with backend
-  (placeId: string, when: string) =>
-    request<Visit>(`${API_V1}/visits`, {
-      method: 'POST',
-      body: { placeId, when },
+    };
+    VISITS.push(visit);
+    return mockDelay<Visit>(visit);
+  },
+  async (placeId: string, when: string) =>
+    toVisit(
+      await request<VisitResponse>(`${API_V1}/visits`, {
+        method: 'POST',
+        body: { place_id: placeId, when },
+      }),
+    ),
+);
+
+export const deleteVisit = pick(
+  'places',
+  (visitId: string) => {
+    const index = VISITS.findIndex(v => v.id === visitId);
+    if (index >= 0) {
+      VISITS.splice(index, 1);
+    }
+    return mockDelay<void>(undefined, 100);
+  },
+  (visitId: string) =>
+    request<void>(`${API_V1}/visits/${encodeURIComponent(visitId)}`, {
+      method: 'DELETE',
     }),
 );

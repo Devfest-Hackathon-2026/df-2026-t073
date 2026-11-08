@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { createVisit, getPlace } from '../../api/places';
 import { getBriefing } from '../../api/prepare';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
@@ -21,7 +22,27 @@ export function PrepareScreen({
   navigation,
 }: RootScreenProps<'Prepare'>): React.JSX.Element {
   const { placeId } = route.params;
-  const briefing = useAsync(() => getBriefing(placeId), placeId);
+  // Header shows the real place (search result or visit); the briefing itself
+  // is still mock until P5.
+  const briefing = useAsync(async () => {
+    const [b, p] = await Promise.all([
+      getBriefing(placeId),
+      getPlace(placeId).catch(() => null),
+    ]);
+    return p ? { ...b, place: p } : b;
+  }, placeId);
+  const [planned, setPlanned] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+
+  const plan = async (label: string, when: Date) => {
+    setPlanError(null);
+    try {
+      await createVisit(placeId, when.toISOString());
+      setPlanned(label);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Could not save');
+    }
+  };
 
   return (
     <Screen
@@ -60,9 +81,34 @@ export function PrepareScreen({
             </View>
 
             <Card>
+              <Text style={base.heading}>Add to your plans</Text>
+              {planned ? (
+                <Text style={styles.planned}>
+                  ✓ Planned for {planned.toLowerCase()}. It's up next on Today.
+                </Text>
+              ) : (
+                <View style={base.wrap}>
+                  {planOptions().map(option => (
+                    <Chip
+                      key={option.label}
+                      label={option.label}
+                      tone="outline"
+                      onPress={() => plan(option.label, option.when)}
+                    />
+                  ))}
+                </View>
+              )}
+              {planError ? <Text style={styles.error}>{planError}</Text> : null}
+            </Card>
+
+            <Card>
               <SectionTitle
                 en="What to expect"
-                jp={{ text: 'お店の流れ', reading: 'おみせのながれ', romaji: 'omise no nagare' }}
+                jp={{
+                  text: 'お店の流れ',
+                  reading: 'おみせのながれ',
+                  romaji: 'omise no nagare',
+                }}
                 jpFrom="some"
               />
               {data.steps.map((step, i) => (
@@ -81,7 +127,9 @@ export function PrepareScreen({
                   </View>
                   <Text
                     style={[base.caption, base.grow]}
-                    onPress={() => navigation.navigate('TangoDetail', { id: tango.id })}
+                    onPress={() =>
+                      navigation.navigate('TangoDetail', { id: tango.id })
+                    }
                   >
                     {tango.meaning} ›
                   </Text>
@@ -122,7 +170,32 @@ export function PrepareScreen({
   );
 }
 
+/** Quick plan choices at noon local time: today, tomorrow, Saturday. */
+function planOptions(): { label: string; when: Date }[] {
+  const at = (daysAhead: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    d.setHours(12, 0, 0, 0);
+    return d;
+  };
+  const toSaturday = (6 - new Date().getDay() + 7) % 7 || 7;
+  return [
+    { label: 'Today', when: at(0) },
+    { label: 'Tomorrow', when: at(1) },
+    { label: 'This weekend', when: at(toSaturday) },
+  ];
+}
+
 const styles = StyleSheet.create({
+  planned: {
+    ...base.text,
+    color: colors.positive,
+    fontWeight: fontWeights.bold,
+  },
+  error: {
+    ...base.caption,
+    color: colors.caution,
+  },
   center: {
     textAlign: 'center',
   },
