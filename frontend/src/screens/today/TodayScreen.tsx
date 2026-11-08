@@ -215,6 +215,11 @@ export function TodayScreen(): React.JSX.Element {
         <TextInput
           value={query}
           onChangeText={setQuery}
+          onFocus={() => {
+            if (!expanded) {
+              snap(true);
+            }
+          }}
           placeholder="⌕  Where are you going next?"
           placeholderTextColor={colors.textMuted}
           style={styles.search}
@@ -433,9 +438,11 @@ function SearchResults({
           }}
         >
           <Jp {...place.name} bold />
-          <Text style={base.caption}>
-            {place.category} · {place.area} · tap to plan a visit
-          </Text>
+          {[place.category, place.area].some(Boolean) ? (
+            <Text style={base.caption}>
+              {[place.category, place.area].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
         </Pressable>
       ))}
     </View>
