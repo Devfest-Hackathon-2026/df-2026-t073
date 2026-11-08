@@ -32,7 +32,10 @@ export function MeSectionScreen({
   const { user } = useAuth();
   const section = route.params.section;
 
-  if (section === 'developer' && user?.email?.toLowerCase() !== 'test@tankengo.com') {
+  if (
+    section === 'developer' &&
+    user?.email?.toLowerCase() !== 'test@tankengo.com'
+  ) {
     return (
       <Screen>
         <ScreenHeader onBack={() => navigation.goBack()}>

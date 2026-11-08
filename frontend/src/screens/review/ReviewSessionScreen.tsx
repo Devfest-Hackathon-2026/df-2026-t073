@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -24,6 +24,7 @@ import {
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootNavigation, RootScreenProps } from '../../navigation/types';
+import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
   colors,
@@ -51,9 +52,10 @@ export function ReviewSessionScreen({
   navigation,
 }: RootScreenProps<'ReviewSession'>): React.JSX.Element {
   const collectionId = route.params?.collectionId;
+  const { settings } = useSettings();
   const session = useAsync(
-    () => getReviewSession(collectionId),
-    collectionId ?? 'all',
+    () => getReviewSession(collectionId, settings.explanationsLanguage),
+    `${collectionId ?? 'all'}:${settings.explanationsLanguage}`,
   );
   const [finished, setFinished] = useState(false);
   const sessionId = session.data?.sessionId ?? null;
@@ -92,6 +94,8 @@ function Session({
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [showPlace, setShowPlace] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const inFlightSubmitsRef = useRef<Promise<unknown>[]>([]);
   const exercise = exercises[index];
 
   if (!exercise) {
@@ -105,21 +109,27 @@ function Session({
 
   const pick = (option: number) => {
     setPicked(option);
-    submitAnswer(
+    const p = submitAnswer(
       exercise.tangoId,
       option === exercise.answerIndex,
       sessionId,
     ).catch(() => {
       // Not fatal for the session; the answer just won't count.
     });
+    inFlightSubmitsRef.current.push(p);
   };
 
-  const next = () => {
-    setPicked(null);
-    setShowPlace(false);
+  const next = async () => {
     if (index + 1 >= exercises.length) {
+      if (finishing) {
+        return;
+      }
+      setFinishing(true);
+      await Promise.all(inFlightSubmitsRef.current);
       onFinish();
     } else {
+      setPicked(null);
+      setShowPlace(false);
       setIndex(index + 1);
     }
   };
@@ -167,7 +177,12 @@ function Session({
       </ScrollView>
       {picked !== null ? (
         <View style={styles.footer}>
-          <Button label="Continue" variant="dark" onPress={next} />
+          <Button
+            label="Continue"
+            variant="dark"
+            disabled={finishing}
+            onPress={next}
+          />
         </View>
       ) : null}
     </View>

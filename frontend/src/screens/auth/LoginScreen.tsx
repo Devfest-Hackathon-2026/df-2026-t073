@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -215,4 +214,3 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
   },
 });
-

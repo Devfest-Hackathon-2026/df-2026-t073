@@ -451,6 +451,7 @@ export function CaptureScreen({
     try {
       const { tango, created, sightingId } = await catchTango({
         detection,
+        language: settings.explanationsLanguage,
         ...where,
       });
       owned.current.set(tango.text, tango.id);
@@ -479,6 +480,7 @@ export function CaptureScreen({
     try {
       const { tango, created, sightingId } = await catchTango({
         tangoId: reading.tango.id,
+        language: settings.explanationsLanguage,
         ...where,
       });
       if (created) {
@@ -558,7 +560,7 @@ export function CaptureScreen({
     setSelectedIds([]);
     setBusy(true);
     try {
-      const result = await uploadCapture(base64, mimeType);
+      const result = await uploadCapture(base64, mimeType, where);
       // The backend reads both; show only what the toggle asks for.
       const kind = mode === 'text' ? 'text' : 'object';
       const items = result.detected_items.filter(i => i.item_type === kind);
@@ -591,6 +593,7 @@ export function CaptureScreen({
       const { tango, created, sightingId } = await catchTango({
         detection: { ...item, known: false },
         captureId: found.captureId,
+        language: settings.explanationsLanguage,
         ...where,
       });
       setCaught(ids => ({ ...ids, [item.item_id]: true }));
@@ -631,6 +634,7 @@ export function CaptureScreen({
           known: false,
         },
         captureId: found.captureId,
+        language: settings.explanationsLanguage,
         ...where,
       });
       setCaught(prev => ({

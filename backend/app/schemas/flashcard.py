@@ -82,6 +82,9 @@ class FlashcardCreateRequest(BaseModel):
     lng: float | None = Field(default=None, ge=-180, le=180)
     # Language for meanings and examples' translations.
     language: str = "English"
+    # When True (saving a word seen inside the app, not the camera), an existing
+    # card is returned as-is instead of recording a new camera sighting.
+    only_if_new: bool = False
 
     @model_validator(mode="after")
     def validate_selection(self) -> "FlashcardCreateRequest":

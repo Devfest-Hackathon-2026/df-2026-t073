@@ -65,7 +65,11 @@ export async function signInWithEmail(
     throw new Error('Email and password are required.');
   }
   await instance.authStateReady();
-  const cred = await signInWithEmailAndPassword(instance, cleanEmail, cleanPass);
+  const cred = await signInWithEmailAndPassword(
+    instance,
+    cleanEmail,
+    cleanPass,
+  );
   return cred.user;
 }
 
@@ -84,7 +88,11 @@ export async function signUpWithEmail(
     throw new Error('Email and password are required.');
   }
   await instance.authStateReady();
-  const cred = await createUserWithEmailAndPassword(instance, cleanEmail, cleanPass);
+  const cred = await createUserWithEmailAndPassword(
+    instance,
+    cleanEmail,
+    cleanPass,
+  );
   return cred.user;
 }
 
@@ -110,7 +118,11 @@ export async function signInWithTestCredentials(
   }
 
   try {
-    const cred = await signInWithEmailAndPassword(instance, cleanEmail, cleanPass);
+    const cred = await signInWithEmailAndPassword(
+      instance,
+      cleanEmail,
+      cleanPass,
+    );
     return cred.user;
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;

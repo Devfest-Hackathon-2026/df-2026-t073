@@ -5,7 +5,7 @@ import { getProfile } from '../../api/user';
 import { Hanamaru } from '../../components/Hanamaru';
 import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
-import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
+import { Card, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { type MeSectionId, useRootNav } from '../../navigation/types';
@@ -130,7 +130,9 @@ export function MeScreen(): React.JSX.Element {
             style={styles.row}
           >
             <Icon name="remove" color={colors.caution} />
-            <Text style={[styles.rowLabel, { color: colors.caution }, base.grow]}>
+            <Text
+              style={[styles.rowLabel, { color: colors.caution }, base.grow]}
+            >
               Log out of this device
             </Text>
             <Icon name="forward" color={colors.textMuted} />

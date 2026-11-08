@@ -5,7 +5,7 @@ import {
 } from '../mocks/capture';
 import { getCurrentCoords } from '../location/location';
 import { PLACES } from '../mocks/places';
-import { TANGO } from '../mocks/tango';
+import { ALL_TANGO, TANGO } from '../mocks/tango';
 import type {
   CatchEntry,
   DetectedItem,
@@ -85,7 +85,11 @@ export const getCurrentPlace = pick(
 /** Uploads a photo for server-side recognition (Cloud Vision / Gemini). */
 export const uploadCapture = pick(
   'capture',
-  (_imageBase64: string, _mimeType: string = 'image/jpeg') => {
+  (
+    _imageBase64: string,
+    _mimeType: string = 'image/jpeg',
+    _where?: PlaceInput,
+  ) => {
     return mockDelay<CaptureResponse>({
       capture_id: 'cap_mock',
       image_url: '',
@@ -94,10 +98,17 @@ export const uploadCapture = pick(
     });
   },
   // Existing endpoint: POST /api/v1/captures
-  (imageBase64: string, mimeType: string = 'image/jpeg') =>
+  (imageBase64: string, mimeType: string = 'image/jpeg', where?: PlaceInput) =>
     request<CaptureResponse>(`${API_V1}/captures`, {
       method: 'POST',
-      body: { image_base64: imageBase64, mime_type: mimeType },
+      body: {
+        image_base64: imageBase64,
+        mime_type: mimeType,
+        place_id: where?.placeId ?? undefined,
+        place_name: where?.placeName ?? undefined,
+        lat: where?.lat ?? undefined,
+        lng: where?.lng ?? undefined,
+      },
     }),
 );
 
@@ -115,6 +126,9 @@ export interface CatchInput extends PlaceInput {
   tangoId?: string;
   /** Required by the real backend: the upload the detection came from. */
   captureId?: string;
+  language?: string;
+  /** When true, existing words are left as-is without adding an extra sighting. */
+  onlyIfNew?: boolean;
 }
 
 export interface CatchResult {
@@ -133,9 +147,21 @@ export interface UndoTarget {
 
 export const catchTango = pick(
   'capture',
-  ({ detection, tangoId, placeName }: CatchInput) => {
+  ({ detection, tangoId, placeName, onlyIfNew }: CatchInput) => {
     const id = tangoId ?? detection?.tangoId;
-    const tango: Tango = (id && TANGO[id]) || {
+    const existing =
+      (id ? TANGO[id] : undefined) ??
+      (detection?.japanese_text
+        ? ALL_TANGO.find(t => t.text === detection.japanese_text)
+        : undefined);
+    if (existing && onlyIfNew) {
+      return mockDelay<CatchResult>({
+        tango: existing,
+        created: false,
+        sightingId: null,
+      });
+    }
+    const tango: Tango = existing || {
       id: detection?.item_id ?? `tango-${Date.now()}`,
       kind: detection?.item_type === 'object' ? 'object' : 'word',
       text: detection?.japanese_text ?? '',
@@ -149,7 +175,11 @@ export const catchTango = pick(
       examples: [],
     };
     todaysCatch.unshift({ tango, placeName: placeName ?? '', status: 'new' });
-    return mockDelay<CatchResult>({ tango, created: true, sightingId: null });
+    return mockDelay<CatchResult>({
+      tango,
+      created: !existing,
+      sightingId: null,
+    });
   },
   // POST /api/v1/flashcards/generate. One card per word: a repeat catch adds a sighting.
   // Without captureId it's a live catch: the text was read on the phone, no photo.
@@ -160,6 +190,8 @@ export const catchTango = pick(
     placeId,
     lat,
     lng,
+    language,
+    onlyIfNew,
   }: CatchInput) => {
     if (!captureId && !detection?.japanese_text) {
       throw new ApiError('Nothing to catch.');
@@ -177,13 +209,15 @@ export const catchTango = pick(
           place_name: placeName,
           lat,
           lng,
+          language,
+          only_if_new: onlyIfNew,
         },
       },
     );
     return {
       tango: flashcardToTango(result.card),
       created: result.created,
-      sightingId: result.sighting_id,
+      sightingId: result.sighting_id || null,
     };
   },
 );

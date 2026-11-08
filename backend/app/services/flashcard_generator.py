@@ -136,6 +136,7 @@ async def generate_related_vocabulary(
     http_client: httpx.AsyncClient,
     kanji: str,
     meaning: str,
+    language: str = "English",
 ) -> list[RelatedVocabItem]:
     """Generate 4 contextually related Japanese vocabulary words to extend the lesson."""
     api_key = _require_gemini_key()
@@ -147,7 +148,7 @@ async def generate_related_vocabulary(
     prompt = (
         f"Given the Japanese vocabulary word '{kanji}' ({meaning}), suggest 4 closely related "
         "Japanese words that a learner would encounter in the same real-world situation or context. "
-        "For each word provide kanji, hiragana reading, English meaning, and a brief relation_note."
+        f"For each word provide kanji, hiragana reading, meaning in {language}, and a brief relation_note in {language}."
     )
 
     body = {

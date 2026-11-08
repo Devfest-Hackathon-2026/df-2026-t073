@@ -56,6 +56,13 @@ export interface TangoExample {
   jp: JpText;
 }
 
+export interface RelatedVocab {
+  kanji: string;
+  reading: string;
+  meaning: string;
+  relationNote: string;
+}
+
 export interface Tango {
   id: string;
   kind: TangoKind;
@@ -68,6 +75,7 @@ export interface Tango {
   known: boolean;
   history: TangoEvent[];
   examples: TangoExample[];
+  relatedVocab?: RelatedVocab[];
   /** One-line explanation shown on detail cards. */
   explanation?: string;
   /** Marked by the user; reviewable as "Favourites". */

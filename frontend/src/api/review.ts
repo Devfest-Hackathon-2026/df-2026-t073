@@ -211,11 +211,11 @@ export const getReviewSummary = pick(
 /** Starts a session: up to 10 Tango, weakest first. */
 export const getReviewSession = pick(
   'review',
-  (_collectionId?: string) =>
+  (_collectionId?: string, _language?: string) =>
     mockDelay<ReviewSession>({ sessionId: null, exercises: SESSION }, 400),
-  async (collectionId?: string) => {
+  async (collectionId?: string, language?: string) => {
     const r = await request<ReviewSessionResponse>(`${API_V1}/review/session`, {
-      query: { collection: collectionId },
+      query: { collection: collectionId, language },
     });
     return { sessionId: r.session_id, exercises: r.exercises.map(toExercise) };
   },

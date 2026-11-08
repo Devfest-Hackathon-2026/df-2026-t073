@@ -164,6 +164,8 @@ async def create_flashcard(
     flashcard_id = make_flashcard_id(uid, target_word)
     existing = await get_flashcard_if_exists(db=db, uid=uid, flashcard_id=flashcard_id)
     if existing is not None:
+        if payload.only_if_new:
+            return FlashcardCatchResponse(card=existing, created=False, sighting_id="")
         card = await add_sighting(db=db, uid=uid, card=existing, sighting=sighting)
         return FlashcardCatchResponse(card=card, created=False, sighting_id=sighting.sighting_id)
 
@@ -284,6 +286,7 @@ async def expand_flashcard_vocabulary(
     db: Db,
     http_client: HttpClient,
     refresh: bool = False,
+    language: str = "English",
 ) -> list[RelatedVocabItem]:
     """Extend a flashcard lesson with contextually related Japanese vocabulary words."""
     uid = current_user["uid"]
@@ -295,6 +298,7 @@ async def expand_flashcard_vocabulary(
         http_client=http_client,
         kanji=card.kanji,
         meaning=card.meaning,
+        language=language,
     )
     return await save_related_vocab(
         db=db,

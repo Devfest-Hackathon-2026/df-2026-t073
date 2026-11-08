@@ -15,6 +15,7 @@ import {
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
+import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import { Icon } from '../../components/Icon';
@@ -31,15 +32,14 @@ export function PrepareScreen({
   navigation,
 }: RootScreenProps<'Prepare'>): React.JSX.Element {
   const { placeId } = route.params;
-  // Header shows the real place (search result or visit); the briefing itself
-  // is still mock until P5.
+  const { settings } = useSettings();
   const briefing = useAsync(async () => {
     const [b, p] = await Promise.all([
-      getBriefing(placeId),
+      getBriefing(placeId, settings.explanationsLanguage),
       getPlace(placeId).catch(() => null),
     ]);
     return p ? { ...b, place: p } : b;
-  }, placeId);
+  }, `${placeId}:${settings.explanationsLanguage}`);
   const [planned, setPlanned] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
 

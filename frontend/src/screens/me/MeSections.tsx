@@ -471,7 +471,9 @@ export function DeveloperSection(): React.JSX.Element {
       await auth.signOut();
       setAuthMsg('Signed out.');
     } catch (err) {
-      setAuthMsg(`Sign out error: ${err instanceof Error ? err.message : String(err)}`);
+      setAuthMsg(
+        `Sign out error: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setAuthBusy(false);
     }

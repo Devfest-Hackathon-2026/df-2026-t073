@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { getTango, setFavorite } from '../../api/tango';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import {
+  deleteTango,
+  expandTango,
+  getTango,
+  setFavorite,
+} from '../../api/tango';
 import { Icon, type IconName } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
 import { TangoMap } from '../../components/TangoMap';
 import {
+  Button,
   Card,
   IconButton,
   IconLabel,
@@ -26,7 +32,7 @@ import {
   sizes,
   space,
 } from '../../styles/tokens';
-import type { MapPin, Tango, TangoEvent } from '../../types';
+import type { MapPin, RelatedVocab, Tango, TangoEvent } from '../../types';
 import { orderExamples } from '../../utils/format';
 import { AddToListSheet } from '../review/ListSheets';
 
@@ -131,6 +137,63 @@ export function TangoDetailScreen({
     }
   };
   const [addingToList, setAddingToList] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [expanding, setExpanding] = useState(false);
+  const [expandError, setExpandError] = useState<string | null>(null);
+  const [customRelated, setCustomRelated] = useState<RelatedVocab[] | null>(
+    null,
+  );
+  const relatedWords = customRelated ?? data?.relatedVocab ?? [];
+
+  useEffect(() => {
+    setFavoriteState(null);
+    setCustomRelated(null);
+    setExpandError(null);
+    tries.current = 0;
+  }, [id]);
+
+  const handleDelete = () => {
+    if (deleting) {
+      return;
+    }
+    Alert.alert('Delete Tango', 'Are you sure you want to delete this word?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteTango(id);
+            navigation.goBack();
+          } catch {
+            setDeleting(false);
+            Alert.alert(
+              'Could not delete',
+              'Failed to delete this Tango. Please try again.',
+            );
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleExpand = async () => {
+    setExpanding(true);
+    setExpandError(null);
+    try {
+      const words = await expandTango(id, settings.explanationsLanguage);
+      setCustomRelated(words);
+    } catch (err: unknown) {
+      setExpandError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Could not generate related vocabulary. Please try again.',
+      );
+    } finally {
+      setExpanding(false);
+    }
+  };
 
   return (
     <Screen>
@@ -162,6 +225,11 @@ export function TangoDetailScreen({
                   icon="addToList"
                   label="Add to a list"
                   onPress={() => setAddingToList(true)}
+                />
+                <IconButton
+                  icon="delete"
+                  label="Delete Tango"
+                  onPress={handleDelete}
                 />
               </View>
             </Card>
@@ -234,6 +302,57 @@ export function TangoDetailScreen({
                   ) : null}
                 </View>
               ))}
+            </Card>
+
+            <Card>
+              <View style={base.rowBetween}>
+                <Text style={base.heading}>Related vocabulary</Text>
+                <IconLabel icon="ai" style={base.caption}>
+                  Gemini
+                </IconLabel>
+              </View>
+              {relatedWords.length > 0 ? (
+                relatedWords.map((rw, idx) => (
+                  <View key={`${rw.kanji}-${idx}`} style={styles.phrase}>
+                    <View style={base.grow}>
+                      <Jp
+                        text={rw.kanji}
+                        reading={rw.reading}
+                        meaning={rw.meaning}
+                        peek
+                        bold
+                      />
+                      <Text style={base.caption}>{rw.meaning}</Text>
+                      {rw.relationNote ? (
+                        <Text style={styles.relationNote}>
+                          {rw.relationNote}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <IconButton
+                      icon="play"
+                      label={`Play ${rw.kanji}`}
+                      onPress={() => playWord(rw.kanji)}
+                    />
+                  </View>
+                ))
+              ) : (
+                <>
+                  <Button
+                    label={
+                      expanding
+                        ? 'Generating related words…'
+                        : 'Expand with related vocabulary'
+                    }
+                    variant="secondary"
+                    disabled={expanding}
+                    onPress={handleExpand}
+                  />
+                  {expandError ? (
+                    <Text style={base.caption}>{expandError}</Text>
+                  ) : null}
+                </>
+              )}
             </Card>
 
             <AddToListSheet
@@ -346,5 +465,9 @@ const styles = StyleSheet.create({
     ...base.caption,
     color: colors.hanamaru,
     fontWeight: fontWeights.bold,
+  },
+  relationNote: {
+    ...base.caption,
+    color: colors.accent,
   },
 });

@@ -6,6 +6,7 @@ import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
 import { Button, Card, Chip, Loadable } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
+import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, sizes, space } from '../../styles/tokens';
@@ -18,6 +19,7 @@ export function CaptureTodayScreen({
   navigation,
 }: RootScreenProps<'CaptureToday'>): React.JSX.Element {
   const catches = useAsync(getTodaysCatch);
+  useReloadOnFocus(catches.reload);
 
   return (
     <Screen

@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { listVisits, searchPlaces } from '../../api/places';
+import { deleteVisit, listVisits, searchPlaces } from '../../api/places';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
-import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
+import {
+  Button,
+  Card,
+  IconButton,
+  Loadable,
+  SectionTitle,
+} from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -56,9 +62,28 @@ export function PlansScreen(): React.JSX.Element {
       <Loadable state={visits}>
         {list => (
           <View style={base.stack}>
+            {list.length === 0 ? (
+              <Card>
+                <Text style={base.caption}>No visits planned yet.</Text>
+              </Card>
+            ) : null}
             {list.map(visit => (
               <Card key={visit.id}>
-                <Text style={base.label}>{formatVisitTime(visit.when)}</Text>
+                <View style={base.rowBetween}>
+                  <Text style={base.label}>{formatVisitTime(visit.when)}</Text>
+                  <IconButton
+                    icon="close"
+                    label={`Cancel visit to ${visit.place.name.text}`}
+                    onPress={async () => {
+                      try {
+                        await deleteVisit(visit.id);
+                        visits.reload();
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                  />
+                </View>
                 <View style={base.rowBetween}>
                   <View style={base.grow}>
                     <Jp {...visit.place.name} bold size="lg" />

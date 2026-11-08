@@ -27,7 +27,7 @@ interface BriefingResponse {
 /** Visit briefing: what to expect, Tango for the visit, anonymous tips. */
 export const getBriefing = pick(
   'prepare',
-  (placeId: string) => {
+  (placeId: string, _language: string = 'English') => {
     const b = briefingFor(placeId);
     return mockDelay<PrepareBriefing>(
       {

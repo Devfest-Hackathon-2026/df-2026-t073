@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { catchTango } from '../../api/capture';
 import { getStaffAudio } from '../../api/rehearse';
-import { listTango } from '../../api/tango';
 import { playUrl } from '../../audio/audio';
+import { useSettings } from '../../state/SettingsContext';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'owned' | 'failed';
 
@@ -43,16 +43,12 @@ export function useSaveWord(word: {
   reading?: string;
   meaning?: string;
 }): { state: SaveState; save: () => Promise<void>; busy: boolean } {
+  const { settings } = useSettings();
   const [state, setState] = useState<SaveState>('idle');
   const save = async () => {
     setState('saving');
     try {
-      const existing = await listTango(word.text);
-      if (existing.some(t => t.text === word.text)) {
-        setState('owned');
-        return;
-      }
-      await catchTango({
+      const result = await catchTango({
         detection: {
           item_id: `app:${word.text}`,
           item_type: 'text',
@@ -64,8 +60,10 @@ export function useSaveWord(word: {
           bounding_box: [],
           known: false,
         },
+        language: settings.explanationsLanguage,
+        onlyIfNew: true,
       });
-      setState('saved');
+      setState(result.created ? 'saved' : 'owned');
     } catch {
       setState('failed');
     }

@@ -32,6 +32,8 @@ function toQueryString(query?: Query): string {
   return parts.length ? `?${parts.join('&')}` : '';
 }
 
+const REQUEST_TIMEOUT_MS = 45_000;
+
 /** JSON request against the backend. Throws ApiError on non-2xx responses. */
 export async function request<T>(
   path: string,
@@ -47,37 +49,50 @@ export async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}${path}${toQueryString(query)}`,
-    {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    },
-  );
-  if (!response.ok) {
-    // Daily limits come with a message meant for the user; show it as-is.
-    if (response.status === 429) {
-      const detail = await response
-        .json()
-        .then((b: { detail?: unknown }) => b.detail)
-        .catch(() => undefined);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}${path}${toQueryString(query)}`,
+      {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) {
+      // Daily limits come with a message meant for the user; show it as-is.
+      if (response.status === 429) {
+        const detail = await response
+          .json()
+          .then((b: { detail?: unknown }) => b.detail)
+          .catch(() => undefined);
+        throw new ApiError(
+          typeof detail === 'string'
+            ? detail
+            : 'Daily limit reached. Try again tomorrow.',
+          429,
+        );
+      }
       throw new ApiError(
-        typeof detail === 'string'
-          ? detail
-          : 'Daily limit reached. Try again tomorrow.',
-        429,
+        `${method} ${path} failed with HTTP ${response.status}`,
+        response.status,
       );
     }
-    throw new ApiError(
-      `${method} ${path} failed with HTTP ${response.status}`,
-      response.status,
-    );
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  } catch (err: unknown) {
+    if ((err as { name?: string })?.name === 'AbortError') {
+      throw new ApiError('Request timed out. Please try again.', 408);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
 }
 
 /** Resolves with a copy of `value` after a short delay, like a network call. */
