@@ -1,12 +1,14 @@
 // Small shared building blocks: buttons, chips, cards, toggles, headers.
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   type StyleProp,
   StyleSheet,
   Switch,
   Text,
+  type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -23,6 +25,8 @@ import {
   space,
 } from '../styles/tokens';
 import type { AppJapanese, JpText, Strength } from '../types';
+import { Hanamaru } from './Hanamaru';
+import { Icon, type IconName } from './Icon';
 import { Jp } from './Jp';
 
 // ---------- Button ----------
@@ -35,13 +39,16 @@ export function Button({
   variant = 'primary',
   disabled = false,
   style,
+  icon,
 }: {
   label: string;
   onPress?: () => void;
   variant?: ButtonVariant;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  icon?: IconName;
 }): React.JSX.Element {
+  const textColor = buttonTextStyles[variant].color;
   return (
     <Pressable
       accessibilityRole="button"
@@ -54,8 +61,50 @@ export function Button({
         style,
       ]}
     >
-      <Text style={[styles.buttonText, buttonTextStyles[variant]]}>{label}</Text>
+      <View style={styles.buttonRow}>
+        {icon ? (
+          <Icon name={icon} size={fontSizes.md} color={textColor} />
+        ) : null}
+        <Text style={[styles.buttonText, buttonTextStyles[variant]]}>
+          {label}
+        </Text>
+      </View>
     </Pressable>
+  );
+}
+
+/**
+ * An icon in front of a line of text, in the text's own color and size
+ * (eyebrows like "Gemini suggests", place lines, statuses).
+ */
+export function IconLabel({
+  icon,
+  children,
+  style,
+  numberOfLines,
+}: {
+  icon: IconName | 'hanamaru';
+  children: React.ReactNode;
+  style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
+}): React.JSX.Element {
+  const flat = StyleSheet.flatten([base.text, style]) ?? {};
+  const size = (flat.fontSize ?? fontSizes.md) * 1.05;
+  return (
+    <View style={styles.iconLabel}>
+      {icon === 'hanamaru' ? (
+        <Hanamaru size={size} />
+      ) : (
+        <Icon
+          name={icon}
+          size={size}
+          color={(flat.color as string) ?? colors.text}
+        />
+      )}
+      <Text style={[styles.iconLabelText, style]} numberOfLines={numberOfLines}>
+        {children}
+      </Text>
+    </View>
   );
 }
 
@@ -82,15 +131,20 @@ const buttonTextStyles = StyleSheet.create({
 // ---------- Icon button (✕, ‹, etc.) ----------
 
 export function IconButton({
-  glyph,
+  icon,
   label,
   onPress,
   dark = false,
+  filled = false,
+  color,
 }: {
-  glyph: string;
+  icon: IconName;
   label: string;
   onPress?: () => void;
   dark?: boolean;
+  /** Solid icon, e.g. a favourited heart. */
+  filled?: boolean;
+  color?: string;
 }): React.JSX.Element {
   return (
     <Pressable
@@ -99,14 +153,18 @@ export function IconButton({
       onPress={onPress}
       style={[styles.iconButton, dark && styles.iconButtonDark]}
     >
-      <Text style={[styles.iconGlyph, dark && styles.iconGlyphDark]}>{glyph}</Text>
+      <Icon
+        name={icon}
+        filled={filled}
+        color={color ?? (dark ? colors.textInverse : colors.text)}
+      />
     </Pressable>
   );
 }
 
 // ---------- Chip ----------
 
-type ChipTone = 'default' | 'accent' | 'place' | 'star' | 'outline';
+type ChipTone = 'default' | 'accent' | 'place' | 'hanamaru' | 'outline';
 
 export function Chip({
   label,
@@ -122,12 +180,17 @@ export function Chip({
   tone?: ChipTone;
   selected?: boolean;
   dashed?: boolean;
-  icon?: string;
+  /** A Lucide icon, or the hanamaru mark for mastered Tango. */
+  icon?: IconName | 'hanamaru';
   onPress?: () => void;
 }): React.JSX.Element {
   const content = (
     <>
-      {icon ? <Text style={styles.chipText}>{icon}</Text> : null}
+      {icon === 'hanamaru' ? (
+        <Hanamaru size={fontSizes.md} />
+      ) : icon ? (
+        <Icon name={icon} size={fontSizes.md} color={colors.textMuted} />
+      ) : null}
       {jp ? <Jp {...jp} size="sm" /> : null}
       {label ? (
         <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
@@ -156,7 +219,11 @@ const chipStyles = StyleSheet.create({
   default: {},
   accent: { backgroundColor: colors.accentSoft },
   place: { backgroundColor: colors.surfaceMuted },
-  star: { backgroundColor: colors.surface, borderWidth: sizes.hairline, borderColor: colors.star },
+  hanamaru: {
+    backgroundColor: colors.surface,
+    borderWidth: sizes.hairline,
+    borderColor: colors.hanamaru,
+  },
   outline: {
     backgroundColor: colors.surface,
     borderWidth: sizes.hairline,
@@ -204,7 +271,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; icon?: IconName }[];
   value: T;
   onChange: (value: T) => void;
 }): React.JSX.Element {
@@ -220,9 +287,20 @@ export function SegmentedControl<T extends string>({
             onPress={() => onChange(option.value)}
             style={[styles.segment, active && styles.segmentActive]}
           >
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-              {option.label}
-            </Text>
+            <View style={styles.buttonRow}>
+              {option.icon ? (
+                <Icon
+                  name={option.icon}
+                  size={fontSizes.md}
+                  color={active ? colors.text : colors.textMuted}
+                />
+              ) : null}
+              <Text
+                style={[styles.segmentText, active && styles.segmentTextActive]}
+              >
+                {option.label}
+              </Text>
+            </View>
           </Pressable>
         );
       })}
@@ -302,7 +380,11 @@ export function SectionTitle({
 
 // ---------- Strength bar ----------
 
-export function StrengthBar({ strength }: { strength: Strength }): React.JSX.Element {
+export function StrengthBar({
+  strength,
+}: {
+  strength: Strength;
+}): React.JSX.Element {
   return (
     <View
       style={base.row}
@@ -312,16 +394,24 @@ export function StrengthBar({ strength }: { strength: Strength }): React.JSX.Ele
       {[1, 2, 3, 4].map(step => (
         <View
           key={step}
-          style={[styles.segmentBar, step <= strength && styles.segmentBarFilled]}
+          style={[
+            styles.segmentBar,
+            step <= strength && styles.segmentBarFilled,
+          ]}
         />
       ))}
-      <Text style={[styles.star, strength === 4 && styles.starOn]}>★</Text>
+      <Hanamaru
+        size={fontSizes.lg}
+        color={strength === 4 ? colors.hanamaru : colors.border}
+      />
     </View>
   );
 }
 
 export function strengthLabel(strength: Strength): string {
-  return ['New', 'Warming up', 'Warming up', 'Almost there', 'Star'][strength];
+  return ['New', 'Warming up', 'Warming up', 'Almost there', 'Hanamaru'][
+    strength
+  ];
 }
 
 // ---------- Progress bar ----------
@@ -362,12 +452,62 @@ export function NumberedStep({
 
 // ---------- Loading / error wrapper ----------
 
+/** Light, upbeat lines shown while something loads. */
+export const LOADING_LINES = [
+  'Gathering your words…',
+  'Lining things up…',
+  'Almost there…',
+];
+
+const LINE_MS = 1600;
+
+/** A spinner with one line at a time, fading through `lines`. */
+export function LoadingLines({
+  lines = LOADING_LINES,
+}: {
+  lines?: string[];
+}): React.JSX.Element {
+  const [index, setIndex] = useState(0);
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (lines.length < 2) {
+      return;
+    }
+    const timer = setInterval(() => {
+      Animated.timing(fade, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setIndex(i => (i + 1) % lines.length);
+        Animated.timing(fade, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, LINE_MS);
+    return () => clearInterval(timer);
+  }, [lines, fade]);
+  return (
+    <View style={styles.loading}>
+      <ActivityIndicator color={colors.accent} />
+      <Animated.Text style={[styles.loadingLine, { opacity: fade }]}>
+        {lines[index % lines.length]}
+      </Animated.Text>
+    </View>
+  );
+}
+
 export function Loadable<T>({
   state,
   children,
+  messages,
 }: {
   state: AsyncState<T>;
   children: (data: T) => React.ReactNode;
+  /** Lines to cycle through while loading (defaults to LOADING_LINES). */
+  messages?: string[];
 }): React.JSX.Element {
   if (state.error) {
     return (
@@ -379,16 +519,27 @@ export function Loadable<T>({
     );
   }
   if (state.data === undefined) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
+    return <LoadingLines lines={messages} />;
   }
   return <>{children(state.data)}</>;
 }
 
 const styles = StyleSheet.create({
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+  },
+  iconLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    flexShrink: 1,
+  },
+  iconLabelText: {
+    flexShrink: 1,
+  },
   dimmed: { opacity: opacity.pressed },
   buttonText: {
     ...base.text,
@@ -405,16 +556,10 @@ const styles = StyleSheet.create({
   iconButtonDark: {
     backgroundColor: colors.overlay,
   },
-  iconGlyph: {
-    ...base.text,
-    fontSize: fontSizes.lg,
-  },
-  iconGlyphDark: {
-    color: colors.textInverse,
-  },
   chipText: {
     ...base.text,
     fontSize: fontSizes.sm,
+    flexShrink: 1,
   },
   chipTextSelected: {
     color: colors.accent,
@@ -466,14 +611,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   segmentBarFilled: {
-    backgroundColor: colors.star,
-  },
-  star: {
-    fontSize: fontSizes.lg,
-    color: colors.border,
-  },
-  starOn: {
-    color: colors.star,
+    backgroundColor: colors.hanamaru,
   },
   progressTrack: {
     flex: 1,
@@ -514,5 +652,10 @@ const styles = StyleSheet.create({
   loading: {
     padding: space.xxl,
     alignItems: 'center',
+    gap: space.md,
+  },
+  loadingLine: {
+    ...base.caption,
+    textAlign: 'center',
   },
 });

@@ -1,19 +1,25 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+import logging
 
-from app.api.deps import CurrentUser, Db, HttpClient
+import httpx
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
+from google.cloud.firestore import AsyncClient
+
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.capture import DetectedItem, Vertex
 from app.schemas.flashcard import (
     FlashcardCatchResponse,
+    GeneratedFlashcardContent,
     FlashcardCreateRequest,
     FlashcardResponse,
     FlashcardReviewRequest,
     RelatedVocabItem,
     SightingCreateRequest,
 )
-from app.services import tango_rules
+from app.schemas.lists import FlashcardUpdateRequest
+from app.services import dictionary, lists, tango_rules
 from app.services.firestore import (
     add_sighting,
     delete_flashcard,
@@ -24,6 +30,7 @@ from app.services.firestore import (
     make_flashcard_id,
     remove_sighting,
     save_flashcard,
+    save_use_cases,
     save_related_vocab,
     update_flashcard_review,
 )
@@ -32,30 +39,86 @@ from app.services.flashcard_generator import (
     generate_related_vocabulary,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
+
+
+def _from_dictionary(target_word: str, item_type: str, language: str) -> GeneratedFlashcardContent | None:
+    """A card straight from JMdict (instant, free), or None to ask Gemini.
+
+    JMdict meanings are English, so other explanation languages use Gemini.
+    """
+    if language.strip().lower() != "english":
+        return None
+    card = dictionary.lookup(target_word)
+    if card is None:
+        return None
+    kind = "object" if item_type == "object" else ("phrase" if card.is_phrase else "word")
+    return GeneratedFlashcardContent(
+        kanji=card.text,
+        reading=card.reading,
+        romaji=card.romaji,
+        meaning=card.meaning,
+        part_of_speech=card.part_of_speech,
+        kind=kind,
+        use_cases=[],
+    )
+
+
+async def _fill_examples(
+    *,
+    db: AsyncClient,
+    http_client: httpx.AsyncClient,
+    uid: str,
+    flashcard_id: str,
+    target_word: str,
+    source_label: str,
+    item_type: str,
+    language: str,
+) -> None:
+    """After the catch has returned: Gemini writes the example sentences."""
+    try:
+        generated = await generate_flashcard_content(
+            http_client=http_client,
+            target_word=target_word,
+            source_label=source_label,
+            item_type=item_type,
+            language=language,
+        )
+        await save_use_cases(db=db, uid=uid, flashcard_id=flashcard_id, use_cases=generated.use_cases)
+    except Exception:  # noqa: BLE001 - a background extra; the card is already saved.
+        logger.exception("Could not add examples to %s", flashcard_id)
 
 
 @router.post(
     "/generate",
     response_model=FlashcardCatchResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[daily_limit("catch")],
 )
 async def create_flashcard(
     payload: FlashcardCreateRequest,
     current_user: CurrentUser,
     db: Db,
     http_client: HttpClient,
+    background: BackgroundTasks,
 ) -> FlashcardCatchResponse:
-    """Catch a Tango from a selected object or text in a captured picture.
+    """Catch a Tango from a selected object or text in a captured picture,
+    or from text read live on the phone (no capture_id, no photo).
 
     One card per user and word: catching a word that already has a card adds a
     sighting (place and time) to it instead of creating a duplicate.
     """
     uid = current_user["uid"]
-    capture = await get_capture(db=db, uid=uid, capture_id=payload.capture_id)
+    capture = (
+        await get_capture(db=db, uid=uid, capture_id=payload.capture_id)
+        if payload.capture_id
+        else None
+    )
 
     matched_item: DetectedItem | None = None
-    if payload.item_id:
+    if capture is not None and payload.item_id:
         matched_item = next(
             (item for item in capture.detected_items if item.item_id == payload.item_id),
             None,
@@ -78,15 +141,25 @@ async def create_flashcard(
         )
 
     # Place: request first, then whatever was stored with the capture.
-    sighting = tango_rules.new_sighting(
-        now=capture.created_at,
-        capture_id=capture.capture_id,
-        place_id=payload.place_id or capture.place_id,
-        place_name=payload.place_name or capture.place_name,
-        lat=payload.lat if payload.lat is not None else capture.lat,
-        lng=payload.lng if payload.lng is not None else capture.lng,
-        image_url=capture.image_url,
-    )
+    if capture is not None:
+        sighting = tango_rules.new_sighting(
+            now=capture.created_at,
+            capture_id=capture.capture_id,
+            place_id=payload.place_id or capture.place_id,
+            place_name=payload.place_name or capture.place_name,
+            lat=payload.lat if payload.lat is not None else capture.lat,
+            lng=payload.lng if payload.lng is not None else capture.lng,
+            image_url=capture.image_url,
+        )
+    else:
+        sighting = tango_rules.new_sighting(
+            now=datetime.now(timezone.utc),
+            capture_id=None,
+            place_id=payload.place_id,
+            place_name=payload.place_name,
+            lat=payload.lat,
+            lng=payload.lng,
+        )
 
     flashcard_id = make_flashcard_id(uid, target_word)
     existing = await get_flashcard_if_exists(db=db, uid=uid, flashcard_id=flashcard_id)
@@ -98,21 +171,37 @@ async def create_flashcard(
     item_type = matched_item.item_type if matched_item else "text"
     bounding_box: list[Vertex] = matched_item.bounding_box if matched_item else []
 
-    generated = await generate_flashcard_content(
-        http_client=http_client,
-        target_word=target_word,
-        source_label=source_label,
-        item_type=item_type,
-        language=payload.language,
-    )
+    # Dictionary words are saved at once; Gemini adds examples afterwards.
+    generated = _from_dictionary(target_word, item_type, payload.language)
+    if generated is not None:
+        background.add_task(
+            _fill_examples,
+            db=db,
+            http_client=http_client,
+            uid=uid,
+            flashcard_id=flashcard_id,
+            target_word=target_word,
+            source_label=source_label,
+            item_type=item_type,
+            language=payload.language,
+        )
+    else:
+        generated = await generate_flashcard_content(
+            http_client=http_client,
+            target_word=target_word,
+            source_label=source_label,
+            item_type=item_type,
+            language=payload.language,
+        )
 
     card = await save_flashcard(
         db=db,
         uid=uid,
         flashcard_id=flashcard_id,
-        capture_id=capture.capture_id,
+        # Live catches have no photo; Review skips the photo question for them.
+        capture_id=capture.capture_id if capture else "",
         item_id=matched_item.item_id if matched_item else payload.item_id,
-        image_url=capture.image_url,
+        image_url=capture.image_url if capture else "",
         bounding_box=bounding_box,
         generated=generated,
         sighting=sighting,
@@ -140,6 +229,20 @@ async def get_user_flashcards(
         place_id=place_id,
         limit=limit,
     )
+
+
+@router.patch("/{flashcard_id}", response_model=FlashcardResponse)
+async def update_flashcard(
+    flashcard_id: str,
+    payload: FlashcardUpdateRequest,
+    current_user: CurrentUser,
+    db: Db,
+) -> FlashcardResponse:
+    """Mark or unmark a Tango as a favourite."""
+    uid = current_user["uid"]
+    if payload.favorite is None:
+        return await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+    return await lists.set_favorite(db=db, uid=uid, flashcard_id=flashcard_id, favorite=payload.favorite)
 
 
 @router.get("/{flashcard_id}", response_model=FlashcardResponse)

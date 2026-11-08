@@ -220,6 +220,13 @@ async def get_flashcard_if_exists(
     return FlashcardResponse.model_validate(snapshot.to_dict())
 
 
+async def save_use_cases(*, db: AsyncClient, uid: str, flashcard_id: str, use_cases: list[Any]) -> None:
+    """Adds example sentences to a card saved from the dictionary (written later by Gemini)."""
+    await _flashcard_ref(db, uid, flashcard_id).update(
+        {"use_cases": [u.model_dump(mode="python") if hasattr(u, "model_dump") else u for u in use_cases]}
+    )
+
+
 async def save_flashcard(
     *,
     db: AsyncClient,

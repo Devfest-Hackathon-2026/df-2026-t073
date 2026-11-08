@@ -22,6 +22,9 @@ class Collection(BaseModel):
     count: int
     is_place: bool
     is_place_cue: bool
+    is_favorites: bool = False
+    # A user-made list (id "list:<list_id>").
+    is_list: bool = False
 
 
 class ExerciseType(BaseModel):

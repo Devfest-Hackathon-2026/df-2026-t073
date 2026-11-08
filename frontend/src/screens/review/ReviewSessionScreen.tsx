@@ -18,6 +18,7 @@ import {
   Button,
   Card,
   IconButton,
+  IconLabel,
   Loadable,
   ProgressBar,
 } from '../../components/ui';
@@ -37,6 +38,13 @@ import type {
   FillGapExercise,
   MultipleChoiceExercise,
 } from '../../types';
+import { Icon } from '../../components/Icon';
+
+/** Shown while loading: build anticipation, not impatience. */
+const SESSION_LINES = [
+  'Shuffling your Tango…',
+  "Picking today's best practice…",
+];
 
 export function ReviewSessionScreen({
   route,
@@ -55,7 +63,7 @@ export function ReviewSessionScreen({
       {finished ? (
         <Results navigation={navigation} sessionId={sessionId} />
       ) : (
-        <Loadable state={session}>
+        <Loadable state={session} messages={SESSION_LINES}>
           {data => (
             <Session
               exercises={data.exercises}
@@ -119,13 +127,13 @@ function Session({
   return (
     <View style={base.grow}>
       <View style={[base.row, styles.header]}>
-        <IconButton glyph="✕" label="End review" onPress={onClose} />
+        <IconButton icon="close" label="End review" onPress={onClose} />
         <ProgressBar
           value={(index + (picked === null ? 0 : 1)) / exercises.length}
         />
         {exercise.type === 'multiple_choice' && picked === null ? (
           <IconButton
-            glyph="💡"
+            icon="hint"
             label="Where did I see this Tango?"
             onPress={() => setShowPlace(true)}
           />
@@ -201,9 +209,11 @@ function MultipleChoice({
         </Pressable>
       ))}
       {showPlace ? (
-        <Text style={[base.caption, styles.center]}>
-          ⌖ {exercise.placeHint}
-        </Text>
+        <View style={styles.centerRow}>
+          <IconLabel icon="pin" style={base.caption}>
+            {exercise.placeHint}
+          </IconLabel>
+        </View>
       ) : (
         <Text style={[styles.link, styles.center]} onPress={onShowPlace}>
           Where did I see this Tango?
@@ -272,7 +282,11 @@ function FillGap({
       ) : (
         <View style={styles.photo}>
           <View style={styles.sign}>
-            <Text style={styles.signIcon}>⛔</Text>
+            <Icon
+              name="forbidden"
+              size={fontSizes.xxl}
+              color={colors.hanamaru}
+            />
             {exercise.photo.lines.map((line, i) =>
               line ? (
                 <Jp
@@ -290,7 +304,9 @@ function FillGap({
           </View>
         </View>
       )}
-      <Text style={base.caption}>⌖ {exercise.photo.caption}</Text>
+      <IconLabel icon="pin" style={base.caption}>
+        {exercise.photo.caption}
+      </IconLabel>
       <Text style={base.heading}>What goes in the gap?</Text>
       <View style={base.wrap}>
         {exercise.options.map((option, i) => (
@@ -304,7 +320,9 @@ function FillGap({
           </Pressable>
         ))}
       </View>
-      <Text style={styles.note}>✦ {exercise.note}</Text>
+      <IconLabel icon="ai" style={styles.note}>
+        {exercise.note}
+      </IconLabel>
     </View>
   );
 }
@@ -324,9 +342,11 @@ function Feedback({
     <View style={base.stack}>
       <View style={styles.prompt}>
         <View style={[styles.badge, !correct && styles.badgeWrong]}>
-          <Text style={[styles.badgeGlyph, !correct && styles.wrong]}>
-            {correct ? '✓' : '✕'}
-          </Text>
+          <Icon
+            name={correct ? 'done' : 'close'}
+            size={fontSizes.xxl}
+            color={correct ? colors.positive : colors.caution}
+          />
         </View>
         <Text style={[styles.verdict, !correct && styles.wrong]}>
           {correct ? 'Correct!' : 'Not quite'}
@@ -355,7 +375,9 @@ function Feedback({
                 <Text style={base.caption}>{exercise.example.en}</Text>
               </View>
             ) : null}
-            <Text style={base.caption}>⌖ {exercise.placeHint}</Text>
+            <IconLabel icon="pin" style={base.caption}>
+              {exercise.placeHint}
+            </IconLabel>
           </Card>
           {correct ? (
             <Text style={styles.next}>{exercise.nextStep}</Text>
@@ -369,7 +391,9 @@ function Feedback({
             bold
             alwaysKanji
           />
-          <Text style={base.caption}>⌖ {exercise.photo.caption}</Text>
+          <IconLabel icon="pin" style={base.caption}>
+            {exercise.photo.caption}
+          </IconLabel>
         </Card>
       )}
     </View>
@@ -394,7 +418,11 @@ function Results({
           <ScrollView contentContainerStyle={base.content}>
             <View style={styles.prompt}>
               <View style={styles.badge}>
-                <Text style={styles.badgeGlyph}>🏆</Text>
+                <Icon
+                  name="award"
+                  size={fontSizes.xxl}
+                  color={colors.positive}
+                />
               </View>
               <Text style={styles.verdict}>Excellent work!</Text>
               <Text style={base.caption}>
@@ -408,7 +436,11 @@ function Results({
                 <Card>
                   <View style={base.row}>
                     <View style={styles.winIcon}>
-                      <Text style={styles.badgeGlyph}>⌖</Text>
+                      <Icon
+                        name="pin"
+                        size={fontSizes.xl}
+                        color={colors.accent}
+                      />
                     </View>
                     <View style={base.grow}>
                       <View style={base.row}>
@@ -437,7 +469,9 @@ function Results({
             {r.next ? (
               <Card variant="soft">
                 <View style={base.row}>
-                  <Text style={base.text}>📅 {r.next.label}</Text>
+                  <IconLabel icon="calendar" style={base.text}>
+                    {r.next.label}
+                  </IconLabel>
                   <Jp {...r.next.placeName} bold />
                   <Text style={base.text}>on {r.next.day}.</Text>
                 </View>
@@ -518,8 +552,8 @@ const styles = StyleSheet.create({
     gap: space.sm,
     minWidth: sizes.mapHeight,
   },
-  signIcon: {
-    fontSize: fontSizes.jumbo,
+  centerRow: {
+    alignItems: 'center',
   },
   gapRow: {
     height: space.xxl,
@@ -570,10 +604,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  badgeGlyph: {
-    fontSize: fontSizes.xxl,
-    color: colors.positive,
   },
   verdict: {
     ...base.title,

@@ -10,5 +10,7 @@ module.exports = {
         allowUndefined: true,
       },
     ],
+    // Live camera text reading runs on the camera thread. Must stay last.
+    'react-native-worklets/plugin',
   ],
 };

@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import type { ReadingLevel, Settings } from '../types';
+import { setLocationEnabled } from '../location/location';
 
 const STORAGE_KEY = 'tankengo.settings.v1';
 
@@ -23,19 +24,42 @@ export const DEFAULT_SETTINGS: Settings = {
   locationAllowed: false,
   onboarded: false,
   dayOne: false,
+  mapFeatures: true,
 };
 
 /** Display defaults that follow from the reading level picked on first run. */
-export function settingsForReadingLevel(level: ReadingLevel): Partial<Settings> {
+export function settingsForReadingLevel(
+  level: ReadingLevel,
+): Partial<Settings> {
   switch (level) {
     case 'none':
-      return { readingLevel: level, showJapaneseAs: 'romaji', furigana: true, appJapanese: 'little' };
+      return {
+        readingLevel: level,
+        showJapaneseAs: 'romaji',
+        furigana: true,
+        appJapanese: 'little',
+      };
     case 'kana':
-      return { readingLevel: level, showJapaneseAs: 'kanji', furigana: true, appJapanese: 'some' };
+      return {
+        readingLevel: level,
+        showJapaneseAs: 'kanji',
+        furigana: true,
+        appJapanese: 'some',
+      };
     case 'some_kanji':
-      return { readingLevel: level, showJapaneseAs: 'kanji', furigana: true, appJapanese: 'some' };
+      return {
+        readingLevel: level,
+        showJapaneseAs: 'kanji',
+        furigana: true,
+        appJapanese: 'some',
+      };
     case 'most':
-      return { readingLevel: level, showJapaneseAs: 'kanji', furigana: false, appJapanese: 'lot' };
+      return {
+        readingLevel: level,
+        showJapaneseAs: 'kanji',
+        furigana: false,
+        appJapanese: 'lot',
+      };
   }
 }
 
@@ -56,12 +80,20 @@ export function SettingsProvider({
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
+  // One switch for every use of location (see Me › Privacy & location).
+  useEffect(() => {
+    setLocationEnabled(settings.mapFeatures);
+  }, [settings.mapFeatures]);
+
   useEffect(() => {
     let alive = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then(raw => {
         if (alive && raw) {
-          setSettings({ ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) });
+          setSettings({
+            ...DEFAULT_SETTINGS,
+            ...(JSON.parse(raw) as Partial<Settings>),
+          });
         }
       })
       .catch(() => {
@@ -89,9 +121,16 @@ export function SettingsProvider({
     setSettings(prev => ({ ...prev, ...patch }));
   }, []);
 
-  const value = useMemo(() => ({ settings, ready, update }), [settings, ready, update]);
+  const value = useMemo(
+    () => ({ settings, ready, update }),
+    [settings, ready, update],
+  );
 
-  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+  return (
+    <SettingsContext.Provider value={value}>
+      {children}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useSettings(): SettingsContextValue {

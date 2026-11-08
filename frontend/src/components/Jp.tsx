@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  playWord,
+  SAVE_ICON,
+  SAVE_LABEL,
+  useSaveWord,
+} from '../features/tango/saveWord';
+import { Icon } from './Icon';
 import { useSettings } from '../state/SettingsContext';
 import { base } from '../styles/base';
 import {
@@ -16,7 +23,7 @@ type Size = keyof typeof fontSizes;
 type Tone = 'default' | 'muted' | 'inverse' | 'accent';
 
 export interface JpProps extends JpText {
-  /** Dotted underline; long-press shows the English meaning. */
+  /** Dotted underline; tap shows the meaning, plays it and can save it. */
   peek?: boolean;
   size?: Size;
   bold?: boolean;
@@ -45,6 +52,7 @@ export function Jp({
 }: JpProps): React.JSX.Element {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
+  const saver = useSaveWord({ text, reading, meaning });
 
   const mode = alwaysKanji ? 'kanji' : settings.showJapaneseAs;
   let shown = text;
@@ -86,9 +94,10 @@ export function Jp({
   return (
     <>
       <Pressable
+        onPress={() => setOpen(true)}
         onLongPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityHint="Long press to see the English meaning"
+        accessibilityHint="Shows the meaning, plays it, and lets you save it"
       >
         {body}
       </Pressable>
@@ -99,21 +108,41 @@ export function Jp({
         onRequestClose={() => setOpen(false)}
       >
         <Pressable style={styles.scrim} onPress={() => setOpen(false)}>
-          <View style={styles.peek}>
+          {/* Taps inside the card don't close it. */}
+          <Pressable style={styles.peek} onPress={() => {}}>
             <View style={base.rowBetween}>
-              <Text style={styles.peekMeaning}>{meaning ?? 'No meaning yet'}</Text>
+              <Text style={styles.peekMeaning}>
+                {meaning ?? 'No meaning yet'}
+              </Text>
               <Pressable
                 style={styles.audio}
-                disabled
-                accessibilityLabel="Play audio (coming soon)"
+                onPress={() => playWord(text)}
+                accessibilityLabel={`Play ${text}`}
               >
-                <Text style={styles.audioIcon}>🔈</Text>
+                <Icon name="play" color={colors.textInverse} />
               </Pressable>
             </View>
             <Text style={styles.peekReading}>
               {[text, reading, romaji].filter(Boolean).join(' · ')}
             </Text>
-          </View>
+            <Pressable
+              style={[styles.save, saver.busy && styles.saveDone]}
+              disabled={saver.busy}
+              onPress={saver.save}
+              accessibilityRole="button"
+            >
+              <View style={styles.saveRow}>
+                {SAVE_ICON[saver.state] ? (
+                  <Icon
+                    name={SAVE_ICON[saver.state]!}
+                    size={fontSizes.md}
+                    color={colors.textInverse}
+                  />
+                ) : null}
+                <Text style={styles.saveText}>{SAVE_LABEL[saver.state]}</Text>
+              </View>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
     </>
@@ -138,8 +167,11 @@ const toneStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  // Shrinks and wraps inside rows, so long words or readings never overflow.
   column: {
     alignSelf: 'flex-start',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   text: {
     ...base.text,
@@ -204,8 +236,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  audioIcon: {
-    fontSize: fontSizes.md,
+  save: {
+    marginTop: space.sm,
+    minHeight: sizes.touch,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+  },
+  saveDone: {
+    backgroundColor: colors.overlay,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  saveText: {
+    ...base.text,
     color: colors.textInverse,
+    fontWeight: fontWeights.bold,
   },
 });

@@ -22,7 +22,8 @@ export const colors = {
   // Status (kept minimal)
   positive: '#2E7A4F',
   caution: '#A35C00',
-  star: '#C99A12',
+  // 花丸 (mastered Tango): a teacher's red pen.
+  hanamaru: '#D2452B',
 } as const;
 
 export const fonts = {
@@ -90,20 +91,15 @@ export const opacity = {
 } as const;
 
 /** Google map style colors: warm land with white roads, clear parks, water and rail. */
-export const mapColors = {
-  land: '#E3DFD5',
-  park: '#C7DDB5',
-  water: '#A9C8E6',
-  road: '#FFFFFF',
-  rail: '#8494D8',
-} as const;
 
-/** "Pale Dawn" map style colors (Snazzy Maps style #1). */
-export const paleDawnColors = {
-  land: '#F2E5D4',
-  park: '#C5DAC6',
-  highway: '#C5C6C6',
-  arterial: '#E4D7C6',
-  local: '#FBFAF7',
-  water: '#ACBCC9',
+/** "Washi" map: ink on paper, so the map reads as Tankengo, not Google Maps. */
+export const washiColors = {
+  paper: '#F4EFE4',
+  park: '#E1E5CF',
+  water: '#C3D3DC',
+  road: '#FBF8F2',
+  majorRoad: '#E8DECB',
+  rail: '#CDBFA6',
+  label: '#7A705F',
+  labelHalo: '#F4EFE4',
 } as const;

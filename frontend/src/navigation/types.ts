@@ -9,12 +9,21 @@ import type {
 
 export type TabParamList = {
   Today: undefined;
-  Plans: undefined;
+  /** Full Tango map; areaId opens that neighbourhood's card. */
+  Map: { areaId?: string } | undefined;
   /** Placeholder route; the center tab button opens the Capture modal instead. */
   CaptureTab: undefined;
   Review: undefined;
   Me: undefined;
 };
+
+export type MeSectionId =
+  | 'profile'
+  | 'display'
+  | 'practice'
+  | 'languages'
+  | 'privacy'
+  | 'developer';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -30,6 +39,14 @@ export type RootStackParamList = {
   CaptureToday: undefined;
   TangoDetail: { id: string };
   ReviewSession: { collectionId?: string } | undefined;
+  /** Upcoming visits (opened from Today). */
+  Plans: undefined;
+  /** Every Tango, searchable (opened from Review). */
+  AllTango: undefined;
+  /** A user-made review list. */
+  TangoList: { listId: string };
+  /** One settings area from Me. */
+  MeSection: { section: MeSectionId };
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> =

@@ -43,8 +43,10 @@ export const base = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.sm,
   },
+  // minWidth 0 lets long text inside wrap instead of pushing siblings off screen.
   grow: {
     flex: 1,
+    minWidth: 0,
   },
   card: {
     backgroundColor: colors.surface,
@@ -69,6 +71,7 @@ export const base = StyleSheet.create({
     paddingVertical: space.xs,
     borderRadius: radii.pill,
     backgroundColor: colors.surfaceMuted,
+    maxWidth: '100%',
   },
   text: {
     fontFamily: fonts.body,

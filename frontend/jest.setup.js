@@ -3,8 +3,9 @@
 // Native modules have no implementation under Jest, so they are replaced
 // with small fakes here.
 
-jest.mock('react-native-safe-area-context', () =>
-  require('react-native-safe-area-context/jest/mock').default,
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default,
 );
 
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -39,8 +40,19 @@ jest.mock('react-native-vision-camera', () => {
         throw new Error('No camera in tests');
       },
     }),
+    useFrameOutput: () => ({}),
   };
 });
+
+jest.mock('react-native-vision-camera-mlkit', () => ({
+  useTextRecognition: () => ({
+    textRecognition: () => ({ text: '', blocks: [] }),
+  }),
+}));
+
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn, ...args) => fn(...args),
+}));
 
 jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: async () => ({ didCancel: true }),
@@ -68,14 +80,20 @@ jest.mock('react-native-maps', () => {
   const { View } = require('react-native');
   const MapView = props => <View {...props} />;
   const Marker = props => <View {...props} />;
-  return { __esModule: true, default: MapView, Marker, PROVIDER_GOOGLE: 'google' };
+  return {
+    __esModule: true,
+    default: MapView,
+    Marker,
+    PROVIDER_GOOGLE: 'google',
+  };
 });
 
 jest.mock('@react-native-community/geolocation', () => ({
   __esModule: true,
   default: {
     setRNConfiguration: () => {},
-    getCurrentPosition: (_ok, fail) => fail({ code: 1, message: 'No location in tests' }),
+    getCurrentPosition: (_ok, fail) =>
+      fail({ code: 1, message: 'No location in tests' }),
   },
 }));
 
@@ -86,5 +104,32 @@ jest.mock('react-native-nitro-sound', () => {
     startRecorder: async () => '',
     stopRecorder: async () => '',
   });
-  return { __esModule: true, createSound: sound, default: sound() };
+  return {
+    __esModule: true,
+    createSound: sound,
+    default: sound(),
+    AudioSourceAndroidType: { VOICE_RECOGNITION: 6 },
+    OutputFormatAndroidType: { AMR_WB: 4 },
+    AudioEncoderAndroidType: { AMR_WB: 2 },
+  };
+});
+
+// Icons draw with SVG, which has no native side under Jest.
+jest.mock('lucide-react-native', () => {
+  const Stub = () => null;
+  return new Proxy(
+    { __esModule: true },
+    { get: (target, key) => (key in target ? target[key] : Stub) },
+  );
+});
+
+jest.mock('react-native-svg', () => {
+  const Stub = () => null;
+  return {
+    __esModule: true,
+    default: Stub,
+    Svg: Stub,
+    Path: Stub,
+    Circle: Stub,
+  };
 });

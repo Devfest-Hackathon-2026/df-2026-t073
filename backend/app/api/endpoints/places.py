@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.deps import CurrentUser, Db, HttpClient
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.place import Place, TodayResponse, Visit, VisitCreateRequest
 from app.services import places, visits
 
@@ -12,7 +12,7 @@ Lat = Annotated[float | None, Query(ge=-90, le=90)]
 Lng = Annotated[float | None, Query(ge=-180, le=180)]
 
 
-@router.get("/places/search", response_model=list[Place])
+@router.get("/places/search", response_model=list[Place], dependencies=[daily_limit("places")])
 async def search_places(
     _user: CurrentUser,
     db: Db,
@@ -25,7 +25,7 @@ async def search_places(
     return await places.search_places(http=http_client, db=db, query=q, lat=lat, lng=lng)
 
 
-@router.get("/places/nearby", response_model=Place | None)
+@router.get("/places/nearby", response_model=Place | None, dependencies=[daily_limit("places")])
 async def nearby_place(
     _user: CurrentUser,
     db: Db,

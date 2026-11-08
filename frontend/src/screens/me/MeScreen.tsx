@@ -1,23 +1,15 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { checkBackendAuth, checkBackendHealth } from '../../api/health';
-import { searchPlaces } from '../../api/places';
-import { getProfile, updateProfile } from '../../api/user';
-import { Jp } from '../../components/Jp';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { getReviewSummary } from '../../api/review';
+import { getProfile } from '../../api/user';
+import { Hanamaru } from '../../components/Hanamaru';
+import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
-import {
-  Button,
-  Card,
-  Loadable,
-  SectionTitle,
-  SegmentedControl,
-  ToggleRow,
-} from '../../components/ui';
-import { API_BASE_URL, LIVE_APIS, USE_MOCKS } from '../../config';
+import { Card, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
-import { useAuth } from '../../state/AuthContext';
+import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
+import { type MeSectionId, useRootNav } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
-import type { HomeArea, Place } from '../../types';
 import { base } from '../../styles/base';
 import {
   colors,
@@ -28,410 +20,153 @@ import {
   space,
 } from '../../styles/tokens';
 
-const LANGUAGES = [
-  { value: 'English', native: 'English' },
-  { value: 'Traditional Chinese', native: '中文（繁體）' },
-  { value: 'Simplified Chinese', native: '中文（简体）' },
-  { value: 'Korean', native: '한국어' },
-  { value: 'Vietnamese', native: 'Tiếng Việt' },
-  { value: 'Nepali', native: 'नेपाली' },
-  { value: 'Spanish', native: 'Español' },
-];
+const LINES = ['Tallying your Tango…', 'Counting your hanamaru…'];
 
-const AUTH_LABEL = {
-  not_configured: 'off (Firebase values not set in .env)',
-  signing_in: 'signing in…',
-  signed_in: 'signed in anonymously',
-  error: 'failed',
-} as const;
-
-const PREVIEW = {
-  text: '食券',
-  reading: 'しょっけん',
-  romaji: 'shokken',
-  meaning: 'meal ticket',
-};
-
+/** Me: who you are and how you're doing at a glance; settings one tap away. */
 export function MeScreen(): React.JSX.Element {
-  const { settings, update } = useSettings();
+  const nav = useRootNav();
+  const { settings } = useSettings();
   const profile = useAsync(getProfile);
-  const [languagesOpen, setLanguagesOpen] = useState(false);
-  const [health, setHealth] = useState<string>('Not checked');
-  const [backendAuth, setBackendAuth] = useState<string>('Not checked');
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
+  const review = useAsync(getReviewSummary);
+  useReloadOnFocus(profile.reload, review.reload);
 
-  const saveName = async () => {
-    const name = nameDraft.trim();
-    if (!name) {
-      setEditingName(false);
-      return;
-    }
-    try {
-      await updateProfile({ name });
-      setNameError(null);
-      setEditingName(false);
-      profile.reload();
-    } catch (err) {
-      setNameError(err instanceof Error ? err.message : 'Could not save');
-    }
-  };
-  const auth = useAuth();
-
-  const checkAuth = async () => {
-    setBackendAuth('Checking…');
-    try {
-      const me = await checkBackendAuth();
-      setBackendAuth(`Accepted (uid ${me.uid.slice(0, 8)}…)`);
-    } catch (err) {
-      setBackendAuth(
-        `Rejected (${err instanceof Error ? err.message : 'error'})`,
-      );
-    }
-  };
-
-  const ping = async () => {
-    setHealth('Checking…');
-    try {
-      const res = await checkBackendHealth();
-      setHealth(`Online (${res.status})`);
-    } catch (err) {
-      setHealth(
-        `Unreachable (${err instanceof Error ? err.message : 'error'})`,
-      );
-    }
-  };
+  const sections: {
+    id: MeSectionId;
+    icon: IconName;
+    title: string;
+    value?: string;
+  }[] = [
+    { id: 'profile', icon: 'me', title: 'Profile' },
+    { id: 'display', icon: 'display', title: 'Japanese display' },
+    { id: 'practice', icon: 'learn', title: 'Practice' },
+    {
+      id: 'languages',
+      icon: 'translate',
+      title: 'Languages',
+      value: settings.explanationsLanguage,
+    },
+    {
+      id: 'privacy',
+      icon: 'privacy',
+      title: 'Privacy & location',
+      value: settings.mapFeatures ? 'Map on' : 'Map off',
+    },
+  ];
 
   return (
     <Screen edges={['top']}>
       <SectionTitle en="Me" size="title" />
-      <Loadable state={profile}>
+      <Loadable state={profile} messages={LINES}>
         {p => (
-          <View style={base.stackSm}>
-            <Card>
-              <View style={base.row}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{p.name.charAt(0)}</Text>
-                </View>
-                <View style={base.grow}>
-                  {editingName ? (
-                    <TextInput
-                      value={nameDraft}
-                      onChangeText={setNameDraft}
-                      onSubmitEditing={saveName}
-                      autoFocus
-                      maxLength={40}
-                      returnKeyType="done"
-                      style={styles.nameInput}
-                      accessibilityLabel="Your name"
-                    />
-                  ) : (
-                    <Text style={base.heading}>{p.name}</Text>
-                  )}
-                  <Text style={base.caption}>{p.levelNote}</Text>
-                </View>
-                <Text
-                  accessibilityRole="button"
-                  style={styles.editLink}
-                  onPress={() => {
-                    if (editingName) {
-                      saveName();
-                    } else {
-                      setNameDraft(p.name);
-                      setEditingName(true);
-                    }
-                  }}
-                >
-                  {editingName ? 'Save' : 'Edit'}
+          <View style={base.stack}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => nav.navigate('MeSection', { section: 'profile' })}
+              style={styles.header}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{p.name.charAt(0)}</Text>
+              </View>
+              <View style={base.grow}>
+                <Text style={base.heading} numberOfLines={1}>
+                  {p.name}
+                </Text>
+                <Text style={base.caption} numberOfLines={1}>
+                  {p.levelNote}
                 </Text>
               </View>
-              {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
-            </Card>
-            <View style={base.row}>
-              <Stat value={String(p.stats.tango)} label="Tango" />
-              <Stat value={`★ ${p.stats.stars}`} label="stars" />
-              <Stat value={String(p.stats.places)} label="places" />
+              <Icon name="forward" color={colors.textMuted} />
+            </Pressable>
+
+            <View style={styles.grid}>
+              <Metric value={p.stats.tango} label="Tango" />
+              <Metric
+                value={p.stats.stars}
+                label="Hanamaru"
+                mark={<Hanamaru size={fontSizes.lg} />}
+              />
+              <Metric value={p.stats.places} label="Places" />
+              <Metric
+                value={review.data?.dueCount ?? '–'}
+                label="Due today"
+                accent
+              />
             </View>
           </View>
         )}
       </Loadable>
 
-      <Text style={base.heading}>Display and learning</Text>
-
       <Card>
-        <Text style={base.label}>Reading</Text>
-        <Text style={styles.rowLabel}>Show Japanese as</Text>
-        <SegmentedControl
-          options={[
-            { value: 'kanji', label: 'Kanji' },
-            { value: 'hiragana', label: 'Hiragana' },
-            { value: 'romaji', label: 'Romaji' },
-          ]}
-          value={settings.showJapaneseAs}
-          onChange={value => update({ showJapaneseAs: value })}
-        />
-        <ToggleRow
-          label="Furigana over kanji"
-          description="Small readings above each kanji"
-          value={settings.furigana}
-          onValueChange={value => update({ furigana: value })}
-        />
-        <View style={styles.preview}>
-          <Text style={base.label}>Preview</Text>
-          <Jp {...PREVIEW} size="xl" bold />
-          <Text style={base.caption}>
-            Signs and menus you capture always show the real kanji too, so you
-            learn to recognize them where you'll actually see them.
-          </Text>
-        </View>
+        {sections.map((s, i) => (
+          <Pressable
+            key={s.id}
+            accessibilityRole="button"
+            onPress={() => nav.navigate('MeSection', { section: s.id })}
+            style={[styles.row, i > 0 && styles.rowDivider]}
+          >
+            <Icon name={s.icon} color={colors.accent} />
+            <Text style={[styles.rowLabel, base.grow]}>{s.title}</Text>
+            {s.value ? (
+              <Text style={base.caption} numberOfLines={1}>
+                {s.value}
+              </Text>
+            ) : null}
+            <Icon name="forward" color={colors.textMuted} />
+          </Pressable>
+        ))}
       </Card>
 
-      <Card>
-        <Text style={base.label}>Japanese in the app</Text>
-        <Text style={styles.rowLabel}>How much of the app is in Japanese</Text>
-        <SegmentedControl
-          options={[
-            { value: 'little', label: 'A little' },
-            { value: 'some', label: 'Some' },
-            { value: 'lot', label: 'A lot' },
-          ]}
-          value={settings.appJapanese}
-          onChange={value => update({ appJapanese: value })}
-        />
-        <Text style={base.caption}>
-          Headers and greetings switch to Japanese with dotted underlines. Hold
-          any of them to see English. Buttons stay in English.
-        </Text>
-        <ToggleRow
-          label="English after each role-play line"
-          description="Turn off for a harder rehearsal"
-          value={settings.englishAfterRoleplayLine}
-          onValueChange={value => update({ englishAfterRoleplayLine: value })}
-        />
-      </Card>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => nav.navigate('MeSection', { section: 'developer' })}
+        style={styles.row}
+      >
+        <Icon name="developer" color={colors.textMuted} />
+        <Text style={[base.caption, base.grow]}>Developer</Text>
+        <Icon name="forward" color={colors.textMuted} />
+      </Pressable>
 
-      <Card>
-        <Text style={base.label}>Practice</Text>
-        <View style={base.rowBetween}>
-          <Text style={styles.rowLabel}>Staff speaking speed</Text>
-          <View style={styles.compact}>
-            <SegmentedControl
-              options={[
-                { value: 'slower', label: 'Slower' },
-                { value: 'natural', label: 'Natural' },
-              ]}
-              value={settings.staffSpeed}
-              onChange={value => update({ staffSpeed: value })}
-            />
-          </View>
-        </View>
-        <View style={base.rowBetween}>
-          <Text style={styles.rowLabel}>Phrases shown first</Text>
-          <View style={styles.compact}>
-            <SegmentedControl
-              options={[
-                { value: 'easy', label: 'Easy' },
-                { value: 'keigo', label: 'Keigo' },
-              ]}
-              value={settings.phrasesFirst}
-              onChange={value => update({ phrasesFirst: value })}
-            />
-          </View>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setLanguagesOpen(open => !open)}
-          style={base.rowBetween}
-        >
-          <View style={base.grow}>
-            <Text style={styles.rowLabel}>Explanations in</Text>
-            <Text style={base.caption}>Meanings, hints and feedback</Text>
-          </View>
-          <Text style={base.text}>
-            {settings.explanationsLanguage} {languagesOpen ? '⌃' : '›'}
-          </Text>
-        </Pressable>
-        {languagesOpen ? (
-          <View style={base.stackSm}>
-            {LANGUAGES.map(lang => (
-              <Pressable
-                key={lang.value}
-                accessibilityRole="radio"
-                accessibilityState={{
-                  selected: settings.explanationsLanguage === lang.value,
-                }}
-                onPress={() => update({ explanationsLanguage: lang.value })}
-                style={[base.rowBetween, styles.language]}
-              >
-                <View>
-                  <Text style={styles.rowLabel}>{lang.native}</Text>
-                  <Text style={base.caption}>{lang.value}</Text>
-                </View>
-                {settings.explanationsLanguage === lang.value ? (
-                  <Text style={styles.check}>✓</Text>
-                ) : null}
-              </Pressable>
-            ))}
-            <Text style={styles.note}>
-              ✦ Explanations are written by Gemini in the language you choose,
-              so new languages need no extra content. (Not wired up in this
-              pass.)
-            </Text>
-          </View>
-        ) : null}
-      </Card>
-
-      <HomeAreaCard
-        current={profile.data?.homeArea ?? null}
-        onSaved={profile.reload}
-      />
-
-      <Card>
-        <Text style={base.label}>Developer</Text>
-        <Text style={base.caption}>
-          Data:{' '}
-          {USE_MOCKS
-            ? `mock data${
-                LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''
-              }`
-            : 'backend'}{' '}
-          · {API_BASE_URL}
-        </Text>
-        <Text style={base.caption}>Backend health: {health}</Text>
-        <Button
-          label="Check backend health"
-          variant="secondary"
-          onPress={ping}
-        />
-        <Text style={base.caption}>
-          Sign-in: {AUTH_LABEL[auth.status]}
-          {auth.user ? ` · uid ${auth.user.uid.slice(0, 8)}…` : ''}
-          {auth.error ? ` · ${auth.error}` : ''}
-        </Text>
-        <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
-        <Button
-          label="Check sign-in with backend"
-          variant="secondary"
-          onPress={checkAuth}
-        />
-        <Button
-          label="Restart onboarding"
-          variant="ghost"
-          onPress={() => update({ onboarded: false, dayOne: false })}
-        />
-      </Card>
+      <Text style={base.caption}>
+        Dictionary data: JMdict, © Electronic Dictionary Research and
+        Development Group, used under CC BY-SA 4.0.
+      </Text>
     </Screen>
   );
 }
 
-const HOME_RADIUS_M = 500;
-
-/** Privacy: pins within 500 m of home are never shown on the map. */
-function HomeAreaCard({
-  current,
-  onSaved,
-}: {
-  current: HomeArea | null;
-  onSaved: () => void;
-}): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const results = useAsync(
-    () =>
-      query.trim().length >= 2 ? searchPlaces(query) : Promise.resolve([]),
-    query,
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  const choose = async (place: Place) => {
-    setError(null);
-    try {
-      await updateProfile({
-        homeArea: {
-          label: place.name.meaning || place.name.text,
-          lat: place.lat,
-          lng: place.lng,
-          radiusM: HOME_RADIUS_M,
-        },
-      });
-      setOpen(false);
-      setQuery('');
-      onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save');
-    }
-  };
-
-  return (
-    <Card>
-      <Text style={base.label}>Privacy</Text>
-      <View style={base.rowBetween}>
-        <View style={base.grow}>
-          <Text style={styles.rowLabel}>Home area</Text>
-          <Text style={base.caption}>
-            {current
-              ? `${current.label} · nothing within ${current.radiusM} m is pinned`
-              : 'Not set. Pins near home are never shown once you set it.'}
-          </Text>
-        </View>
-        <Text
-          accessibilityRole="button"
-          style={styles.editLink}
-          onPress={() => setOpen(o => !o)}
-        >
-          {open ? 'Cancel' : current ? 'Change' : 'Set'}
-        </Text>
-      </View>
-      {open ? (
-        <View style={base.stackSm}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="⌕  A station or place near home"
-            placeholderTextColor={colors.textMuted}
-            style={styles.search}
-            autoFocus
-            accessibilityLabel="Search for your home area"
-          />
-          {(results.data ?? []).map(place => (
-            <Pressable
-              key={place.id}
-              accessibilityRole="button"
-              onPress={() => choose(place)}
-              style={styles.language}
-            >
-              <Text style={styles.rowLabel}>
-                {place.name.meaning || place.name.text}
-              </Text>
-              <Text style={base.caption}>
-                {[place.area, place.category].filter(Boolean).join(' · ')}
-              </Text>
-            </Pressable>
-          ))}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </View>
-      ) : null}
-    </Card>
-  );
-}
-
-function Stat({
+function Metric({
   value,
   label,
+  mark,
+  accent = false,
 }: {
-  value: string;
+  value: number | string;
   label: string;
+  mark?: React.ReactNode;
+  accent?: boolean;
 }): React.JSX.Element {
   return (
-    <View style={[base.card, styles.stat]}>
-      <Text style={styles.statValue}>{value}</Text>
+    <View style={styles.metric}>
+      <View style={base.row}>
+        <Text style={[styles.metricValue, accent && styles.metricAccent]}>
+          {value}
+        </Text>
+        {mark}
+      </View>
       <Text style={base.caption}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: space.md,
+  },
   avatar: {
     width: sizes.shutter,
     height: sizes.shutter,
@@ -446,61 +181,39 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
     color: colors.accent,
   },
-  search: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  metric: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: space.md,
+    gap: space.xxs,
+  },
+  metricValue: {
     ...base.text,
-    backgroundColor: colors.bg,
-    borderRadius: radii.pill,
-    paddingHorizontal: space.lg,
-    minHeight: sizes.touch,
-  },
-  nameInput: {
-    ...base.heading,
-    borderBottomWidth: sizes.hairline,
-    borderBottomColor: colors.accent,
-    paddingVertical: space.xxs,
-  },
-  editLink: {
-    ...base.caption,
-    color: colors.accent,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
-    padding: space.sm,
   },
-  error: {
-    ...base.caption,
-    color: colors.caution,
+  metricAccent: {
+    color: colors.accent,
   },
-  stat: {
-    flex: 1,
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.md,
   },
-  statValue: {
-    ...base.heading,
-    fontSize: fontSizes.xl,
+  rowDivider: {
+    borderTopWidth: sizes.hairline,
+    borderTopColor: colors.border,
   },
   rowLabel: {
     ...base.text,
     fontWeight: fontWeights.bold,
-  },
-  preview: {
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    padding: space.md,
-    gap: space.sm,
-  },
-  compact: {
-    minWidth: sizes.mapHeight * 0.75,
-  },
-  language: {
-    paddingVertical: space.xs,
-    borderBottomWidth: sizes.hairline,
-    borderBottomColor: colors.border,
-  },
-  check: {
-    ...base.heading,
-    color: colors.accent,
-  },
-  note: {
-    ...base.caption,
-    color: colors.accent,
   },
 });

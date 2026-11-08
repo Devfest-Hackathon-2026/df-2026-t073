@@ -17,6 +17,7 @@ from app.schemas.review import (
     SessionResultResponse,
 )
 from app.services import review_rules as rules
+from app.services.lists import get_list, list_lists
 from app.services.firestore import (
     create_review_session,
     get_review_session,
@@ -75,6 +76,31 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
         )
         for a in rules.areas_summary(cards)
     ]
+    favorites = [c for c in cards if c.favorite]
+    if favorites:
+        collections.insert(
+            0,
+            Collection(
+                id=rules.FAVORITES_COLLECTION,
+                label="Favourites",
+                count=len(favorites),
+                is_place=False,
+                is_place_cue=False,
+                is_favorites=True,
+            ),
+        )
+    owned = {c.flashcard_id for c in cards}
+    for user_list in await list_lists(db=db, uid=uid):
+        collections.append(
+            Collection(
+                id=f"{rules.LIST_PREFIX}{user_list.list_id}",
+                label=user_list.name,
+                count=sum(1 for i in user_list.tango_ids if i in owned),
+                is_place=False,
+                is_place_cue=False,
+                is_list=True,
+            )
+        )
     if place_cue:
         collections.append(
             Collection(
@@ -110,7 +136,13 @@ async def build_session(
     if collection and collection.startswith(rules.AREA_PREFIX):
         place_ids = {s.place_id for c in cards for s in c.sightings if s.place_id}
         area_by_place = await areas_for(db, place_ids)
-    picked = rules.pick_session_cards(cards, now, collection, area_by_place=area_by_place)
+    list_ids: set[str] | None = None
+    if collection and collection.startswith(rules.LIST_PREFIX):
+        chosen = await get_list(db=db, uid=uid, list_id=collection[len(rules.LIST_PREFIX) :])
+        list_ids = set(chosen.tango_ids)
+    picked = rules.pick_session_cards(
+        cards, now, collection, area_by_place=area_by_place, list_ids=list_ids
+    )
     session_id = f"rs_{uuid.uuid4().hex[:16]}"
 
     # One Gemini call for every card that has no cached wrong answers yet.

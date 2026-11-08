@@ -7,6 +7,10 @@ Draft for the frontend and backend to agree on. The frontend calls these from `f
 - Types below are TypeScript. Frontend types live in `frontend/src/types/index.ts`. Proposed new endpoints use camelCase to match them; if the backend prefers snake_case, say so and the frontend will convert in `src/api/`.
 - "Tango" is the frontend's name for a saved word, phrase, object or menu item. The backend currently calls it a "flashcard".
 
+> **Daily limits:** paid endpoints (captures, catching, briefings, rehearsals and replies, TTS, review sessions, place search/nearby) return **429** with a user-facing `detail` ("Daily limit reached for … Try again tomorrow.") once a per-user daily limit is used; `api/client.ts` shows that message as-is. See backend/README.md.
+>
+> **Places on catches:** only a matched place's name is sent as `place_name`; placeholder labels ("Location off", "Near you", …) are dropped on both sides.
+
 ## 1. Endpoints that already exist in the backend
 
 These are called as-is. The frontend converts the responses to its own types.
@@ -18,7 +22,7 @@ These are called as-is. The frontend converts the responses to its own types.
 | POST | `/api/v1/captures` | `{ image_base64: string, mime_type?: "image/jpeg" \| "image/png" \| "image/webp" }` | `CaptureResponse` | `uploadCapture()` |
 | GET | `/api/v1/captures?limit=` | – | `CaptureResponse[]` | not used yet |
 | GET | `/api/v1/captures/{capture_id}` | – | `CaptureResponse` | not used yet |
-| POST | `/api/v1/flashcards/generate` | `{ capture_id, item_id?, selected_text?, place_id?, place_name?, lat?, lng?, language? }` | `FlashcardCatchResponse` (one card per word: a repeat catch adds a sighting) | `catchTango()` |
+| POST | `/api/v1/flashcards/generate` | `{ capture_id?, item_id?, selected_text?, place_id?, place_name?, lat?, lng?, language? }` | `FlashcardCatchResponse` (one card per word: a repeat catch adds a sighting) | `catchTango()` |
 | GET | `/api/v1/flashcards?due_only=&mastered=&capture_id=&limit=` | – | `FlashcardResponse[]` | `listTango()` (search is client-side) |
 | GET | `/api/v1/flashcards/{id}` | – | `FlashcardResponse` | `getTango()` |
 | POST | `/api/v1/flashcards/{id}/review` | `{ rating: "again" \| "good" \| "easy" }` | `FlashcardResponse` | `submitAnswer()`, `recordRecognition()` |
@@ -91,12 +95,16 @@ interface TodayResponse {
   areas: { id: string; label: string; tango_count: number; place_count: number;
            sample: FlashcardResponse[]; more_count: number; plan_place_id: string | null }[];
   starter_tango: JpName[];
+  // Picked for the user's reading level and interests; null if nothing fits.
+  word_of_day: { text: string; reading: string; romaji: string; meaning: string;
+                 reason: string } | null;
 }
 ```
 
 - Places come from Google Places API (New) with `GOOGLE_PLACES_API_KEY` (Japanese + English names fetched in parallel, cached in `places/{id}`). Without the key, a built-in list of Koenji/Nakano/Asagaya places is used (ids `builtin:*`).
 - Today pins: one per area (from the place cache, else the sighting's place name). **Sightings inside the user's home area are never pinned.**
 - The "you are here" pin is added by the app from device GPS. Review accepts `collection=area:<area_id>` for the area card's "Review these".
+- Word of the day: from a hand-picked list of 119 everyday words (`backend/app/services/everyday_words.py`), filtered by the profile's reading level, weighted by the categories of planned visits and of places where Tango were caught, never one the user owns. Same word all day (seeded by user + date in Japan time). Reading and meaning come from JMdict; no AI call. `reason` is shown on the card ("For your visit to 麺屋たいき").
 
 ### Prepare (`api/prepare.ts`) — **implemented in P5**
 
@@ -140,8 +148,36 @@ interface TurnResult { turn_id: string; staff: JpName; said: JpName; spoken: boo
 interface RehearsalResult { place: Place; lines: TurnResult[] }
 ```
 - Script: one Gemini call per place and language, cached in `places/{id}/rehearsal/{language}`. Each start makes a session at `users/{uid}/rehearsals/{id}`.
-- Spoken reply: AAC audio (`audio/mp4`, max 2 MB) → one Gemini call (transcript + rating). Chosen reply: feedback comes from the script, no Gemini call.
+- Spoken reply: the app records AMR-WB (`audio/amr-wb`, 16 kHz, max 2 MB). Cloud Speech-to-Text (Chirp 2, `ja-JP`, region `asia-southeast1`; falls back to the standard v1 model) writes down what was said, then one Gemini call rates that text. Gemini can't change the transcript. Nothing recognized → "couldn't hear that", no Gemini call. Needs the **Cloud Speech-to-Text API** enabled in the project (503 otherwise).
+- Chosen reply: feedback comes from the script, no Gemini call.
 - Staff voice: Cloud Text-to-Speech (`ja-JP-Neural2-B`, rate 0.8 slower / 1.0 natural), MP3 cached in Cloud Storage under `tts/`. If TTS is unavailable the app shows text only.
+
+### Catching Tango — **dictionary first (JMdict)**
+
+`POST /api/v1/flashcards/generate` (table above) now works three ways:
+
+| Caller | `capture_id` | `item_id` | `selected_text` |
+|---|---|---|---|
+| Photo read (shutter / import) | yes | the detected item | optional (joined boxes send the joined text) |
+| Live camera (text read on the phone) | – | – | the word |
+| Tapping underlined Japanese / word of the day ("Save as Tango") | – | – | the word |
+
+- If the word is in JMdict and the language is English, the card is saved at once from the dictionary (reading, romaji, meaning, part of speech) with no examples. Gemini then writes the 2 example phrases in the background (FastAPI `BackgroundTasks`) and saves them to the card. Tango detail polls for them (every 4 s, up to 4 times).
+- Otherwise (not a dictionary word, or another explanation language) Gemini writes the whole card as before.
+- Cards without a photo have `capture_id: ""` and `image_url: ""`; Review skips the photo question for them.
+
+### Dictionary (`api/dictionary.ts`) — **new**
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/api/v1/dictionary/lookup?text=` | `DictionaryEntry`, or 404 when it isn't a dictionary word |
+
+```ts
+interface DictionaryEntry { text: string; reading: string; romaji: string; meaning: string; part_of_speech: string }
+```
+- Local SQLite built from JMdict (`backend/data/jmdict.sqlite`, made by `backend/scripts/build_jmdict.py`; the Docker image builds its own). No API cost. Without the file, lookups 404 and catching falls back to Gemini.
+- The app caches each lookup for the session. Used for meanings on camera boxes and the picked word.
+- JMdict is © EDRDG, CC BY-SA 4.0; the credit line is on the Me screen.
 
 ### Capture (`api/capture.ts`)
 
@@ -162,8 +198,24 @@ interface CatchEntry { tango: Tango; placeName: string; status: 'new' | 'reviewe
 |---|---|---|---|
 | GET | `/api/v1/review/card` | – | `ReviewCardResponse` |
 | GET | `/api/v1/review/summary` | – | `ReviewSummaryResponse` |
-| GET | `/api/v1/review/session?collection=` | `collection`: `place:<name>`, `place-cue`, or omitted (= everything due) | `ReviewSessionResponse` |
+| GET | `/api/v1/review/session?collection=` | `collection`: `place:<name>`, `area:<id>`, `place-cue`, `favorites`, `list:<list_id>`, or omitted (= everything due) | `ReviewSessionResponse` |
 | GET | `/api/v1/review/session/{session_id}/result` | – | `SessionResultResponse` |
+
+**Favourites and lists** (new):
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| PATCH | `/api/v1/flashcards/{id}` | `{ favorite: boolean }` | `FlashcardResponse` (now has `favorite: boolean`) |
+| GET | `/api/v1/lists` | – | `TangoList[]` (oldest first) |
+| POST | `/api/v1/lists` | `{ name, tango_ids? }` | 201 `TangoList` |
+| PATCH | `/api/v1/lists/{list_id}` | `{ name?, add?: string[], remove?: string[] }` | `TangoList` |
+| DELETE | `/api/v1/lists/{list_id}` | – | 204 |
+
+```ts
+interface TangoList { list_id: string; name: string; tango_ids: string[]; created_at: string }
+```
+- Lists live at `users/{uid}/lists/{list_id}`; `tango_ids` are flashcard ids in the order added (no duplicates; deleting a list keeps the Tango).
+- `review/summary` collections now also include `Favourites` (`is_favorites`, only if any) first and one entry per list (`is_list`, id `list:<list_id>`, count = Tango still owned).
 
 Answers go to `POST /api/v1/flashcards/{id}/review` with `{ rating: 'good' | 'again', session_id }` (correct → `good`). The `session_id` makes the answer count in the results.
 

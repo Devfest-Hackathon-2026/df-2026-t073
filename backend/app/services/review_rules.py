@@ -20,12 +20,15 @@ from app.schemas.review import (
     SessionAnswer,
 )
 from app.services.tango_rules import MAX_STRENGTH
+from app.services.tango_rules import clean_place_name
 
 SESSION_SIZE = 10
 SECONDS_PER_CARD = 20
 OPTIONS_PER_QUESTION = 4
 WRONG_PER_QUESTION = OPTIONS_PER_QUESTION - 1
 PLACE_CUE_COLLECTION = "place-cue"
+FAVORITES_COLLECTION = "favorites"
+LIST_PREFIX = "list:"
 PLACE_PREFIX = "place:"
 AREA_PREFIX = "area:"
 # Padding around a detected item so the whole word is hidden, in normalized units.
@@ -53,7 +56,7 @@ def is_due(card: FlashcardResponse, now: datetime) -> bool:
 
 def area_of(card: FlashcardResponse) -> str:
     """The place this Tango was most recently found, or "" if none was named."""
-    named = [s for s in card.sightings if s.place_name]
+    named = [s for s in card.sightings if clean_place_name(s.place_name)]
     if not named:
         return ""
     return max(named, key=lambda s: _aware(s.seen_at)).place_name
@@ -72,9 +75,14 @@ def in_collection(
     card: FlashcardResponse,
     collection: str | None,
     area_by_place: dict[str, str] | None = None,
+    list_ids: set[str] | None = None,
 ) -> bool:
     if not collection:
         return True
+    if collection == FAVORITES_COLLECTION:
+        return card.favorite
+    if collection.startswith(LIST_PREFIX):
+        return card.flashcard_id in (list_ids or set())
     if collection.startswith(AREA_PREFIX):
         wanted = collection[len(AREA_PREFIX) :]
         areas = area_by_place or {}
@@ -96,13 +104,14 @@ def pick_session_cards(
     collection: str | None = None,
     limit: int = SESSION_SIZE,
     area_by_place: dict[str, str] | None = None,
+    list_ids: set[str] | None = None,
 ) -> list[FlashcardResponse]:
     """Weakest due cards first.
 
     Without a collection, only due cards. With a collection (the user chose
     "Review these"), not-yet-due cards fill the rest so practice is always possible.
     """
-    chosen = [c for c in cards if in_collection(c, collection, area_by_place)]
+    chosen = [c for c in cards if in_collection(c, collection, area_by_place, list_ids)]
     due = [c for c in chosen if is_due(c, now)]
     due.sort(key=lambda c: (c.strength, _aware(c.review_stats.next_review_at)))
     if not collection:

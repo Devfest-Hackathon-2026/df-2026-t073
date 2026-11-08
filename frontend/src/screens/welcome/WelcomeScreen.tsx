@@ -9,17 +9,15 @@ import {
   useSettings,
 } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
-import {
-  colors,
-  fontSizes,
-  fontWeights,
-  radii,
-  sizes,
-  space,
-} from '../../styles/tokens';
+import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import type { ReadingLevel } from '../../types';
+import { Icon } from '../../components/Icon';
 
-const LEVELS: { value: ReadingLevel; title: string; help: string }[] = [
+export const READING_LEVELS: {
+  value: ReadingLevel;
+  title: string;
+  help: string;
+}[] = [
   {
     value: 'none',
     title: 'Not yet',
@@ -44,17 +42,17 @@ const LEVELS: { value: ReadingLevel; title: string; help: string }[] = [
 
 const PRIVACY = [
   {
-    glyph: '🔒',
+    icon: 'lock' as const,
     title: 'Only you see your pins',
     body: 'No profile, no followers, nothing public.',
   },
   {
-    glyph: '⊖',
+    icon: 'remove' as const,
     title: 'Home stays blank',
     body: "Pins near where you live are never placed. You pick the area once; we don't guess it.",
   },
   {
-    glyph: '👥',
+    icon: 'people' as const,
     title: 'Tips you share are anonymous',
     body: 'Only the tip and the shop. No name, no account, no exact time.',
   },
@@ -107,7 +105,7 @@ export function WelcomeScreen(): React.JSX.Element {
             Just a starting point. Tankengo adjusts as you catch and review, so
             there's no wrong answer.
           </Text>
-          {LEVELS.map(level => {
+          {READING_LEVELS.map(level => {
             const selected = settings.readingLevel === level.value;
             return (
               <Pressable
@@ -138,7 +136,7 @@ export function WelcomeScreen(): React.JSX.Element {
           {PRIVACY.map(item => (
             <View key={item.title} style={styles.privacyRow}>
               <View style={styles.privacyIcon}>
-                <Text style={styles.privacyGlyph}>{item.glyph}</Text>
+                <Icon name={item.icon} color={colors.accent} />
               </View>
               <View style={base.grow}>
                 <Text style={styles.optionTitle}>{item.title}</Text>
@@ -192,8 +190,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  privacyGlyph: {
-    fontSize: fontSizes.lg,
   },
 });

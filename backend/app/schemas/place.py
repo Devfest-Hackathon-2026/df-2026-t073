@@ -62,9 +62,19 @@ class MapArea(BaseModel):
     plan_place_id: str | None = None
 
 
+class WordOfDay(BaseModel):
+    text: str
+    reading: str
+    romaji: str
+    meaning: str
+    # Why this word, e.g. "For your visit to 麺屋たいき".
+    reason: str
+
+
 class TodayResponse(BaseModel):
     user_name: str
     up_next: Visit | None = None
     pins: list[MapPin]
     areas: list[MapArea]
     starter_tango: list[JpName]
+    word_of_day: WordOfDay | None = None

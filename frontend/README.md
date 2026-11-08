@@ -55,6 +55,8 @@ cd frontend
 npm install
 ```
 
+**After pulling changes that add native libraries** (anything in `android/`, or new packages such as the camera text reader `react-native-vision-camera-mlkit`, `react-native-worklets` `react-native-nitro-sound`, or `react-native-svg` for the Lucide icons): run `npm install`, rebuild the app (`npm run android`), and start Metro once with a clean cache (`npm start -- --reset-cache`). A stale cache after a Babel plugin change shows up as `Cannot read property 'createWorkletRuntime' of undefined` when the camera opens.
+
 ---
 
 ## 3. Running the App Locally (Android)
@@ -92,12 +94,32 @@ npm run android
 The app runs on mock data by default (`src/mocks/`), so every screen works without the backend.
 
 1. Copy `frontend/.env.example` to `frontend/.env`.
-2. Set `USE_MOCKS=false` to call the backend, and `API_BASE_URL` to its URL.
-3. Restart Metro with a clean cache so the new values are picked up: `npm start -- --reset-cache`.
+2. Either set `USE_MOCKS=false` to call the backend for everything, or keep mocks and list the areas to run live in `LIVE_APIS`. Everything live:
+   ```env
+   LIVE_APIS=capture,tango,review,user,places,prepare,rehearse
+   ```
+3. Set `API_BASE_URL` (see below).
+4. Restart Metro with a clean cache so the new values are picked up: `npm start -- --reset-cache`.
 
-`API_BASE_URL` defaults to `http://10.0.2.2:8000`:
-- **Android emulator:** `10.0.2.2` routes to `localhost` on your computer. Start the backend on port `8000` (`cd ../backend && uv run uvicorn main:app --reload`).
-- **Physical device:** forward the port with `adb reverse tcp:8000 tcp:8000`, or point `API_BASE_URL` at the Cloud Run URL.
+`API_BASE_URL` defaults to `http://10.0.2.2:8000`, which only works in the emulator:
+- **Android emulator:** `10.0.2.2` routes to `localhost` on your computer. Start the backend on port `8000` (`cd ../backend && uv run uvicorn main:app --port 8000`).
+- **Phone over USB:** set `API_BASE_URL=http://localhost:8000` and forward both ports after every replug:
+  ```bash
+  adb reverse tcp:8000 tcp:8000   # backend
+  adb reverse tcp:8081 tcp:8081   # Metro
+  ```
+  This also works for the emulator, so `localhost` is a fine default for both.
+- **Cloud Run:** point `API_BASE_URL` at the service URL.
+
+### Troubleshooting on a real phone
+
+| Symptom | Cause / fix |
+| :--- | :--- |
+| `Network request failed` on Today | `API_BASE_URL` still `10.0.2.2`, or `adb reverse` not run since replugging. |
+| `HTTP 401` on every request | The phone's clock is off; Firebase tokens are time-stamped. Settings → System → Date & time → Set time automatically. |
+| No USB debugging prompt | Settings → About phone → tap Build number 7 times, then Developer options → USB debugging; unlock the phone when plugging in. |
+| Rehearse spoken reply → `HTTP 503` | Cloud Speech-to-Text API not enabled (backend README, Step 4b). |
+| Prepare/Rehearse look like mock data | `prepare,rehearse` missing from `LIVE_APIS`. |
 
 Me › Developer shows which mode is active and has a **Check backend health** button (`GET /healthz`).
 

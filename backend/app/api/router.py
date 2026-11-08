@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, Db
-from app.api.endpoints import captures, flashcards, me, places, prepare, review
+from app.api.endpoints import captures, dictionary, flashcards, lists, me, places, prepare, review
 from app.core.config import settings
 from app.schemas.user import UserProfile
 from app.services.firestore import sync_user_profile
@@ -68,3 +68,5 @@ api_router.include_router(review.router, prefix=settings.API_V1_STR)
 api_router.include_router(me.router, prefix=settings.API_V1_STR)
 api_router.include_router(places.router, prefix=settings.API_V1_STR)
 api_router.include_router(prepare.router, prefix=settings.API_V1_STR)
+api_router.include_router(dictionary.router, prefix=settings.API_V1_STR)
+api_router.include_router(lists.router, prefix=settings.API_V1_STR)

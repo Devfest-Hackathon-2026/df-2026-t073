@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import CurrentUser, Db, HttpClient
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.review import (
     ReviewCardResponse,
     ReviewSessionResponse,
@@ -26,7 +26,7 @@ async def get_review_summary(current_user: CurrentUser, db: Db) -> ReviewSummary
     return await review.get_review_summary(db=db, uid=current_user["uid"])
 
 
-@router.get("/session", response_model=ReviewSessionResponse)
+@router.get("/session", response_model=ReviewSessionResponse, dependencies=[daily_limit("review")])
 async def start_review_session(
     current_user: CurrentUser,
     db: Db,

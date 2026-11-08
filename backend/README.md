@@ -86,6 +86,45 @@ gcloud config set project YOUR_FIREBASE_PROJECT_ID
 gcloud auth application-default login
 ```
 
+### Step 4b: Turn on the Google Cloud APIs (one time per project)
+In the Google Cloud console for the Firebase project, open **APIs & Services → Library** and enable:
+
+| API | Used for | Key? |
+| :--- | :--- | :--- |
+| Cloud Firestore | all user data | ADC |
+| Cloud Vision | reading text and objects in photos | ADC |
+| Cloud Text-to-Speech | the staff voice in Rehearse, and 🔈 on words | ADC |
+| **Cloud Speech-to-Text** | transcribing spoken replies in Rehearse | ADC |
+| Places API (New) | place search, nearby, briefings | `GOOGLE_PLACES_API_KEY` |
+| Gemini (AI Studio) | briefings, rehearsal scripts, rating replies, card examples | `GEMINI_API_KEY` |
+
+The ADC ones need no key: the backend uses your `gcloud auth application-default login` credentials (or the Cloud Run service account). If one is off, the endpoints that need it fail (Speech-to-Text returns a 503 that names the API; the others show up as 5xx errors in the backend log). Billing must be on for the project.
+
+### Daily limits on paid APIs
+Endpoints that call paid Google APIs count calls per user per day (Japan time) in `users/{uid}/usage/{date}` and return **429** with a friendly message once a limit is used. Defaults are generous for real use; change them with env vars (`0` = no limit):
+
+| Env var | Endpoint | Default/day |
+| :--- | :--- | :--- |
+| `LIMIT_VISION` | `POST /captures` | 150 |
+| `LIMIT_CATCH` | `POST /flashcards/generate` | 300 |
+| `LIMIT_BRIEFING` | `GET /places/{id}/briefing` | 60 |
+| `LIMIT_REHEARSAL` | `POST /rehearsals` | 40 |
+| `LIMIT_REPLY` | `POST /rehearsals/{id}/turns/{turn}` | 150 |
+| `LIMIT_TTS` | `POST /speech/tts` | 400 |
+| `LIMIT_REVIEW` | `GET /review/session` | 80 |
+| `LIMIT_PLACES` | `GET /places/search`, `/places/nearby` | 400 |
+
+If the counter can't be reached, calls are allowed.
+
+### Step 4c: Build the dictionary (one time)
+Tango cards for dictionary words are made instantly from JMdict instead of Gemini. Build the local database once (downloads ~12 MB, writes `data/jmdict.sqlite`, ~90 MB, git-ignored):
+
+```bash
+uv run python scripts/build_jmdict.py
+```
+
+Without it the backend still works; every catch just goes to Gemini (slower). The Docker image builds its own copy. JMdict is © EDRDG, used under CC BY-SA 4.0.
+
 ### Step 5: Run the FastAPI server locally
 
 **Using `uv`:**
@@ -97,6 +136,8 @@ uv run uvicorn main:app --reload --port 8000
 ```bash
 uvicorn main:app --reload --port 8000
 ```
+
+**Windows:** if requests hang or port 8000 stays busy after a restart, run without `--reload` (the reloader can leave old workers holding the port) and restart the server by hand after code changes.
 
 ---
 

@@ -3,11 +3,23 @@ import { StyleSheet, Text, View } from 'react-native';
 import { getRehearsalResult } from '../../api/rehearse';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
-import { Button, Card, IconButton, Loadable } from '../../components/ui';
+import {
+  Button,
+  Card,
+  IconButton,
+  IconLabel,
+  Loadable,
+} from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, space } from '../../styles/tokens';
+
+/** Shown while loading: build anticipation, not impatience. */
+const RESULT_LINES = [
+  'Looking back at your conversation…',
+  'Picking out what went well…',
+];
 
 export function RehearseResultsScreen({
   route,
@@ -40,7 +52,7 @@ export function RehearseResultsScreen({
       <ScreenHeader onBack={() => navigation.popToTop()} close>
         <Text style={base.heading}>Results</Text>
       </ScreenHeader>
-      <Loadable state={result}>
+      <Loadable state={result} messages={RESULT_LINES}>
         {data => (
           <View style={base.stack}>
             <Text style={base.title}>Nice work!</Text>
@@ -50,7 +62,9 @@ export function RehearseResultsScreen({
                 · used {hintsUsed} hint{hintsUsed === 1 ? '' : 's'}
               </Text>
             </View>
-            <Text style={styles.eyebrow}>✦ Feedback by Gemini</Text>
+            <IconLabel icon="ai" style={styles.eyebrow}>
+              Feedback by Gemini
+            </IconLabel>
             {data.lines.map(line => (
               <Card key={line.staff.text}>
                 <View style={base.row}>
@@ -59,19 +73,21 @@ export function RehearseResultsScreen({
                 </View>
                 <View style={base.row}>
                   <Text style={line.ok ? styles.ok : styles.warn}>
-                    {line.ok ? '✓' : '!'}
+                    {line.ok ? '○' : '△'}
                   </Text>
                   <Jp {...line.said} size="lg" />
                 </View>
                 {line.suggestion ? (
                   <View style={styles.suggestion}>
                     <View style={base.grow}>
-                      <Text style={styles.eyebrow}>✦ Gemini suggests</Text>
+                      <IconLabel icon="ai" style={styles.eyebrow}>
+                        Gemini suggests
+                      </IconLabel>
                       <Jp {...line.suggestion.jp} size="lg" bold />
                       <Text style={base.caption}>{line.suggestion.why}</Text>
                     </View>
                     <IconButton
-                      glyph="🔈"
+                      icon="play"
                       label="Play suggestion (coming soon)"
                     />
                   </View>

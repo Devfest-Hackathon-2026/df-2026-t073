@@ -12,11 +12,12 @@ from google.auth.exceptions import GoogleAuthError
 from google.cloud.firestore import AsyncClient, Query
 
 from app.schemas.flashcard import FlashcardResponse
-from app.schemas.place import MapPin, TodayResponse, Visit, VisitCreateRequest
+from app.schemas.place import MapPin, TodayResponse, Visit, VisitCreateRequest, WordOfDay
 from app.schemas.user import HomeArea
 from app.services import place_rules as rules
+from app.services import word_of_day
 from app.services.firestore import USERS_COLLECTION, list_flashcards
-from app.services.places import areas_for, get_place
+from app.services.places import get_place, place_facts
 from app.services.profile import display_name
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,9 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
 
     cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
     place_ids = {s.place_id for c in cards for s in c.sightings if s.place_id}
-    pins, areas = rules.build_map(cards, await areas_for(db, place_ids), home)
+    facts = await place_facts(db, place_ids)
+    area_names = {pid: area for pid, (area, _) in facts.items() if area}
+    pins, areas = rules.build_map(cards, area_names, home)
 
     visits = await list_upcoming_visits(db=db, uid=uid, cards=cards)
     up_next = visits[0] if visits else None
@@ -110,4 +113,49 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
         pins=pins,
         areas=areas,
         starter_tango=rules.STARTER_TANGO,
+        word_of_day=_word_of_day(uid, user, cards, visits, facts),
+    )
+
+
+# Word of the day changes at midnight in Japan.
+JST = timezone(timedelta(hours=9))
+
+
+def _word_of_day(
+    uid: str,
+    user: dict[str, Any],
+    cards: list[FlashcardResponse],
+    visits: list[Visit],
+    facts: dict[str, tuple[str, str]],
+) -> WordOfDay | None:
+    """Level- and interest-based pick from what Today already loaded."""
+    # Where each Tango was first caught says what the user is into.
+    caught_categories = []
+    for card in cards:
+        first = next((s.place_id for s in card.sightings if s.place_id), None)
+        if first and facts.get(first, ("", ""))[1]:
+            caught_categories.append(facts[first][1])
+    next_visit = visits[0] if visits else None
+    weights = word_of_day.interest_weights(
+        next_visit_category=next_visit.place.category if next_visit else None,
+        other_visit_categories=[v.place.category for v in visits[1:]],
+        caught_categories=caught_categories,
+    )
+    pick = word_of_day.pick_word(
+        reading_level=user.get("reading_level"),
+        weights=weights,
+        owned={card.kanji for card in cards},
+        seed=word_of_day.seed_for(uid, datetime.now(JST).date()),
+        next_visit_name=next_visit.place.name.text if next_visit else None,
+        next_visit_category=next_visit.place.category if next_visit else None,
+    )
+    card = word_of_day.word_card(pick) if pick else None
+    if pick is None or card is None:
+        return None
+    return WordOfDay(
+        text=card.text,
+        reading=card.reading,
+        romaji=card.romaji,
+        meaning=card.meaning,
+        reason=pick.reason,
     )

@@ -14,7 +14,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       Tabs: {
         screens: {
           Today: '',
-          Plans: 'plans',
+          Map: 'map',
           Review: 'review',
           Me: 'me',
         },
@@ -26,6 +26,10 @@ export const linking: LinkingOptions<RootStackParamList> = {
       CaptureToday: 'capture/today',
       TangoDetail: 'tango/:id',
       ReviewSession: 'review/session',
+      Plans: 'plans',
+      AllTango: 'tango',
+      TangoList: 'lists/:listId',
+      MeSection: 'me/:section',
     },
   },
 };

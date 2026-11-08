@@ -9,6 +9,7 @@ from app.schemas.place import JpName, MapArea, MapPin, Place
 from app.schemas.user import HomeArea
 from app.services.review_rules import area_id as review_area_id
 from app.services.tango_rules import is_mastered
+from app.services.tango_rules import clean_place_name
 
 EARTH_RADIUS_M = 6_371_000
 AREA_SAMPLE_SIZE = 4
@@ -73,7 +74,7 @@ def nearest_builtin(places: list[Place], lat: float, lng: float, max_m: float) -
 def _sighting_area(s: Sighting, area_by_place: dict[str, str]) -> str:
     if s.place_id and area_by_place.get(s.place_id):
         return area_by_place[s.place_id]
-    return s.place_name or ""
+    return clean_place_name(s.place_name)
 
 
 def build_map(

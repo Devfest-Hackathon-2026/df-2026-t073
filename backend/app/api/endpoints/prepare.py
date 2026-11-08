@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, Db, HttpClient
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.prepare import BriefingResponse
 from app.schemas.rehearsal import (
     RehearsalResult,
@@ -16,7 +16,11 @@ from app.services import briefing, rehearsal, tts
 router = APIRouter(tags=["prepare"])
 
 
-@router.get("/places/{place_id}/briefing", response_model=BriefingResponse)
+@router.get(
+    "/places/{place_id}/briefing",
+    response_model=BriefingResponse,
+    dependencies=[daily_limit("briefing")],
+)
 async def get_briefing(
     place_id: str, current_user: CurrentUser, db: Db, http_client: HttpClient, language: str = "English"
 ) -> BriefingResponse:
@@ -26,7 +30,12 @@ async def get_briefing(
     )
 
 
-@router.post("/rehearsals", response_model=RehearsalStartResponse, status_code=201)
+@router.post(
+    "/rehearsals",
+    response_model=RehearsalStartResponse,
+    status_code=201,
+    dependencies=[daily_limit("rehearsal")],
+)
 async def start_rehearsal(
     payload: RehearsalStartRequest, current_user: CurrentUser, db: Db, http_client: HttpClient
 ) -> RehearsalStartResponse:
@@ -36,7 +45,11 @@ async def start_rehearsal(
     )
 
 
-@router.post("/rehearsals/{rehearsal_id}/turns/{turn_id}", response_model=TurnResult)
+@router.post(
+    "/rehearsals/{rehearsal_id}/turns/{turn_id}",
+    response_model=TurnResult,
+    dependencies=[daily_limit("reply")],
+)
 async def answer_turn(
     rehearsal_id: str,
     turn_id: str,
@@ -56,7 +69,7 @@ async def get_results(rehearsal_id: str, current_user: CurrentUser, db: Db) -> R
     return await rehearsal.get_results(db=db, uid=current_user["uid"], rehearsal_id=rehearsal_id)
 
 
-@router.post("/speech/tts", response_model=TtsResponse)
+@router.post("/speech/tts", response_model=TtsResponse, dependencies=[daily_limit("tts")])
 async def staff_audio(payload: TtsRequest, _user: CurrentUser, http_client: HttpClient) -> TtsResponse:
     """Spoken staff line (Japanese). Each text and speed is synthesized once, then served from storage."""
     return TtsResponse(audio_url=await tts.staff_audio_url(http=http_client, text=payload.text, speed=payload.speed))

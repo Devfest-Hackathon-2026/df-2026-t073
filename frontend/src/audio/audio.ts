@@ -1,5 +1,10 @@
 import { PermissionsAndroid, Platform } from 'react-native';
-import { createSound } from 'react-native-nitro-sound';
+import {
+  AudioEncoderAndroidType,
+  AudioSourceAndroidType,
+  createSound,
+  OutputFormatAndroidType,
+} from 'react-native-nitro-sound';
 
 // Separate instances so playing a staff line never interrupts a recording.
 const player = createSound();
@@ -26,10 +31,20 @@ export async function stopPlaying(): Promise<void> {
   await player.stopPlayer().catch(() => {});
 }
 
-/** Starts recording (AAC in an .mp4 file on Android). */
+/**
+ * Starts recording AMR-WB (16 kHz, made for speech), a format Cloud
+ * Speech-to-Text reads directly. Uses the speech-tuned mic.
+ */
 export async function startRecording(): Promise<void> {
   await stopPlaying();
-  await recorder.startRecorder();
+  await recorder.startRecorder(undefined, {
+    AudioSourceAndroid: AudioSourceAndroidType.VOICE_RECOGNITION,
+    OutputFormatAndroid: OutputFormatAndroidType.AMR_WB,
+    AudioEncoderAndroid: AudioEncoderAndroidType.AMR_WB,
+    AudioSamplingRate: 16000,
+    AudioChannels: 1,
+    AudioEncodingBitRate: 23850,
+  });
 }
 
 /** Recording as base64, or null if it failed or was too short to send. */
@@ -50,9 +65,9 @@ export async function stopRecording(): Promise<{
     reader.readAsDataURL(blob);
   });
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-  // Under ~0.3 s of audio: treat as an accidental tap.
-  if (base64.length < 4000) {
+  // Under ~0.4 s of audio (AMR-WB is ~4 KB/s in base64): an accidental tap.
+  if (base64.length < 1600) {
     return null;
   }
-  return { base64, mimeType: 'audio/mp4' };
+  return { base64, mimeType: 'audio/amr-wb' };
 }

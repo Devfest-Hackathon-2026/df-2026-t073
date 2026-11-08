@@ -46,6 +46,17 @@ def is_mastered(strength: int) -> bool:
     return strength >= MAX_STRENGTH
 
 
+# Labels the app shows when it has no real place; never saved as a place name.
+PLACEHOLDER_PLACE_NAMES = frozenset(
+    {"Location off", "Unknown place", "Finding your place…", "Near you", "In the app"}
+)
+
+
+def clean_place_name(name: str | None) -> str:
+    name = (name or "").strip()
+    return "" if name in PLACEHOLDER_PLACE_NAMES else name
+
+
 def new_sighting(
     *,
     now: datetime,
@@ -60,7 +71,7 @@ def new_sighting(
         sighting_id=f"st_{uuid.uuid4().hex[:12]}",
         capture_id=capture_id,
         place_id=place_id,
-        place_name=place_name or "",
+        place_name=clean_place_name(place_name),
         lat=lat,
         lng=lng,
         seen_at=now,

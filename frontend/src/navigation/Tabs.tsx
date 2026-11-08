@@ -6,7 +6,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MeScreen } from '../screens/me/MeScreen';
-import { PlansScreen } from '../screens/plans/PlansScreen';
+import { MapScreen } from '../screens/map/MapScreen';
 import { ReviewScreen } from '../screens/review/ReviewScreen';
 import { TodayScreen } from '../screens/today/TodayScreen';
 import { base } from '../styles/base';
@@ -18,17 +18,20 @@ import {
   sizes,
   space,
 } from '../styles/tokens';
+import { Icon, type IconName } from '../components/Icon';
+import { useSettings } from '../state/SettingsContext';
 import type { TabParamList } from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const TAB_META: Record<keyof TabParamList, { label: string; glyph: string }> = {
-  Today: { label: 'Today', glyph: '⌂' },
-  Plans: { label: 'Plans', glyph: '▦' },
-  CaptureTab: { label: 'Capture', glyph: '◉' },
-  Review: { label: 'Review', glyph: '❐' },
-  Me: { label: 'Me', glyph: '☺' },
-};
+const TAB_META: Record<keyof TabParamList, { label: string; icon: IconName }> =
+  {
+    Today: { label: 'Today', icon: 'home' },
+    Map: { label: 'Map', icon: 'map' },
+    CaptureTab: { label: 'Capture', icon: 'camera' },
+    Review: { label: 'Review', icon: 'review' },
+    Me: { label: 'Me', icon: 'me' },
+  };
 
 function EmptyScreen(): null {
   return null;
@@ -52,7 +55,11 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
                 onPress={() => navigation.getParent()?.navigate('Capture')}
                 style={styles.capture}
               >
-                <Text style={styles.captureGlyph}>{meta.glyph}</Text>
+                <Icon
+                  name={meta.icon}
+                  size={fontSizes.xl}
+                  color={colors.textInverse}
+                />
               </Pressable>
             </View>
           );
@@ -77,8 +84,15 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
             onPress={onPress}
             style={styles.item}
           >
-            <Text style={[styles.glyph, focused && styles.active]}>{meta.glyph}</Text>
-            <Text style={[styles.label, focused && styles.active]}>{meta.label}</Text>
+            <Icon
+              name={meta.icon}
+              size={fontSizes.xl}
+              color={focused ? colors.accent : colors.textMuted}
+              strokeWidth={focused ? 2.4 : 2}
+            />
+            <Text style={[styles.label, focused && styles.active]}>
+              {meta.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -91,13 +105,13 @@ function renderTabBar(props: BottomTabBarProps): React.JSX.Element {
 }
 
 export function Tabs(): React.JSX.Element {
+  const { settings } = useSettings();
   return (
-    <Tab.Navigator
-      tabBar={renderTabBar}
-      screenOptions={{ headerShown: false }}
-    >
+    <Tab.Navigator tabBar={renderTabBar} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Plans" component={PlansScreen} />
+      {settings.mapFeatures ? (
+        <Tab.Screen name="Map" component={MapScreen} />
+      ) : null}
       <Tab.Screen name="CaptureTab" component={EmptyScreen} />
       <Tab.Screen name="Review" component={ReviewScreen} />
       <Tab.Screen name="Me" component={MeScreen} />
@@ -119,11 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: space.sm,
   },
-  glyph: {
-    ...base.text,
-    fontSize: fontSizes.lg,
-    color: colors.textMuted,
-  },
   label: {
     ...base.text,
     fontSize: fontSizes.xs,
@@ -141,9 +150,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -space.xl,
-  },
-  captureGlyph: {
-    fontSize: fontSizes.xl,
-    color: colors.textInverse,
   },
 });

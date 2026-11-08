@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application source code
 COPY . .
 
+# JMdict dictionary for instant Tango cards (downloaded and built at image build)
+RUN python scripts/build_jmdict.py
+
 # Create and switch to a non-root user for security
 RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app

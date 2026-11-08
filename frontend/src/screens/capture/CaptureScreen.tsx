@@ -1,5 +1,11 @@
 import { useIsFocused } from '@react-navigation/native';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -30,13 +36,17 @@ import {
   uploadCapture,
 } from '../../api/capture';
 import { isLive } from '../../config';
-import { getTango } from '../../api/tango';
+import { useDefinitions } from '../../api/dictionary';
+import { playWord } from '../../features/tango/saveWord';
+import { getTango, listTango } from '../../api/tango';
+import { Hanamaru } from '../../components/Hanamaru';
 import { Jp } from '../../components/Jp';
 import { BottomSheet, Toast } from '../../components/layout';
 import {
   Button,
   Chip,
   IconButton,
+  IconLabel,
   SegmentedControl,
 } from '../../components/ui';
 import {
@@ -46,6 +56,14 @@ import {
   EMPTY_FRAME,
   mockDetector,
 } from '../../features/capture/detector';
+import {
+  coverRect,
+  screenToPhoto,
+  pickAimed,
+  type Size,
+  uprightSize,
+} from '../../features/capture/photoBoxes';
+import { type LiveRead, useLiveText } from '../../features/capture/liveText';
 import { SelectionBox } from '../../features/capture/SelectionBox';
 import { PLACEHOLDER_PHOTO_LINES } from '../../mocks/capture';
 import type { RootScreenProps } from '../../navigation/types';
@@ -103,10 +121,20 @@ const FILL = {
 } as const;
 
 const DEFAULT_BOX: NormalizedBox = { x: 0.2, y: 0.32, w: 0.6, h: 0.14 };
-const CAUGHT_MS = 900;
+const CAUGHT_MS = 500;
 /** Upload size: enough for small sign text, well under the backend's 10 MiB limit. */
 const PHOTO_SIZE = { width: 1600, height: 1200 };
-const LIVE_HINT = "Press the shutter to read what's in front of you.";
+const LIVE_HINT: Record<DetectorMode, string> = {
+  text: 'Aim at a Japanese word',
+  objects: 'Aim at an object',
+};
+/** How close to the screen center a live word must be to count as aimed at. */
+const AIM_SLOP = 48;
+/** The aim frame: a centered square this share of the screen width. */
+const AIM_WIDTH = 0.4;
+/** Upright live frame size until the first frame reports the real one. */
+const FRAME_GUESS = { width: 720, height: 960 };
+const round2 = (v: number) => Math.round(v * 100) / 100;
 const TOAST_MS = 4000;
 
 /** A Tango-shaped stand-in for detections that aren't saved Tango yet. */
@@ -143,7 +171,9 @@ export function CaptureScreen({
   });
   // Live: real photo reads on the backend. Mock: scripted detector (src/mocks).
   const live = isLive('capture');
-  const outputs = useMemo(() => [photoOutput], [photoOutput]);
+  // Live: Japanese text read on the phone while aiming (no network).
+  const liveRef = useRef<(read: LiveRead) => void>(() => {});
+  const onLiveRead = useCallback((read: LiveRead) => liveRef.current(read), []);
   const cameraReady = !!device && permission.hasPermission;
   const { canRequestPermission, requestPermission } = permission;
   useEffect(() => {
@@ -164,9 +194,10 @@ export function CaptureScreen({
     lng: null,
   });
   const placeName = place.name;
-  // Sent with every catch so the Tango gets a pin on the map.
+  // Sent with every catch so the Tango gets a pin on the map. Only a matched
+  // place has a name worth saving; "Location off" / "Near you" are just labels.
   const where = {
-    placeName,
+    placeName: place.placeId ? placeName : undefined,
     placeId: place.placeId ?? undefined,
     lat: place.lat ?? undefined,
     lng: place.lng ?? undefined,
@@ -180,6 +211,40 @@ export function CaptureScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
+  // Live photo reads: upright photo size (to place boxes) and the picked item.
+  const [photoSize, setPhotoSize] = useState<Size | null>(null);
+  // Picked boxes in the order they were touched; several join into one word.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const dragged = useRef<string[]>([]);
+  const dragMoved = useRef(false);
+  // Live aiming: upright camera frame size, and Tango the user already has.
+  const [liveSize, setLiveSize] = useState<Size | null>(null);
+  const owned = useRef(new Map<string, string>());
+  // What the overlay last showed, to skip re-rendering when nothing moved.
+  const lastLive = useRef('');
+
+  // Live aim frame: a centered square; text inside it is read first.
+  const aimSide = size.width * AIM_WIDTH;
+  const aimRect = {
+    left: (size.width - aimSide) / 2,
+    top: (size.height - aimSide) / 2,
+    width: aimSide,
+    height: aimSide,
+  };
+  const aimArea =
+    size.width > 0
+      ? screenToPhoto(aimRect, liveSize ?? FRAME_GUESS, size)
+      : { x: 0, y: 0, w: 1, h: 1 };
+  const textOutput = useLiveText(onLiveRead, {
+    x: round2(aimArea.x),
+    y: round2(aimArea.y),
+    w: round2(aimArea.w),
+    h: round2(aimArea.h),
+  });
+  const outputs = useMemo(
+    () => (live && mode === 'text' ? [photoOutput, textOutput] : [photoOutput]),
+    [live, mode, photoOutput, textOutput],
+  );
   const [saving, setSaving] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -197,9 +262,14 @@ export function CaptureScreen({
     getTodaysCatch()
       .then(list => setCount(list.length))
       .catch(() => {});
+    if (live) {
+      listTango()
+        .then(list => list.forEach(t => owned.current.set(t.text, t.id)))
+        .catch(() => {});
+    }
     const pending = timers.current;
     return () => pending.forEach(clearTimeout);
-  }, []);
+  }, [live]);
 
   // Mock detection runs while the camera is live. Real on-device detection
   // (ML Kit) plugs in here later; in live mode the shutter does the reading.
@@ -222,6 +292,136 @@ export function CaptureScreen({
     timers.current.push(setTimeout(fn, ms));
   };
 
+  const picked = selectedIds
+    .map(id => found?.items.find(item => item.item_id === id))
+    .filter((item): item is DetectedItem => !!item);
+  const pickedText = picked.map(item => item.japanese_text).join('');
+  // Dictionary readings and meanings for every word on screen (cached).
+  const defs = useDefinitions([
+    ...frame.items.map(item => item.japanese_text),
+    ...(found?.items.map(item => item.japanese_text) ?? []),
+    ...(pickedText ? [pickedText] : []),
+  ]);
+  /** First sense only, e.g. "meal ticket". */
+  const shortMeaning = (item: DetectedItem): string | null =>
+    defs[item.japanese_text]?.meaning.split(';')[0] ?? item.english_gloss;
+  const pickedDef = pickedText ? defs[pickedText] : undefined;
+  const pickedSaved =
+    picked.length > 0 && picked.every(item => caught[item.item_id]);
+  const boxOnScreen = (item: DetectedItem) =>
+    coverRect(boxOf(item.bounding_box), photoSize ?? size, size);
+
+  /** The box under the finger (the smallest one, if they overlap). */
+  const boxAt = (x: number, y: number): DetectedItem | null => {
+    const slop = space.sm;
+    let best: { item: DetectedItem; area: number } | null = null;
+    for (const item of found?.items ?? []) {
+      if (item.bounding_box.length === 0) {
+        continue;
+      }
+      const r = boxOnScreen(item);
+      const hit =
+        x >= r.left - slop &&
+        x <= r.left + r.width + slop &&
+        y >= r.top - slop &&
+        y <= r.top + r.height + slop;
+      if (hit && (!best || r.width * r.height < best.area)) {
+        best = { item, area: r.width * r.height };
+      }
+    }
+    return best?.item ?? null;
+  };
+
+  // Frozen photo: tap a box to pick it; drag across boxes to join them in
+  // the order touched (text only, since joined object names make no sense).
+  const onPickStart = (x: number, y: number) => {
+    dragMoved.current = false;
+    const item = boxAt(x, y);
+    dragged.current = item ? [item.item_id] : [];
+    if (item) {
+      setSelectedIds([item.item_id]);
+    }
+  };
+  const onPickMove = (x: number, y: number) => {
+    dragMoved.current = true;
+    const item = boxAt(x, y);
+    if (!item || dragged.current.includes(item.item_id)) {
+      return;
+    }
+    dragged.current =
+      mode === 'text' ? [...dragged.current, item.item_id] : [item.item_id];
+    setSelectedIds(dragged.current);
+  };
+  const onPickEnd = (x: number, y: number) => {
+    if (dragMoved.current || dragged.current.length > 0 || !found) {
+      return;
+    }
+    // A tap between boxes: the nearest one.
+    const item = pickAimed(found.items, photoSize ?? size, size, { x, y });
+    if (item) {
+      setSelectedIds([item.item_id]);
+    }
+  };
+
+  // Each live frame: outline Japanese words; the one at the center can be caught.
+  liveRef.current = (read: LiveRead) => {
+    if (phase !== 'live' || mode !== 'text' || size.width === 0) {
+      return;
+    }
+    const items: Detection[] = read.lines.map(line => {
+      const tangoId = owned.current.get(line.text);
+      return {
+        item_id: `live:${line.text}`,
+        item_type: 'text',
+        source_label: line.text,
+        japanese_text: line.text,
+        reading: null,
+        english_gloss: null,
+        confidence: null,
+        bounding_box: [
+          { x: line.x, y: line.y },
+          { x: line.x + line.w, y: line.y + line.h },
+        ],
+        known: !!tangoId,
+        tangoId,
+      };
+    });
+    const aim = pickAimed(
+      items.filter(i => !i.known && !caught[i.item_id]),
+      read.size,
+      size,
+      undefined,
+      AIM_SLOP,
+    );
+    // Re-render only when words or their rough positions change (2% steps);
+    // this screen is large and most reads look the same as the last one.
+    const key = [
+      aim?.item_id ?? '',
+      read.size.width,
+      read.size.height,
+      ...read.lines.map(
+        l =>
+          `${l.text}@${Math.round(l.x * 50)},${Math.round(l.y * 50)},` +
+          `${Math.round(l.w * 50)},${Math.round(l.h * 50)}`,
+      ),
+    ].join('|');
+    if (key === lastLive.current) {
+      return;
+    }
+    lastLive.current = key;
+    if (
+      liveSize?.width !== read.size.width ||
+      liveSize?.height !== read.size.height
+    ) {
+      setLiveSize(read.size);
+    }
+    setFrame({
+      items,
+      centeredId: aim?.item_id ?? null,
+      hint: aim ? '' : items.length ? 'Center a word to catch it.' : '',
+    });
+  };
+
   const centered = frame.items.find(
     item =>
       item.item_id === frame.centeredId && !caught[item.item_id] && !item.known,
@@ -236,31 +436,40 @@ export function CaptureScreen({
     setError(err instanceof Error ? err.message : 'Something went wrong');
 
   const doCatch = async (detection: Detection) => {
+    // Show the catch right away; the save finishes in the background and
+    // then adds Undo to the toast.
     setPhase('caught');
+    setCaught(ids => ({ ...ids, [detection.item_id]: true }));
+    setToast({
+      jp: {
+        text: detection.japanese_text,
+        reading: detection.reading ?? undefined,
+      },
+      text: 'caught here',
+    });
+    later(() => setPhase('live'), CAUGHT_MS);
     try {
       const { tango, created, sightingId } = await catchTango({
         detection,
         ...where,
       });
-      setCaught(ids => ({ ...ids, [detection.item_id]: true }));
+      owned.current.set(tango.text, tango.id);
       if (created) {
         setCount(n => n + 1);
       }
-      later(() => {
-        setPhase('live');
-        setToast({
-          jp: tango,
-          text: created ? 'caught here' : 'seen again, added here',
-          undo: {
-            tangoId: tango.id,
-            sightingId,
-            itemId: detection.item_id,
-            created,
-          },
-        });
-      }, CAUGHT_MS);
+      setToast({
+        jp: tango,
+        text: created ? 'caught here' : 'seen again, added here',
+        undo: {
+          tangoId: tango.id,
+          sightingId,
+          itemId: detection.item_id,
+          created,
+        },
+      });
     } catch (err) {
-      setPhase('live');
+      setCaught(ids => ({ ...ids, [detection.item_id]: false }));
+      setToast(null);
       showError(err);
     }
   };
@@ -320,30 +529,51 @@ export function CaptureScreen({
     }
   };
 
-  const freeze = (uri: string | null) => {
+  const freeze = (uri: string | null, shot: Size | null = null) => {
     setFrozenUri(uri);
+    setPhotoSize(shot);
     setBox(DEFAULT_BOX);
     setFrame(EMPTY_FRAME);
+    lastLive.current = '';
     setPhase('frozen');
   };
 
   const unfreeze = () => {
     setFrozenUri(null);
     setFound(null);
+    setSelectedIds([]);
     setSheet(null);
     setPhase('live');
   };
 
   /** Sends a photo to the backend and lists what it found. */
-  const readPhoto = async (base64: string, mimeType: string) => {
+  const readPhoto = async (
+    base64: string,
+    mimeType: string,
+    shot: Size | null,
+  ) => {
     setError(null);
     // Item IDs repeat across photos, so "saved" marks belong to one photo only.
     setCaught({});
+    setSelectedIds([]);
     setBusy(true);
     try {
       const result = await uploadCapture(base64, mimeType);
-      setFound({ captureId: result.capture_id, items: result.detected_items });
-      setSheet({ kind: 'found' });
+      // The backend reads both; show only what the toggle asks for.
+      const kind = mode === 'text' ? 'text' : 'object';
+      const items = result.detected_items.filter(i => i.item_type === kind);
+      setFound({ captureId: result.capture_id, items });
+      // Pre-pick what the user aimed at; tap or drag on the photo to change it.
+      const first = pickAimed(items, shot ?? size, size);
+      if (first) {
+        setSelectedIds([first.item_id]);
+      } else {
+        setError(
+          mode === 'text'
+            ? 'No Japanese text here. Try again closer, or with the text straight on.'
+            : 'No object recognized here. Try again with it filling the frame.',
+        );
+      }
     } catch (err) {
       showError(err);
     } finally {
@@ -379,6 +609,49 @@ export function CaptureScreen({
     }
   };
 
+  /** Catches the picked box, or the picked boxes joined into one word. */
+  const catchPicked = async () => {
+    if (!found || picked.length === 0) {
+      return;
+    }
+    if (picked.length === 1) {
+      await catchFound(picked[0]);
+      return;
+    }
+    const ids = picked.map(item => item.item_id);
+    setError(null);
+    setSaving(ids[0]);
+    try {
+      const { tango, created, sightingId } = await catchTango({
+        detection: {
+          ...picked[0],
+          japanese_text: pickedText,
+          reading: null,
+          english_gloss: null,
+          known: false,
+        },
+        captureId: found.captureId,
+        ...where,
+      });
+      setCaught(prev => ({
+        ...prev,
+        ...Object.fromEntries(ids.map(id => [id, true])),
+      }));
+      if (created) {
+        setCount(n => n + 1);
+      }
+      setToast({
+        jp: tango,
+        text: created ? 'caught here' : 'seen again, added here',
+        undo: { tangoId: tango.id, sightingId, created },
+      });
+    } catch (err) {
+      showError(err);
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const onShutterLive = async () => {
     if (!cameraReady) {
       setError('No camera available. Use the photo import button instead.');
@@ -387,10 +660,15 @@ export function CaptureScreen({
     try {
       const photo = await photoOutput.capturePhoto({}, {});
       try {
+        const shot = uprightSize(photo.width, photo.height, photo.orientation);
         const path = await photo.saveToTemporaryFileAsync();
         const bytes = await photo.getFileDataAsync();
-        freeze(path.startsWith('file://') ? path : `file://${path}`);
-        await readPhoto(fromByteArray(new Uint8Array(bytes)), 'image/jpeg');
+        freeze(path.startsWith('file://') ? path : `file://${path}`, shot);
+        await readPhoto(
+          fromByteArray(new Uint8Array(bytes)),
+          'image/jpeg',
+          shot,
+        );
       } finally {
         photo.dispose();
       }
@@ -434,10 +712,14 @@ export function CaptureScreen({
         return;
       }
       const asset = result.assets?.[0];
-      freeze(asset?.uri ?? null);
+      const shot =
+        asset?.width && asset?.height
+          ? { width: asset.width, height: asset.height }
+          : null;
+      freeze(asset?.uri ?? null, shot);
       if (live) {
         if (asset?.base64) {
-          await readPhoto(asset.base64, asset.type ?? 'image/jpeg');
+          await readPhoto(asset.base64, asset.type ?? 'image/jpeg', shot);
         } else {
           setError('Could not read that photo.');
         }
@@ -523,16 +805,27 @@ export function CaptureScreen({
         </View>
       )}
 
+      {/* Live: the area that is read. Point at a word to put it inside. */}
+      {live && phase === 'live' && cameraReady && size.width > 0 ? (
+        <View pointerEvents="none" style={[styles.aim, aimRect]}>
+          <View style={[styles.aimCorner, styles.aimTopLeft]} />
+          <View style={[styles.aimCorner, styles.aimTopRight]} />
+          <View style={[styles.aimCorner, styles.aimBottomLeft]} />
+          <View style={[styles.aimCorner, styles.aimBottomRight]} />
+        </View>
+      ) : null}
+
       {/* Detection overlay */}
       {phase !== 'frozen' && size.width > 0
         ? frame.items.map(item => {
-            const r = boxOf(item.bounding_box);
+            // Mock boxes are fractions of the screen; live ones of the frame.
+            const { left, top, width, height } = coverRect(
+              boxOf(item.bounding_box),
+              live ? liveSize ?? size : size,
+              size,
+            );
             const isCaught = !!caught[item.item_id];
             const isCentered = centered?.item_id === item.item_id;
-            const left = r.x * size.width;
-            const top = r.y * size.height;
-            const width = r.w * size.width;
-            const height = r.h * size.height;
             return (
               <Pressable
                 key={item.item_id}
@@ -554,7 +847,7 @@ export function CaptureScreen({
                 <View style={styles.tagWrap}>
                   {item.known ? (
                     <View style={[styles.tag, styles.tagKnown]}>
-                      <Text style={styles.tagTextDark}>★</Text>
+                      <Hanamaru size={fontSizes.sm} />
                       <Jp
                         text={item.japanese_text}
                         reading={item.reading ?? undefined}
@@ -567,7 +860,7 @@ export function CaptureScreen({
                       <Text
                         style={isCaught ? styles.tagTextDark : styles.tagText}
                       >
-                        {isCaught ? '✓ Saved' : 'New Tango'}
+                        {isCaught ? 'Saved' : shortMeaning(item) ?? 'New Tango'}
                       </Text>
                     </View>
                   )}
@@ -576,6 +869,63 @@ export function CaptureScreen({
             );
           })
         : null}
+
+      {/* Live photo: every box dotted; tap one, or drag across several to join */}
+      {phase === 'frozen' && live && found && size.width > 0
+        ? found.items.map(item => {
+            if (item.bounding_box.length === 0) {
+              return null;
+            }
+            const order = selectedIds.indexOf(item.item_id);
+            return (
+              <View
+                key={item.item_id}
+                pointerEvents="none"
+                style={[
+                  styles.detection,
+                  order >= 0
+                    ? styles.detectionCentered
+                    : caught[item.item_id]
+                    ? styles.detectionCaught
+                    : styles.detectionDotted,
+                  boxOnScreen(item),
+                ]}
+              >
+                {shortMeaning(item) ? (
+                  <View style={styles.tagWrap}>
+                    <View style={[styles.tag, order < 0 && styles.tagQuiet]}>
+                      <Text style={styles.tagText} numberOfLines={1}>
+                        {shortMeaning(item)}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+                {order >= 0 && selectedIds.length > 1 ? (
+                  <View style={styles.orderTag}>
+                    <Text style={styles.tagText}>{order + 1}</Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })
+        : null}
+      {phase === 'frozen' && live ? (
+        <View
+          style={StyleSheet.absoluteFill}
+          accessibilityLabel="Tap what you want to catch, or drag across words to join them"
+          onStartShouldSetResponder={() => !!found && !busy}
+          onMoveShouldSetResponder={() => !!found && !busy}
+          onResponderGrant={e =>
+            onPickStart(e.nativeEvent.locationX, e.nativeEvent.locationY)
+          }
+          onResponderMove={e =>
+            onPickMove(e.nativeEvent.locationX, e.nativeEvent.locationY)
+          }
+          onResponderRelease={e =>
+            onPickEnd(e.nativeEvent.locationX, e.nativeEvent.locationY)
+          }
+        />
+      ) : null}
 
       {/* Manual box on a frozen frame (mock only: the backend can't read a selected area yet) */}
       {phase === 'frozen' && !live && size.width > 0 ? (
@@ -590,15 +940,15 @@ export function CaptureScreen({
       {/* Top bar */}
       <View style={[styles.topBar, { top: insets.top + space.sm }]}>
         <IconButton
-          glyph="✕"
+          icon="close"
           label="Close camera"
           dark
-          onPress={() => navigation.replace('CaptureToday')}
+          onPress={() => navigation.goBack()}
         />
         <View style={styles.placePill}>
-          <Text style={styles.pillText} numberOfLines={1}>
-            ⌖ {placeName}
-          </Text>
+          <IconLabel icon="pin" style={styles.pillText} numberOfLines={1}>
+            {placeName}
+          </IconLabel>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -606,7 +956,9 @@ export function CaptureScreen({
           onPress={() => navigation.navigate('CaptureToday')}
           style={[styles.countPill, count > 0 && styles.countPillActive]}
         >
-          <Text style={styles.pillText}>▮ {count}</Text>
+          <IconLabel icon="learn" style={styles.pillText}>
+            {count}
+          </IconLabel>
         </Pressable>
       </View>
       {phase === 'frozen' ? (
@@ -665,20 +1017,61 @@ export function CaptureScreen({
         ) : null}
 
         {phase === 'frozen' && live ? (
-          <View style={base.row}>
-            <Button
-              label="Retake"
-              variant="dark"
-              style={base.grow}
-              onPress={unfreeze}
-            />
-            <Button
-              label={busy ? 'Reading…' : 'Show results'}
-              style={base.grow}
-              disabled={busy || !found}
-              onPress={() => setSheet({ kind: 'found' })}
-            />
-          </View>
+          <>
+            {picked.length > 0 ? (
+              <View style={styles.hint}>
+                <Jp
+                  text={pickedText}
+                  reading={
+                    pickedDef?.reading ??
+                    (picked.length === 1
+                      ? picked[0].reading ?? undefined
+                      : undefined)
+                  }
+                  size="lg"
+                  bold
+                  tone="inverse"
+                />
+                {pickedDef || picked[0].english_gloss ? (
+                  <Text style={styles.hintText}>
+                    {pickedDef?.meaning ?? picked[0].english_gloss}
+                  </Text>
+                ) : null}
+                <Text style={styles.hintText}>
+                  {picked.length > 1 ? `${picked.length} parts joined · ` : ''}
+                  {mode === 'text'
+                    ? 'tap a box to pick it, or drag across boxes to join them'
+                    : 'tap a box to pick it'}
+                </Text>
+              </View>
+            ) : null}
+            <View style={base.row}>
+              <Button
+                label="Retake"
+                variant="dark"
+                style={base.grow}
+                onPress={unfreeze}
+              />
+              <Button
+                label={
+                  busy
+                    ? 'Reading…'
+                    : picked.length === 0
+                    ? 'Catch'
+                    : pickedSaved
+                    ? 'Saved'
+                    : saving !== null
+                    ? 'Saving…'
+                    : 'Catch'
+                }
+                style={base.grow}
+                disabled={
+                  busy || picked.length === 0 || pickedSaved || saving !== null
+                }
+                onPress={catchPicked}
+              />
+            </View>
+          </>
         ) : phase === 'frozen' ? (
           <>
             <View style={styles.hint}>
@@ -695,7 +1088,8 @@ export function CaptureScreen({
                 onPress={unfreeze}
               />
               <Button
-                label={busy ? 'Reading…' : '✦ Read this'}
+                label={busy ? 'Reading…' : 'Read this'}
+                icon={busy ? undefined : 'ai'}
                 style={base.grow}
                 disabled={busy}
                 onPress={onReadThis}
@@ -707,26 +1101,28 @@ export function CaptureScreen({
             {live || frame.hint ? (
               <View style={styles.hint}>
                 <Text style={styles.hintText}>
-                  {live ? LIVE_HINT : frame.hint}
+                  {frame.hint || LIVE_HINT[mode]}
                 </Text>
               </View>
             ) : null}
-            {/* Text/Objects only steers the mock detector; the backend returns both. */}
-            {live ? null : (
-              <View style={styles.modeToggle}>
-                <SegmentedControl
-                  options={[
-                    { value: 'text', label: 'T  Text' },
-                    { value: 'objects', label: '⬡  Objects' },
-                  ]}
-                  value={mode}
-                  onChange={setMode}
-                />
-              </View>
-            )}
+            {/* Text: live outlines + text from photos. Objects: photos only. */}
+            <View style={styles.modeToggle}>
+              <SegmentedControl
+                options={[
+                  { value: 'text', label: 'Text', icon: 'scan' },
+                  { value: 'objects', label: 'Objects', icon: 'photo' },
+                ]}
+                value={mode}
+                onChange={next => {
+                  setMode(next);
+                  setFrame(EMPTY_FRAME);
+                  lastLive.current = '';
+                }}
+              />
+            </View>
             <View style={styles.controls}>
               <IconButton
-                glyph="🖼"
+                icon="photo"
                 label="Import from photos"
                 dark
                 onPress={onImport}
@@ -734,7 +1130,9 @@ export function CaptureScreen({
               <View style={styles.shutterSlot}>
                 {phase === 'caught' ? (
                   <View style={[styles.catchButton, styles.caughtButton]}>
-                    <Text style={styles.catchTitle}>✓ Caught!</Text>
+                    <IconLabel icon="done" style={styles.catchTitle}>
+                      Caught!
+                    </IconLabel>
                   </View>
                 ) : centered ? (
                   <Pressable
@@ -772,9 +1170,15 @@ export function CaptureScreen({
           <>
             <View style={base.rowBetween}>
               <Jp {...sheet.tango} size="xxl" bold />
-              <IconButton glyph="🔈" label="Play audio (coming soon)" />
+              <IconButton
+                icon="play"
+                label={`Play ${sheet.tango.text}`}
+                onPress={() => playWord(sheet.tango.text)}
+              />
             </View>
-            <Text style={styles.eyebrow}>✦ Explained by Gemini (mock)</Text>
+            <IconLabel icon="ai" style={styles.eyebrow}>
+              Explained by Gemini
+            </IconLabel>
             <Text style={base.text}>
               <Text style={styles.strong}>{sheet.tango.meaning}. </Text>
               {sheet.tango.explanation ?? ''}
@@ -796,9 +1200,9 @@ export function CaptureScreen({
                 ))}
               </View>
             ) : null}
-            <Text style={base.caption}>
-              ⌖ Saved with this place: {placeName}
-            </Text>
+            <IconLabel icon="pin" style={base.caption}>
+              {placeName}
+            </IconLabel>
             <View style={base.row}>
               <Button
                 label="Practice"
@@ -825,14 +1229,18 @@ export function CaptureScreen({
 
         {sheet?.kind === 'known' ? (
           <>
-            <Chip label="★ You've learned this one" tone="star" />
+            <Chip
+              icon="hanamaru"
+              label="You've learned this one"
+              tone="hanamaru"
+            />
             <View style={base.row}>
               <Jp {...sheet.tango} size="xxl" bold />
               <Text style={base.caption}>{sheet.tango.meaning}</Text>
             </View>
             <View style={styles.history}>
               <Text style={base.caption}>
-                ⌖ First saved:{' '}
+                First saved:{' '}
                 {sheet.tango.history[sheet.tango.history.length - 1]?.detail ??
                   'unknown'}
                 . You've seen it {sheet.tango.sightings.length} times since.
@@ -860,7 +1268,9 @@ export function CaptureScreen({
 
         {sheet?.kind === 'found' && found ? (
           <>
-            <Text style={styles.eyebrow}>✦ Found in this photo</Text>
+            <IconLabel icon="ai" style={styles.eyebrow}>
+              Found in this photo
+            </IconLabel>
             {error ? <Text style={styles.sheetError}>{error}</Text> : null}
             {toast && !error ? (
               <View style={base.row}>
@@ -904,7 +1314,7 @@ export function CaptureScreen({
                 <Button
                   label={
                     caught[item.item_id]
-                      ? '✓ Saved'
+                      ? 'Saved'
                       : saving === item.item_id
                       ? 'Saving…'
                       : 'Catch'
@@ -919,9 +1329,9 @@ export function CaptureScreen({
 
         {sheet?.kind === 'reading' ? (
           <>
-            <Text style={styles.eyebrow}>
-              ✦ Gemini read your selection (mock)
-            </Text>
+            <IconLabel icon="ai" style={styles.eyebrow}>
+              Gemini read your selection
+            </IconLabel>
             <Jp {...sheet.reading.tango} size="xxl" bold />
             <Text style={base.text}>{sheet.reading.explanation}</Text>
             <View style={base.wrap}>
@@ -974,6 +1384,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: space.sm,
   },
+  aim: {
+    position: 'absolute',
+  },
+  aimCorner: {
+    position: 'absolute',
+    width: space.xl,
+    height: space.xl,
+    borderColor: colors.surface,
+  },
+  aimTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: sizes.border * 2,
+    borderLeftWidth: sizes.border * 2,
+    borderTopLeftRadius: radii.sm,
+  },
+  aimTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: sizes.border * 2,
+    borderRightWidth: sizes.border * 2,
+    borderTopRightRadius: radii.sm,
+  },
+  aimBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: sizes.border * 2,
+    borderLeftWidth: sizes.border * 2,
+    borderBottomLeftRadius: radii.sm,
+  },
+  aimBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: sizes.border * 2,
+    borderRightWidth: sizes.border * 2,
+    borderBottomRightRadius: radii.sm,
+  },
   detection: {
     position: 'absolute',
     borderRadius: radii.sm,
@@ -987,11 +1434,26 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.scrim,
   },
+  detectionDotted: {
+    borderStyle: 'dotted',
+    borderColor: colors.surface,
+  },
+  orderTag: {
+    position: 'absolute',
+    top: -space.md,
+    left: -space.md,
+    minWidth: space.lg + space.xs,
+    height: space.lg + space.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   detectionCaught: {
     borderColor: colors.accent,
   },
   detectionKnown: {
-    borderColor: colors.star,
+    borderColor: colors.hanamaru,
   },
   tagWrap: {
     position: 'absolute',
@@ -1009,8 +1471,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     paddingVertical: space.xxs,
   },
+  tagQuiet: {
+    backgroundColor: colors.scrim,
+  },
   tagKnown: {
-    backgroundColor: colors.star,
+    backgroundColor: colors.hanamaru,
   },
   tagSaved: {
     backgroundColor: colors.surface,

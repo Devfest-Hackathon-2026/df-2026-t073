@@ -14,23 +14,25 @@ import {
   radii,
   sizes,
   space,
+  washiColors,
 } from '../styles/tokens';
 import type { MapPin } from '../types';
+import { Hanamaru } from './Hanamaru';
 import { TANGO_MAP_STYLE } from './mapStyle';
+import { IconButton } from './ui';
 
 const MARKER_SETTLE_MS = 600;
 const FIT_MS = 300;
 const CENTER = { x: 0.5, y: 0.5 };
-const LABELLED_ANCHOR = { x: 0.5, y: 0.3 };
+// Labelled stamps stand just above their spot, so the blue "you are here" dot
+// (drawn on top of markers) stays visible underneath.
+const LABELLED_ANCHOR = { x: 0.5, y: 1 };
 /** Breathing room around the outermost pins, in pixels. */
 const FIT_EDGE = { top: 80, right: 80, bottom: 80, left: 80 };
 /** Zoom used when there is a single pin (the neighborhood around it). */
 const SINGLE_PIN_DELTA = 0.025;
-/**
- * Closest zoom allowed. Past this, Google's Android renderer draws road names
- * even when the style hides all labels.
- */
-const MAX_ZOOM = 14.5;
+/** Zoom around the user's own position: a few streets across. */
+const FOCUS_DELTA = 0.005;
 const COMPACT_EDGE = { top: 40, right: 40, bottom: 40, left: 40 };
 
 /** Koenji to Nakano, with Asagaya at the west edge. */
@@ -54,6 +56,9 @@ export function TangoMap({
   onPinPress,
   bottomInset = 0,
   compact = false,
+  onLocate,
+  focus,
+  showUser = false,
 }: {
   pins: MapPin[];
   showStars?: boolean;
@@ -63,6 +68,12 @@ export function TangoMap({
   bottomInset?: number;
   /** Small embedded map: no search-bar padding, tighter framing. */
   compact?: boolean;
+  /** Shows a "my location" button; resolves the fresh position (null if unknown). */
+  onLocate?: () => Promise<{ lat: number; lng: number } | null>;
+  /** Start here (the user's position), zoomed in, instead of fitting all pins. */
+  focus?: { lat: number; lng: number } | null;
+  /** The phone's own blue location dot (needs location permission). */
+  showUser?: boolean;
 }): React.JSX.Element {
   const insets = useSafeAreaInsets();
   // Keep the Tango area clear of the floating search bar (Today only).
@@ -79,6 +90,10 @@ export function TangoMap({
     .filter(pin => pin.kind === 'tango')
     .map(pin => ({ latitude: pin.lat, longitude: pin.lng }));
   const coordsKey = JSON.stringify(tangoCoords);
+  // Rounded so tiny GPS jitter doesn't re-center the map.
+  const focusKey = focus
+    ? `${focus.lat.toFixed(4)},${focus.lng.toFixed(4)}`
+    : '';
   const fitPins = useCallback(
     (animated: boolean) => {
       const coords = JSON.parse(coordsKey) as {
@@ -86,6 +101,19 @@ export function TangoMap({
         longitude: number;
       }[];
       if (!ready.current || !mapRef.current) {
+        return;
+      }
+      if (focusKey) {
+        const [latitude, longitude] = focusKey.split(',').map(Number);
+        mapRef.current.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: FOCUS_DELTA,
+            longitudeDelta: FOCUS_DELTA,
+          },
+          animated ? FIT_MS : 0,
+        );
         return;
       }
       if (coords.length === 0) {
@@ -105,7 +133,7 @@ export function TangoMap({
       }
       mapRef.current.fitToCoordinates(coords, { edgePadding: edge, animated });
     },
-    [coordsKey, edge],
+    [coordsKey, edge, focusKey],
   );
 
   // Re-frame when the sheet opens or closes (the visible area changes).
@@ -118,45 +146,78 @@ export function TangoMap({
     return () => clearTimeout(timer);
   }, [showStars, pins.length]);
 
+  const locate = async () => {
+    const here = await onLocate?.();
+    if (here && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: here.lat,
+          longitude: here.lng,
+          latitudeDelta: FOCUS_DELTA,
+          longitudeDelta: FOCUS_DELTA,
+        },
+        FIT_MS,
+      );
+    }
+  };
+
   return (
-    <MapView
-      ref={mapRef}
-      style={StyleSheet.absoluteFill}
-      // initialRegion is ignored if the map mounts before its size is known,
-      // so pins are framed once the map is ready (fitPins).
-      onMapReady={() => {
-        ready.current = true;
-        fitPins(false);
-      }}
-      provider={PROVIDER_GOOGLE}
-      customMapStyle={TANGO_MAP_STYLE}
-      maxZoomLevel={MAX_ZOOM}
-      mapPadding={{ top: topInset, right: 0, bottom: bottomInset, left: 0 }}
-      showsBuildings={false}
-      showsIndoors={false}
-      showsTraffic={false}
-      initialRegion={INITIAL_REGION}
-      scrollEnabled={interactive}
-      zoomEnabled={interactive}
-      rotateEnabled={false}
-      pitchEnabled={false}
-      toolbarEnabled={false}
-      showsPointsOfInterests={false}
-      accessibilityLabel="Map of your Tango"
-    >
-      {pins.map(pin => (
-        <Marker
-          key={pin.id}
-          coordinate={{ latitude: pin.lat, longitude: pin.lng }}
-          onPress={onPinPress ? () => onPinPress(pin) : undefined}
-          tracksViewChanges={tracking}
-          // Labelled pins: keep the badge (not the badge+label block) on the spot.
-          anchor={pin.kind === 'tango' && pin.label ? LABELLED_ANCHOR : CENTER}
-        >
-          <PinBadge pin={pin} showStars={showStars} />
-        </Marker>
-      ))}
-    </MapView>
+    <>
+      <MapView
+        ref={mapRef}
+        style={[StyleSheet.absoluteFill, styles.paper]}
+        // initialRegion is ignored if the map mounts before its size is known,
+        // so pins are framed once the map is ready (fitPins).
+        onMapReady={() => {
+          ready.current = true;
+          fitPins(false);
+        }}
+        provider={PROVIDER_GOOGLE}
+        customMapStyle={TANGO_MAP_STYLE}
+        showsUserLocation={showUser}
+        showsMyLocationButton={false}
+        // Paper instead of Google's grey while tiles load.
+        loadingEnabled
+        loadingBackgroundColor={washiColors.paper}
+        loadingIndicatorColor={colors.accent}
+        mapPadding={{ top: topInset, right: 0, bottom: bottomInset, left: 0 }}
+        showsBuildings={false}
+        showsIndoors={false}
+        showsTraffic={false}
+        initialRegion={INITIAL_REGION}
+        scrollEnabled={interactive}
+        zoomEnabled={interactive}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        toolbarEnabled={false}
+        showsPointsOfInterests={false}
+        accessibilityLabel="Map of your Tango"
+      >
+        {pins.map(pin => (
+          <Marker
+            key={pin.id}
+            coordinate={{ latitude: pin.lat, longitude: pin.lng }}
+            onPress={onPinPress ? () => onPinPress(pin) : undefined}
+            tracksViewChanges={tracking}
+            // Labelled pins: keep the badge (not the badge+label block) on the spot.
+            anchor={
+              pin.kind === 'tango' && pin.label ? LABELLED_ANCHOR : CENTER
+            }
+          >
+            <PinBadge pin={pin} showStars={showStars} />
+          </Marker>
+        ))}
+      </MapView>
+      {onLocate && interactive ? (
+        <View style={[styles.locate, { bottom: bottomInset + space.lg }]}>
+          <IconButton
+            icon="locate"
+            label="Go to my location"
+            onPress={locate}
+          />
+        </View>
+      ) : null}
+    </>
   );
 }
 
@@ -171,25 +232,41 @@ function PinBadge({
     return <View style={[styles.pin, styles.me]} />;
   }
   if (pin.kind === 'next') {
+    // A filled tag: 次 = next.
     return (
       <View style={[styles.pin, styles.next]}>
+        <Text style={styles.nextGlyph}>次</Text>
         <Text style={styles.text}>{pin.label}</Text>
       </View>
     );
   }
+  // Tango: a stamp, like the seals and station stamps collected in Japan.
+  // 単 is from 単語 (word); the hanamaru filter turns it into a red 花丸 stamp.
   return (
     <View style={styles.tangoWrap}>
-      <View style={[styles.pin, styles.tango]}>
-        <Text style={styles.text}>
-          {showStars ? `★${pin.stars ?? 0}` : pin.count}
+      <View style={[styles.stamp, showStars && styles.stampStar]}>
+        {showStars ? (
+          <Hanamaru size={fontSizes.md} />
+        ) : (
+          <Text style={styles.stampGlyph}>単</Text>
+        )}
+        <Text style={[styles.stampCount, showStars && styles.stampTextStar]}>
+          {showStars ? pin.stars ?? 0 : pin.count}
         </Text>
       </View>
-      {pin.label ? <Text style={styles.areaLabel}>{pin.label}</Text> : null}
+      {pin.label ? (
+        <View style={styles.areaTag}>
+          <Text style={styles.areaLabel}>{pin.label}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  paper: {
+    backgroundColor: washiColors.paper,
+  },
   pin: {
     minWidth: sizes.pin + space.sm,
     height: sizes.pin + space.sm,
@@ -203,19 +280,66 @@ const styles = StyleSheet.create({
   tangoWrap: {
     alignItems: 'center',
   },
-  areaLabel: {
+  stamp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xxs,
+    minWidth: sizes.pin + space.md,
+    height: sizes.pin + space.md,
+    paddingHorizontal: space.sm,
+    borderRadius: radii.sm,
+    borderWidth: sizes.border * 2,
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    transform: [{ rotate: '-4deg' }],
+  },
+  stampStar: {
+    borderColor: colors.hanamaru,
+  },
+  stampGlyph: {
     ...base.text,
     fontSize: fontSizes.sm,
     fontWeight: fontWeights.bold,
-    color: colors.text,
-    textShadowColor: colors.surface,
-    textShadowRadius: space.xs,
+    color: colors.accent,
   },
-  tango: {
-    backgroundColor: colors.dark,
+  stampCount: {
+    ...base.text,
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.bold,
+    color: colors.accent,
+  },
+  stampTextStar: {
+    color: colors.hanamaru,
+  },
+  areaTag: {
+    marginTop: space.xxs,
+    paddingHorizontal: space.xs,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: sizes.hairline,
+    borderColor: colors.border,
+  },
+  areaLabel: {
+    ...base.text,
+    fontSize: fontSizes.xs,
+    fontWeight: fontWeights.bold,
+    color: colors.text,
   },
   next: {
+    flexDirection: 'row',
+    gap: space.xs,
     backgroundColor: colors.accent,
+  },
+  nextGlyph: {
+    ...base.text,
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.bold,
+    color: colors.accentSoft,
+  },
+  locate: {
+    position: 'absolute',
+    right: space.lg,
   },
   me: {
     minWidth: sizes.pin,

@@ -112,9 +112,9 @@ async def cache_put(db: AsyncClient, places: list[Place]) -> None:
         logger.exception("Place cache write failed")
 
 
-async def areas_for(db: AsyncClient, place_ids: set[str]) -> dict[str, str]:
-    """Area name per place id, from the cache (and the built-in list)."""
-    result = {p.id: p.area for p in rules.BUILTIN_PLACES if p.id in place_ids}
+async def place_facts(db: AsyncClient, place_ids: set[str]) -> dict[str, tuple[str, str]]:
+    """(area, category) per place id, from the cache (and the built-in list)."""
+    result = {p.id: (p.area, p.category) for p in rules.BUILTIN_PLACES if p.id in place_ids}
     wanted = [pid for pid in place_ids if pid not in result]
     if not wanted:
         return result
@@ -122,11 +122,17 @@ async def areas_for(db: AsyncClient, place_ids: set[str]) -> dict[str, str]:
     try:
         async for snap in db.get_all(refs):
             data = snap.to_dict() if snap.exists else None
-            if data and data.get("area"):
-                result[snap.id] = data["area"]
+            if data:
+                result[snap.id] = (data.get("area") or "", data.get("category") or "")
     except (GoogleAPICallError, GoogleAuthError):
         logger.exception("Place cache batch read failed")
     return result
+
+
+async def areas_for(db: AsyncClient, place_ids: set[str]) -> dict[str, str]:
+    """Area name per place id, from the cache (and the built-in list)."""
+    facts = await place_facts(db, place_ids)
+    return {pid: area for pid, (area, _) in facts.items() if area}
 
 
 async def search_places(

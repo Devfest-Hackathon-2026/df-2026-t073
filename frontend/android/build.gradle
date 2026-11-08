@@ -1,3 +1,15 @@
+// Live camera text reading: only the Japanese ML Kit model (also reads Latin).
+ext["react-native-vision-camera-mlkit"] = [
+    mlkit: [
+        textRecognition: false,
+        textRecognitionChinese: false,
+        textRecognitionDevanagari: false,
+        textRecognitionJapanese: true,
+        textRecognitionKorean: false,
+        barcodeScanning: false,
+    ]
+]
+
 buildscript {
     ext {
         buildToolsVersion = "37.0.0"

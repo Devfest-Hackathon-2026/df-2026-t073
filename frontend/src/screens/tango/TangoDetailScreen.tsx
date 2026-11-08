@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { getTango } from '../../api/tango';
+import { getTango, setFavorite } from '../../api/tango';
+import { Icon, type IconName } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
 import { TangoMap } from '../../components/TangoMap';
 import {
   Card,
-  Chip,
+  IconButton,
+  IconLabel,
   Loadable,
   StrengthBar,
   strengthLabel,
 } from '../../components/ui';
+import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
@@ -25,11 +28,19 @@ import {
 } from '../../styles/tokens';
 import type { MapPin, Tango, TangoEvent } from '../../types';
 import { orderExamples } from '../../utils/format';
+import { AddToListSheet } from '../review/ListSheets';
 
-const EVENT_GLYPH: Record<TangoEvent['type'], string> = {
-  caught: '◉',
-  reviewed: '❐',
-  seen_again: '👁',
+/** Shown while loading: build anticipation, not impatience. */
+const DETAIL_LINES = ['Opening your Tango…'];
+
+/** Checks for phrases written after the catch: every 4 s, at most 4 times. */
+const PHRASES_RETRY_MS = 4000;
+const PHRASES_MAX_TRIES = 4;
+
+const EVENT_ICON: Record<TangoEvent['type'], IconName> = {
+  caught: 'camera',
+  reviewed: 'review',
+  seen_again: 'seen',
 };
 
 interface PlaceGroup {
@@ -91,72 +102,145 @@ export function TangoDetailScreen({
   const { id } = route.params;
   const { settings } = useSettings();
   const tango = useAsync(() => getTango(id), id);
+  // Cards from the dictionary get their phrases a few seconds after the catch.
+  const tries = useRef(0);
+  const noPhrases = tango.data?.examples.length === 0;
+  const waitingForPhrases = noPhrases && tries.current < PHRASES_MAX_TRIES;
+  const { reload, data } = tango;
+  useEffect(() => {
+    if (!waitingForPhrases) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      tries.current += 1;
+      reload();
+    }, PHRASES_RETRY_MS);
+    return () => clearTimeout(timer);
+  }, [waitingForPhrases, reload, data]);
+
+  // Favourite flips at once; the save follows (and rolls back on failure).
+  const [favorite, setFavoriteState] = useState<boolean | null>(null);
+  const isFavorite = favorite ?? data?.favorite ?? false;
+  const toggleFavorite = async () => {
+    const next = !isFavorite;
+    setFavoriteState(next);
+    try {
+      await setFavorite(id, next);
+    } catch {
+      setFavoriteState(!next);
+    }
+  };
+  const [addingToList, setAddingToList] = useState(false);
 
   return (
     <Screen>
-      <Loadable state={tango}>
+      <Loadable state={tango} messages={DETAIL_LINES}>
         {t => (
           <View style={base.stack}>
-            <ScreenHeader
-              onBack={() => navigation.goBack()}
-              right={<Chip label={strengthLabel(t.strength)} tone="star" />}
-            />
-            <View style={styles.hero}>
-              <Jp {...t} size="jumbo" bold />
-              <Text style={base.caption}>
-                {t.romaji} · {t.meaning}
+            <ScreenHeader onBack={() => navigation.goBack()} />
+
+            <Card>
+              <View style={styles.hero}>
+                <Jp {...t} size="jumbo" bold />
+                {t.romaji ? <Text style={base.caption}>{t.romaji}</Text> : null}
+                <Text style={styles.meaning}>{t.meaning}</Text>
+              </View>
+              <View style={styles.actions}>
+                <IconButton
+                  icon="play"
+                  label={`Play ${t.text}`}
+                  onPress={() => playWord(t.text)}
+                />
+                <IconButton
+                  icon="heart"
+                  label={isFavorite ? 'Remove from favourites' : 'Favourite'}
+                  filled={isFavorite}
+                  color={isFavorite ? colors.hanamaru : undefined}
+                  onPress={toggleFavorite}
+                />
+                <IconButton
+                  icon="addToList"
+                  label="Add to a list"
+                  onPress={() => setAddingToList(true)}
+                />
+              </View>
+            </Card>
+
+            <View style={styles.strengthRow}>
+              <View style={base.grow}>
+                <StrengthBar strength={t.strength} />
+              </View>
+              <Text style={styles.strengthLabel}>
+                {t.strength >= 4
+                  ? strengthLabel(t.strength)
+                  : `${4 - t.strength} to hanamaru`}
               </Text>
-              <Chip label={t.kind.replace('_', ' ')} tone="accent" />
             </View>
-            <StrengthBar strength={t.strength} />
-            <Text style={base.caption}>
-              Grows when you review it and when you spot it out in the world.
-              {t.strength < 4
-                ? ` ${4 - t.strength} more step${
-                    4 - t.strength === 1 ? '' : 's'
-                  } until it's a star.`
-                : " It's a star on your map."}
-            </Text>
+
             {t.explanation ? (
               <Text style={base.text}>{t.explanation}</Text>
             ) : null}
 
-            <PlacesCard tango={t} />
-
-            {t.examples.length > 0 ? (
-              <Card>
-                <Text style={base.heading}>Phrases</Text>
-                {orderExamples(t.examples, settings.phrasesFirst).map(
-                  example => (
-                    <View key={example.jp.text} style={base.stackSm}>
-                      <Text style={base.label}>
-                        {example.register === 'easy' ? 'Easy' : 'Keigo'}
-                      </Text>
-                      <Jp {...example.jp} />
-                      <Text style={base.caption}>{example.jp.meaning}</Text>
-                    </View>
-                  ),
-                )}
-              </Card>
-            ) : null}
-
             <Card>
-              <Text style={base.heading}>How it grew</Text>
-              {t.history.map((event, i) => (
-                <View key={`${event.type}-${i}`} style={styles.event}>
-                  <View style={[styles.eventIcon, eventStyles[event.type]]}>
-                    <Text style={styles.eventGlyph}>
-                      {EVENT_GLYPH[event.type]}
-                    </Text>
-                  </View>
+              <Text style={base.heading}>Phrases</Text>
+              {t.examples.length === 0 ? (
+                <Text style={base.caption}>
+                  {waitingForPhrases
+                    ? 'Writing example phrases…'
+                    : 'No example phrases yet'}
+                </Text>
+              ) : null}
+              {orderExamples(t.examples, settings.phrasesFirst).map(example => (
+                <View key={example.jp.text} style={styles.phrase}>
                   <View style={base.grow}>
-                    <Text style={styles.strong}>{event.label}</Text>
-                    <Text style={base.caption}>{event.detail}</Text>
+                    <Text style={base.label}>
+                      {example.register === 'easy' ? 'Easy' : 'Keigo'}
+                    </Text>
+                    <Jp {...example.jp} />
+                    <Text style={base.caption}>{example.jp.meaning}</Text>
                   </View>
-                  <Text style={styles.badge}>{event.badge}</Text>
+                  <IconButton
+                    icon="play"
+                    label={`Play ${example.jp.text}`}
+                    onPress={() => playWord(example.jp.text)}
+                  />
                 </View>
               ))}
             </Card>
+
+            {settings.mapFeatures ? <PlacesCard tango={t} /> : null}
+
+            <Card>
+              <Text style={base.heading}>History</Text>
+              {t.history.map((event, i) => (
+                <View key={`${event.type}-${i}`} style={styles.event}>
+                  <View style={[styles.eventIcon, eventStyles[event.type]]}>
+                    <Icon
+                      name={EVENT_ICON[event.type]}
+                      size={fontSizes.md}
+                      color={colors.textInverse}
+                    />
+                  </View>
+                  <View style={base.grow}>
+                    <Text style={styles.strong}>{event.label}</Text>
+                    {event.detail ? (
+                      <Text style={base.caption} numberOfLines={2}>
+                        {event.detail}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {event.badge ? (
+                    <Text style={styles.badge}>{event.badge}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </Card>
+
+            <AddToListSheet
+              visible={addingToList}
+              tangoId={t.id}
+              onClose={() => setAddingToList(false)}
+            />
           </View>
         )}
       </Loadable>
@@ -170,33 +254,24 @@ function PlacesCard({ tango }: { tango: Tango }): React.JSX.Element | null {
     return null;
   }
   const pins = pinsFor(groups);
-  const places = groups.length;
-  const times = tango.sightings.length;
   return (
     <Card>
+      <Text style={base.heading}>Where you saw it</Text>
       {pins.length > 0 ? (
         <View style={styles.miniMap}>
           <TangoMap pins={pins} compact interactive={false} />
         </View>
-      ) : (
-        <Text style={base.caption}>
-          No location was saved with these catches, so there's no map yet.
-        </Text>
-      )}
-      <Text style={base.caption}>
-        <Text style={styles.strong}>
-          {places} place{places === 1 ? '' : 's'}
-          {times > places ? `, seen ${times} times` : ''}.
-        </Text>{' '}
-        {places > 1
-          ? "Reviews take turns showing each one, so it doesn't only stick at one spot."
-          : 'Spot it somewhere new to add another place.'}
-      </Text>
+      ) : null}
       {groups.map(g => (
-        <Text key={g.key} style={base.caption}>
-          ⌖ {g.name}
-          {g.count > 1 ? ` · ${g.count}×` : ''} · last {formatDay(g.lastSeen)}
-        </Text>
+        <IconLabel
+          key={g.key}
+          icon="pin"
+          style={base.caption}
+          numberOfLines={1}
+        >
+          {g.name}
+          {g.count > 1 ? ` · ${g.count}×` : ''} · {formatDay(g.lastSeen)}
+        </IconLabel>
       ))}
     </Card>
   );
@@ -212,7 +287,7 @@ function formatDay(iso: string): string {
 const eventStyles = StyleSheet.create({
   caught: { backgroundColor: colors.caution },
   reviewed: { backgroundColor: colors.accent },
-  seen_again: { backgroundColor: colors.star },
+  seen_again: { backgroundColor: colors.hanamaru },
 });
 
 const styles = StyleSheet.create({
@@ -224,6 +299,32 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     gap: space.xs,
+  },
+  meaning: {
+    ...base.text,
+    fontSize: fontSizes.lg,
+    textAlign: 'center',
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: space.lg,
+    marginTop: space.sm,
+  },
+  strengthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+  },
+  strengthLabel: {
+    ...base.caption,
+    color: colors.hanamaru,
+    fontWeight: fontWeights.bold,
+  },
+  phrase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
   },
   strong: {
     ...base.text,
@@ -241,13 +342,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eventGlyph: {
-    fontSize: fontSizes.md,
-    color: colors.textInverse,
-  },
   badge: {
     ...base.caption,
-    color: colors.star,
+    color: colors.hanamaru,
     fontWeight: fontWeights.bold,
   },
 });

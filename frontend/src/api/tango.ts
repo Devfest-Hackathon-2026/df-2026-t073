@@ -29,6 +29,7 @@ export interface FlashcardResponse {
   item_id: string | null;
   image_url: string;
   bounding_box: { x: number; y: number }[];
+  favorite?: boolean;
   kanji: string;
   reading: string;
   romaji: string;
@@ -129,6 +130,7 @@ export function flashcardToTango(card: FlashcardResponse): Tango {
     })),
     strength,
     known: strength === 4,
+    favorite: card.favorite ?? false,
     history: events.reverse(),
     examples: card.use_cases.map(useCase => ({
       register: useCase.register ?? 'easy',
@@ -181,6 +183,26 @@ export const getTango = pick(
     flashcardToTango(
       await request<FlashcardResponse>(
         `${API_V1}/flashcards/${encodeURIComponent(id)}`,
+      ),
+    ),
+);
+
+/** Marks or unmarks a Tango as a favourite. */
+export const setFavorite = pick(
+  'tango',
+  (id: string, favorite: boolean) => {
+    const found = TANGO[id];
+    if (found) {
+      found.favorite = favorite;
+    }
+    return mockDelay<Tango>({ ...(found ?? ALL_TANGO[0]), favorite }, 150);
+  },
+  // PATCH /api/v1/flashcards/{id}
+  async (id: string, favorite: boolean) =>
+    flashcardToTango(
+      await request<FlashcardResponse>(
+        `${API_V1}/flashcards/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: { favorite } },
       ),
     ),
 );

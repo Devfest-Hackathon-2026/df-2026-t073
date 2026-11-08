@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getTodaysCatch } from '../../api/capture';
+import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
 import { Button, Card, Chip, Loadable } from '../../components/ui';
@@ -9,44 +10,31 @@ import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, sizes, space } from '../../styles/tokens';
 
+/** Shown while loading: build anticipation, not impatience. */
+const CATCH_LINES = ["Counting today's catch…"];
+
+/** Opened from the camera's counter: back returns to the camera. */
 export function CaptureTodayScreen({
   navigation,
 }: RootScreenProps<'CaptureToday'>): React.JSX.Element {
   const catches = useAsync(getTodaysCatch);
 
-  const keepScanning = () => {
-    const routes = navigation.getState().routes;
-    const previous = routes[routes.length - 2];
-    if (previous?.name === 'Capture') {
-      navigation.goBack();
-    } else {
-      navigation.replace('Capture');
-    }
-  };
-
   return (
     <Screen
       footer={
-        <View style={base.row}>
-          <Button
-            label="Keep scanning"
-            variant="secondary"
-            style={base.grow}
-            onPress={keepScanning}
-          />
-          <Button
-            label="Done"
-            variant="dark"
-            style={base.grow}
-            onPress={() => navigation.popToTop()}
-          />
-        </View>
+        <Button
+          label="Done"
+          variant="dark"
+          onPress={() => navigation.popToTop()}
+        />
       }
     >
       <ScreenHeader onBack={() => navigation.goBack()} />
-      <Loadable state={catches}>
+      <Loadable state={catches} messages={CATCH_LINES}>
         {list => {
-          const places = new Set(list.map(entry => entry.placeName)).size;
+          const places = new Set(
+            list.map(entry => entry.placeName).filter(Boolean),
+          ).size;
           return (
             <Card>
               <View style={base.rowBetween}>
@@ -59,27 +47,30 @@ export function CaptureTodayScreen({
                 <Text style={base.caption}>Nothing caught yet today.</Text>
               ) : null}
               {list.map((entry, i) => (
-                <View key={`${entry.tango.id}-${i}`} style={styles.row}>
+                <Pressable
+                  key={`${entry.tango.id}-${i}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${entry.tango.text}`}
+                  onPress={() =>
+                    navigation.navigate('TangoDetail', { id: entry.tango.id })
+                  }
+                  style={styles.row}
+                >
                   <View style={styles.word}>
                     <Jp {...entry.tango} bold size="lg" />
                   </View>
-                  <Text
-                    style={[base.caption, base.grow]}
-                    onPress={() =>
-                      navigation.navigate('TangoDetail', { id: entry.tango.id })
-                    }
-                  >
-                    {entry.tango.meaning} · {entry.placeName}
+                  <Text style={[base.caption, base.grow]} numberOfLines={2}>
+                    {[entry.tango.meaning, entry.placeName]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                   <Chip
                     label={entry.status === 'new' ? 'New' : 'Reviewed'}
                     tone={entry.status === 'new' ? 'accent' : 'outline'}
                   />
-                </View>
+                  <Icon name="forward" color={colors.textMuted} />
+                </Pressable>
               ))}
-              <Text style={base.caption}>
-                New Tango join your review tonight, pinned to where you found them.
-              </Text>
             </Card>
           );
         }}
@@ -92,12 +83,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingVertical: space.sm,
     borderBottomWidth: sizes.hairline,
     borderBottomColor: colors.border,
   },
   word: {
-    minWidth: space.xxl * 3,
+    maxWidth: '40%',
   },
 });

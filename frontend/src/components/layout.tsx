@@ -1,6 +1,15 @@
 // Screen scaffolding: safe-area screen, header, map placeholder, sheet, toast.
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
 import { base } from '../styles/base';
 import {
@@ -62,7 +71,7 @@ export function ScreenHeader({
   return (
     <View style={styles.header}>
       <IconButton
-        glyph={close ? '✕' : '‹'}
+        icon={close ? 'close' : 'back'}
         label={close ? 'Close' : 'Back'}
         onPress={onBack}
       />
@@ -108,15 +117,20 @@ export function MapPlaceholder({
           style={[
             styles.pin,
             pinStyles[pin.kind],
-            { left: `${pin.x * 100}%` as const, top: `${pin.y * 100}%` as const },
+            {
+              left: `${pin.x * 100}%` as const,
+              top: `${pin.y * 100}%` as const,
+            },
           ]}
         >
           {pin.kind === 'tango' ? (
             <Text style={styles.pinText}>
-              {showStars ? `★${pin.stars ?? 0}` : pin.count}
+              {showStars ? `花${pin.stars ?? 0}` : pin.count}
             </Text>
           ) : null}
-          {pin.kind === 'next' ? <Text style={styles.pinText}>{pin.label}</Text> : null}
+          {pin.kind === 'next' ? (
+            <Text style={styles.pinText}>{pin.label}</Text>
+          ) : null}
         </Pressable>
       ))}
       {children}
@@ -149,21 +163,36 @@ export function BottomSheet({
   onClose: () => void;
   children: React.ReactNode;
 }): React.JSX.Element | null {
-  if (!visible) {
-    return null;
-  }
+  // A real modal window: works from any screen (scrolling ones included)
+  // and stays above the keyboard.
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Pressable
-        style={styles.sheetScrim}
-        onPress={onClose}
-        accessibilityLabel="Close"
-      />
-      <View style={styles.sheet}>
-        <View style={styles.sheetHandle} />
-        <ScrollView contentContainerStyle={base.stack}>{children}</ScrollView>
-      </View>
-    </View>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        style={styles.sheetRoot}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable
+          style={styles.sheetScrim}
+          onPress={onClose}
+          accessibilityLabel="Close"
+        />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <ScrollView
+            contentContainerStyle={base.stack}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -267,6 +296,9 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: fontWeights.bold,
     color: colors.textInverse,
+  },
+  sheetRoot: {
+    flex: 1,
   },
   sheetScrim: {
     flex: 1,

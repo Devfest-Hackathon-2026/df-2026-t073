@@ -12,7 +12,9 @@ import type {
   ReviewSummary,
   SessionResult,
 } from '../types';
+import { ALL_TANGO } from '../mocks/tango';
 import { API_V1, mockDelay, pick, request } from './client';
+import { listLists } from './lists';
 import { flashcardToTango, type FlashcardResponse } from './tango';
 
 // ---- Backend shapes (app/schemas/review.py) ----
@@ -41,6 +43,8 @@ interface ReviewSummaryResponse {
     count: number;
     is_place: boolean;
     is_place_cue: boolean;
+    is_favorites?: boolean;
+    is_list?: boolean;
   }[];
   exercise_types: { id: string; label: string; enabled: boolean }[];
   total_tango: number;
@@ -152,7 +156,37 @@ export const getReviewCard = pick(
 
 export const getReviewSummary = pick(
   'review',
-  () => mockDelay<ReviewSummary>(REVIEW_SUMMARY),
+  // Mock: the sample summary plus Favourites and lists made this session.
+  async () => {
+    const lists = await listLists();
+    const favorites = ALL_TANGO.filter(t => t.favorite).length;
+    return mockDelay<ReviewSummary>({
+      ...REVIEW_SUMMARY,
+      collections: [
+        ...(favorites
+          ? [
+              {
+                id: 'favorites',
+                label: 'Favourites',
+                count: favorites,
+                isPlace: false,
+                isPlaceCue: false,
+                isFavorites: true,
+              },
+            ]
+          : []),
+        ...REVIEW_SUMMARY.collections,
+        ...lists.map(l => ({
+          id: `list:${l.id}`,
+          label: l.name,
+          count: l.tangoIds.length,
+          isPlace: false,
+          isPlaceCue: false,
+          isList: true,
+        })),
+      ],
+    });
+  },
   async () => {
     const r = await request<ReviewSummaryResponse>(`${API_V1}/review/summary`);
     return {
@@ -165,6 +199,8 @@ export const getReviewSummary = pick(
         count: c.count,
         isPlace: c.is_place,
         isPlaceCue: c.is_place_cue,
+        isFavorites: c.is_favorites ?? false,
+        isList: c.is_list ?? false,
       })),
       exerciseTypes: r.exercise_types,
       totalTango: r.total_tango,

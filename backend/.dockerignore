@@ -23,3 +23,5 @@ __pycache__/
 README.md
 tests/
 
+# Rebuilt inside the image by scripts/build_jmdict.py
+data/jmdict.sqlite

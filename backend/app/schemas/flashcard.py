@@ -71,7 +71,8 @@ class HistoryEvent(BaseModel):
 
 
 class FlashcardCreateRequest(BaseModel):
-    capture_id: str
+    # None for a live camera catch (read on the phone, no photo uploaded).
+    capture_id: str | None = None
     item_id: str | None = None
     selected_text: str | None = None
     # Where the Tango was caught (A2). Falls back to the capture's stored place.
@@ -84,8 +85,11 @@ class FlashcardCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_selection(self) -> "FlashcardCreateRequest":
-        if not self.item_id and (not self.selected_text or not self.selected_text.strip()):
+        has_text = bool(self.selected_text and self.selected_text.strip())
+        if not self.item_id and not has_text:
             raise ValueError("Either item_id or selected_text must be provided.")
+        if not self.capture_id and not has_text:
+            raise ValueError("selected_text is required when there is no capture_id.")
         return self
 
 
@@ -137,6 +141,8 @@ class FlashcardResponse(GeneratedFlashcardContent):
     history: list[HistoryEvent] = Field(default_factory=list)
     # Filled on first review; reused by later sessions.
     distractors: Distractors | None = None
+    # Marked by the user; reviewable as the "favorites" collection.
+    favorite: bool = False
 
 
 class FlashcardCatchResponse(BaseModel):

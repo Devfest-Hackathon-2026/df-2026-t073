@@ -67,3 +67,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# Built locally by backend/scripts/build_jmdict.py
+backend/data/jmdict.sqlite

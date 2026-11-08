@@ -101,3 +101,13 @@ CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
 CurrentUserStrict = Annotated[dict[str, Any], Depends(get_current_user_strict)]
 Db = Annotated[AsyncClient, Depends(get_db)]
 HttpClient = Annotated[httpx.AsyncClient, Depends(get_http)]
+
+
+def daily_limit(kind: str) -> Any:
+    """Route dependency: counts the call and returns 429 once today's limit is used."""
+    from app.services import usage
+
+    async def check(current_user: CurrentUser, db: Db) -> None:
+        await usage.charge(db=db, uid=current_user["uid"], kind=kind)
+
+    return Depends(check)

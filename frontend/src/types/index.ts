@@ -70,6 +70,15 @@ export interface Tango {
   examples: TangoExample[];
   /** One-line explanation shown on detail cards. */
   explanation?: string;
+  /** Marked by the user; reviewable as "Favourites". */
+  favorite?: boolean;
+}
+
+/** A user-made review list. */
+export interface TangoList {
+  id: string;
+  name: string;
+  tangoIds: string[];
 }
 
 export interface MapPin {
@@ -101,12 +110,23 @@ export interface MapArea {
   planPlaceId: string | null;
 }
 
+/** Today's word, picked for the user's level and interests. */
+export interface WordOfDay {
+  text: string;
+  reading: string;
+  romaji: string;
+  meaning: string;
+  /** Why this word, e.g. "For your visit to 麺屋たいき". */
+  reason: string;
+}
+
 export interface TodaySummary {
   userName: string;
   upNext: Visit | null;
   pins: MapPin[];
   areas: MapArea[];
   starterTango: JpText[];
+  wordOfDay: WordOfDay | null;
 }
 
 export interface ReviewCard {
@@ -249,6 +269,9 @@ export interface Collection {
   count: number;
   isPlace: boolean;
   isPlaceCue: boolean;
+  isFavorites?: boolean;
+  /** A user-made list; its id is "list:<listId>". */
+  isList?: boolean;
 }
 
 export interface ReviewSummary {
@@ -347,4 +370,6 @@ export interface Settings {
   onboarded: boolean;
   /** Show the day-one checklist on Today. */
   dayOne: boolean;
+  /** Map tab, map cards and every use of location. Off = no GPS at all. */
+  mapFeatures: boolean;
 }

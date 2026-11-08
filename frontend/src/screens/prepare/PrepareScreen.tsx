@@ -11,11 +11,20 @@ import {
   Loadable,
   NumberedStep,
   SectionTitle,
+  IconLabel,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
+import { Icon } from '../../components/Icon';
+
+/** Shown while loading: build anticipation, not impatience. */
+const PREPARE_LINES = [
+  'Reading what visitors say about this place…',
+  "Picking the words you'll hear at the counter…",
+  'Planning your first moves inside…',
+];
 
 export function PrepareScreen({
   route,
@@ -49,12 +58,15 @@ export function PrepareScreen({
       footer={
         <>
           <Button
-            label="🎙 Rehearse with staff · 2 min"
+            icon="mic"
+            label="Rehearse with staff · 2 min"
             onPress={() => navigation.navigate('Rehearse', { placeId })}
           />
-          <Text style={[base.caption, styles.center]}>
-            ✦ AI suggestion from reviews; may be out of date.
-          </Text>
+          <View style={styles.center}>
+            <IconLabel icon="ai" style={base.caption}>
+              AI suggestion from reviews; may be out of date.
+            </IconLabel>
+          </View>
         </>
       }
     >
@@ -66,7 +78,7 @@ export function PrepareScreen({
         />
       </ScreenHeader>
 
-      <Loadable state={briefing}>
+      <Loadable state={briefing} messages={PREPARE_LINES}>
         {data => (
           <View style={base.stack}>
             <View style={base.stackSm}>
@@ -76,16 +88,16 @@ export function PrepareScreen({
                 {data.place.note ? ` · ${data.place.note}` : ''}
               </Text>
               <View style={base.row}>
-                <Chip label={`✦ ${data.source}`} tone="accent" />
+                <Chip icon="ai" label={data.source} tone="accent" />
               </View>
             </View>
 
             <Card>
               <Text style={base.heading}>Add to your plans</Text>
               {planned ? (
-                <Text style={styles.planned}>
-                  ✓ Planned for {planned.toLowerCase()}. It's up next on Today.
-                </Text>
+                <IconLabel icon="done" style={styles.planned}>
+                  Planned for {planned.toLowerCase()}
+                </IconLabel>
               ) : (
                 <View style={base.wrap}>
                   {planOptions().map(option => (
@@ -119,7 +131,9 @@ export function PrepareScreen({
             </Card>
 
             <Card>
-              <Text style={base.heading}>✦ Tango for this visit</Text>
+              <IconLabel icon="ai" style={base.heading}>
+                Tango for this visit
+              </IconLabel>
               {data.tango.map(tango => {
                 const owned = tango.tangoId;
                 return (
@@ -137,8 +151,10 @@ export function PrepareScreen({
                       }
                     >
                       {tango.meaning}
-                      {owned ? ' ›' : ''}
                     </Text>
+                    {owned ? (
+                      <Icon name="forward" color={colors.textMuted} />
+                    ) : null}
                   </View>
                 );
               })}
@@ -150,8 +166,7 @@ export function PrepareScreen({
                 <Text style={base.caption}>Your first visit</Text>
               </View>
               <Text style={base.caption}>
-                From other learners' debriefs. Fully anonymous: no names, no
-                accounts, no exact times.
+                Anonymous tips from other learners
               </Text>
               {data.tips.length === 0 ? (
                 <Text style={base.caption}>No tips for this place yet.</Text>
@@ -204,7 +219,7 @@ const styles = StyleSheet.create({
     color: colors.caution,
   },
   center: {
-    textAlign: 'center',
+    alignItems: 'center',
   },
   tangoRow: {
     flexDirection: 'row',

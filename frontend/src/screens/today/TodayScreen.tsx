@@ -1,30 +1,29 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  type LayoutChangeEvent,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getToday, searchPlaces } from '../../api/places';
+import { isLive } from '../../config';
+import { getToday } from '../../api/places';
 import { type Coords, getCurrentCoords } from '../../location/location';
-import { getReviewCard } from '../../api/review';
+import { getReviewCard, getReviewSummary } from '../../api/review';
 import { Jp } from '../../components/Jp';
 import { TangoMap } from '../../components/TangoMap';
 import {
   Button,
   Card,
   Chip,
+  IconButton,
   Loadable,
   NumberedStep,
   SectionTitle,
 } from '../../components/ui';
+import {
+  playWord,
+  SAVE_ICON,
+  SAVE_LABEL,
+  useSaveWord,
+} from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
+import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
@@ -39,12 +38,21 @@ import {
 import type {
   MapArea,
   MapPin,
-  Place,
   ReviewCard,
+  ReviewSummary,
   TodaySummary,
   Visit,
+  WordOfDay,
 } from '../../types';
 import { formatVisitTime } from '../../utils/format';
+import { Icon } from '../../components/Icon';
+
+/** Shown while loading: build anticipation, not impatience. */
+const TODAY_LINES = [
+  "Gathering today's words…",
+  "Checking what's due…",
+  'Choosing your word of the day…',
+];
 
 const GREETING = {
   text: 'こんにちは',
@@ -54,18 +62,21 @@ const GREETING = {
 };
 
 /** Share of the screen the map gets while the sheet is open (slide 5). */
-const MAP_SHARE = 0.42;
-/** Height of the sheet's visible strip when the map is expanded. */
-const PEEK = sizes.touch + space.xl;
-const DRAG_THRESHOLD = 6;
-
-type MapFilter = 'all' | 'stars' | 'planned';
+const MAP_CARD_HEIGHT = 168;
+/** Day one's practice place: the backend's built-in ramen shop, or the mock one. */
+const DAY_ONE_PLACE = isLive('rehearse')
+  ? 'builtin:menya-taiki'
+  : 'menya-taiki';
 
 export function TodayScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
+  const nav = useRootNav();
   const today = useAsync(getToday);
-  // Device position: the "you are here" pin, and search results near you.
+  const review = useAsync(getReviewCard);
+  const stats = useAsync(getReviewSummary);
+  useReloadOnFocus(today.reload, review.reload, stats.reload);
+  // Device position: the map preview centres on it.
   const [here, setHere] = useState<Coords | null>(null);
   useEffect(() => {
     let alive = true;
@@ -74,320 +85,138 @@ export function TodayScreen(): React.JSX.Element {
       alive = false;
     };
   }, []);
-  const review = useAsync(getReviewCard);
-  const [query, setQuery] = useState('');
-  const results = useAsync(() => searchPlaces(query, here), query);
-
-  const [height, setHeight] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const [filter, setFilter] = useState<MapFilter>('all');
-  const [area, setArea] = useState<MapArea | null>(null);
-
-  // Sheet position: distance of the sheet's top edge from the top of the screen.
-  // The animated value holds it as an offset from openTop so the sheet can move
-  // with a native-driver transform (no layout work per frame).
-  const openTop = Math.round(height * MAP_SHARE);
-  const closedTop = Math.max(openTop, height - PEEK);
-  const sheetTop = useRef(new Animated.Value(0)).current;
-  const topNow = useRef(0);
-  const dragStart = useRef(0);
-
-  // Place the sheet once the screen size is known.
-  useEffect(() => {
-    if (height > 0) {
-      const target = expanded ? closedTop : openTop;
-      sheetTop.setValue(target - openTop);
-      topNow.current = target;
-    }
-    // Only on size changes; snapping is handled by `snap` below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [height]);
-
-  const snap = useMemo(
-    () => (toExpanded: boolean) => {
-      const target = toExpanded ? closedTop : openTop;
-      setExpanded(toExpanded);
-      if (!toExpanded) {
-        setArea(null);
-      }
-      Animated.spring(sheetTop, {
-        toValue: target - openTop,
-        useNativeDriver: true,
-        bounciness: 0,
-      }).start(() => {
-        topNow.current = target;
-      });
-    },
-    [closedTop, openTop, sheetTop],
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > DRAG_THRESHOLD,
-        onPanResponderGrant: () => {
-          sheetTop.stopAnimation(value => {
-            topNow.current = value + openTop;
-          });
-          dragStart.current = topNow.current;
-        },
-        onPanResponderMove: (_e, g) => {
-          const next = Math.min(
-            closedTop,
-            Math.max(openTop, dragStart.current + g.dy),
-          );
-          topNow.current = next;
-          sheetTop.setValue(next - openTop);
-        },
-        onPanResponderRelease: (_e, g) => {
-          if (Math.abs(g.dy) < DRAG_THRESHOLD) {
-            // A tap on the handle toggles.
-            snap(dragStart.current < (openTop + closedTop) / 2);
-            return;
-          }
-          const middle = (openTop + closedTop) / 2;
-          snap(g.vy > 0.5 || (g.vy > -0.5 && topNow.current > middle));
-        },
-      }),
-    [closedTop, openTop, sheetTop, snap],
-  );
-
-  const onLayout = (e: LayoutChangeEvent) =>
-    setHeight(e.nativeEvent.layout.height);
-
-  const allPins = useMemo(() => {
-    const fromServer = today.data?.pins ?? [];
-    // Live data has no "me" pin; add one from the device position.
-    if (!here || fromServer.some(p => p.kind === 'me')) {
-      return fromServer;
-    }
-    const me: MapPin = {
-      id: 'pin-me',
-      label: '',
-      count: 0,
-      x: 0.5,
-      y: 0.5,
-      lat: here.lat,
-      lng: here.lng,
-      kind: 'me',
-    };
-    return [...fromServer, me];
-  }, [today.data, here]);
-  const pins = useMemo(
-    () =>
-      (allPins ?? []).filter(pin => {
-        if (!expanded || filter === 'all') {
-          return true;
-        }
-        if (filter === 'stars') {
-          return (
-            pin.kind === 'me' || (pin.kind === 'tango' && (pin.stars ?? 0) > 0)
-          );
-        }
-        return pin.kind !== 'tango';
-      }),
-    [allPins, expanded, filter],
-  );
-
-  const onPinPress = (pin: MapPin) => {
-    const found = today.data?.areas.find(a => a.id === pin.areaId) ?? null;
-    if (found && !expanded) {
-      snap(true);
-    }
-    setArea(found);
-  };
 
   return (
-    <View style={styles.root} onLayout={onLayout}>
-      {/* Full-screen and never resized: the sheet slides over it. */}
-      <View style={styles.map}>
-        <TangoMap
-          pins={pins}
-          showStars={expanded && filter === 'stars'}
-          onPinPress={onPinPress}
-          bottomInset={expanded ? PEEK : height - openTop}
-        />
-      </View>
-
-      {/* Search and filters float over the map */}
-      <View style={[styles.top, { paddingTop: insets.top + space.sm }]}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onFocus={() => {
-            if (!expanded) {
-              snap(true);
-            }
-          }}
-          placeholder="⌕  Where are you going next?"
-          placeholderTextColor={colors.textMuted}
-          style={styles.search}
-          accessibilityLabel="Search places"
-        />
-        {query.trim() ? (
-          <SearchResults
-            places={results.data ?? []}
-            loading={results.loading}
-            onPick={() => setQuery('')}
-          />
-        ) : null}
-        {expanded && !query.trim() ? (
-          <View style={base.row}>
-            <Chip
-              label="All Tango"
-              selected={filter === 'all'}
-              tone="outline"
-              onPress={() => setFilter('all')}
-            />
-            <Chip
-              label="★ Stars"
-              selected={filter === 'stars'}
-              tone="outline"
-              onPress={() => setFilter('stars')}
-            />
-            <Chip
-              label="Planned"
-              selected={filter === 'planned'}
-              tone="outline"
-              onPress={() => setFilter('planned')}
-            />
-          </View>
-        ) : null}
-        {expanded && area && !query.trim() ? (
-          <AreaCard area={area} onClose={() => setArea(null)} />
-        ) : null}
-      </View>
-
-      {/* Bottom sheet */}
-      {height > 0 ? (
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              top: openTop,
-              height: height - openTop,
-              transform: [{ translateY: sheetTop }],
-            },
-          ]}
-        >
-          <View
-            {...panResponder.panHandlers}
-            style={styles.handleArea}
-            accessibilityRole="adjustable"
-            accessibilityLabel={
-              expanded
-                ? 'Pull up to close the map'
-                : 'Pull down to explore your map'
-            }
-          >
-            <View style={styles.handle} />
-            {expanded ? (
-              <PeekSummary
-                visit={today.data?.upNext ?? null}
-                card={review.data}
-              />
-            ) : (
-              <Text style={base.caption}>Pull down to explore your map</Text>
-            )}
-          </View>
-          <ScrollView
-            contentContainerStyle={styles.sheetContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Loadable state={today}>
-              {summary =>
-                settings.dayOne ? (
-                  <DayOne summary={summary} />
-                ) : (
-                  <Regular summary={summary} review={review.data} />
-                )
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + space.md },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Loadable state={today} messages={TODAY_LINES}>
+        {summary =>
+          settings.dayOne ? (
+            <DayOne summary={summary} />
+          ) : (
+            <Regular
+              summary={summary}
+              review={review.data}
+              stats={stats.data}
+              here={here}
+              onOpenMap={areaId =>
+                nav.navigate('Tabs', {
+                  screen: 'Map',
+                  params: areaId ? { areaId } : undefined,
+                })
               }
-            </Loadable>
-          </ScrollView>
-        </Animated.View>
-      ) : null}
+            />
+          )
+        }
+      </Loadable>
+    </ScrollView>
+  );
+}
+
+/** Tango, reviews due and neighbourhoods at a glance. */
+function StatsRow({
+  stats,
+  areas,
+}: {
+  stats: ReviewSummary;
+  areas: number;
+}): React.JSX.Element {
+  const items = [
+    { value: stats.totalTango, label: 'Tango' },
+    { value: stats.dueCount, label: 'to review' },
+    { value: areas, label: areas === 1 ? 'area' : 'areas' },
+  ];
+  return (
+    <View style={styles.stats}>
+      {items.map(item => (
+        <View key={item.label} style={styles.stat}>
+          <Text style={styles.statValue}>{item.value}</Text>
+          <Text style={base.caption}>{item.label}</Text>
+        </View>
+      ))}
     </View>
   );
 }
 
-function PeekSummary({
-  visit,
-  card,
+/** Where your Tango come from, as collectible cards. */
+function Neighbourhoods({
+  areas,
+  onOpen,
 }: {
-  visit: Visit | null;
-  card: ReviewCard | undefined;
+  areas: MapArea[];
+  onOpen: (areaId: string) => void;
 }): React.JSX.Element {
   return (
-    <View style={base.row}>
-      {visit ? (
-        <>
-          <Text style={styles.peekStrong}>Tomorrow:</Text>
-          <Jp {...visit.place.name} bold size="sm" />
-        </>
-      ) : null}
-      {card ? (
-        <Text style={base.caption}>
-          · <Text style={styles.peekStrong}>{card.dueCount}</Text> to review
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function AreaCard({
-  area,
-  onClose,
-}: {
-  area: MapArea;
-  onClose: () => void;
-}): React.JSX.Element {
-  const nav = useRootNav();
-  return (
-    <Card style={styles.areaCard}>
-      <View style={base.rowBetween}>
-        <Text style={base.heading}>{area.label}</Text>
-        <Pressable onPress={onClose} accessibilityLabel="Close area card">
-          <Text style={base.caption}>
-            {area.tangoCount} Tango · {area.placeCount} places ✕
-          </Text>
-        </Pressable>
-      </View>
-      <View style={base.wrap}>
-        {area.sample.map(t => (
-          <Chip
-            key={t.id}
-            jp={t}
-            icon={t.known ? '★' : undefined}
-            tone={t.known ? 'star' : 'default'}
-            onPress={() => nav.navigate('TangoDetail', { id: t.id })}
-          />
+    <View style={base.stackSm}>
+      <SectionTitle
+        en="Your neighbourhoods"
+        jp={{ text: '近所', reading: 'きんじょ', romaji: 'kinjo' }}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.areaRow}
+      >
+        {areas.map(area => (
+          <Pressable
+            key={area.id}
+            accessibilityRole="button"
+            onPress={() => onOpen(area.id)}
+            style={styles.areaTile}
+          >
+            <View style={styles.areaStamp}>
+              <Text style={styles.areaStampText}>{area.tangoCount}</Text>
+            </View>
+            <Text style={base.heading} numberOfLines={2}>
+              {area.label}
+            </Text>
+            <Text style={base.caption} numberOfLines={1}>
+              {area.sample
+                .slice(0, 3)
+                .map(t => t.text)
+                .join('・')}
+            </Text>
+          </Pressable>
         ))}
-        {area.moreCount > 0 ? (
-          <Text style={base.caption}>+{area.moreCount}</Text>
-        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** A small, still preview of the map; opens the full map. */
+function MapCard({
+  pins,
+  here,
+  onOpen,
+}: {
+  pins: MapPin[];
+  here: Coords | null;
+  onOpen: () => void;
+}): React.JSX.Element {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open your Tango map"
+      onPress={onOpen}
+      style={styles.mapCard}
+    >
+      <View style={styles.mapPreview} pointerEvents="none">
+        <TangoMap pins={pins} focus={here} interactive={false} compact />
       </View>
-      <View style={base.row}>
-        <Button
-          label="Review these"
-          variant="secondary"
-          style={base.grow}
-          onPress={() =>
-            nav.navigate('ReviewSession', { collectionId: `area:${area.id}` })
-          }
-        />
-        {area.planPlaceId ? (
-          <Button
-            label="Plan a visit"
-            style={base.grow}
-            onPress={() =>
-              area.planPlaceId &&
-              nav.navigate('Prepare', { placeId: area.planPlaceId })
-            }
-          />
-        ) : null}
+      <View style={styles.mapCaption}>
+        <Text style={base.heading}>Your Tango map</Text>
+        <View style={base.row}>
+          <Text style={styles.mapOpen}>Explore</Text>
+          <Icon name="forward" color={colors.accent} />
+        </View>
       </View>
-    </Card>
+    </Pressable>
   );
 }
 
@@ -412,58 +241,33 @@ function NameSan({ name }: { name: string }): React.JSX.Element {
   );
 }
 
-function SearchResults({
-  places,
-  loading,
-  onPick,
-}: {
-  places: Place[];
-  loading: boolean;
-  onPick: () => void;
-}): React.JSX.Element {
-  const nav = useRootNav();
-  return (
-    <View style={styles.results}>
-      {!loading && places.length === 0 ? (
-        <Text style={base.caption}>No places found (mock search).</Text>
-      ) : null}
-      {places.map(place => (
-        <Pressable
-          key={place.id}
-          accessibilityRole="button"
-          style={styles.result}
-          onPress={() => {
-            onPick();
-            nav.navigate('Prepare', { placeId: place.id });
-          }}
-        >
-          <Jp {...place.name} bold />
-          {[place.category, place.area].some(Boolean) ? (
-            <Text style={base.caption}>
-              {[place.category, place.area].filter(Boolean).join(' · ')}
-            </Text>
-          ) : null}
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 function Regular({
   summary,
   review,
+  stats,
+  here,
+  onOpenMap,
 }: {
   summary: TodaySummary;
   review: ReviewCard | undefined;
+  stats: ReviewSummary | undefined;
+  here: Coords | null;
+  onOpenMap: (areaId?: string) => void;
 }): React.JSX.Element {
+  const { settings } = useSettings();
   return (
     <>
       <Greeting name={summary.userName} />
-      {summary.upNext ? <UpNextCard visit={summary.upNext} /> : null}
+      {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
+      {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {review ? <ReviewCardView card={review} /> : null}
-      <Text style={base.caption}>
-        Hold anything with a dotted underline to see it in English.
-      </Text>
+      {summary.upNext ? <UpNextCard visit={summary.upNext} /> : <PlansRow />}
+      {settings.mapFeatures && summary.areas.length > 0 ? (
+        <Neighbourhoods areas={summary.areas} onOpen={onOpenMap} />
+      ) : null}
+      {settings.mapFeatures ? (
+        <MapCard pins={summary.pins} here={here} onOpen={() => onOpenMap()} />
+      ) : null}
     </>
   );
 }
@@ -489,6 +293,66 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
       </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => nav.navigate('Plans')}
+        style={styles.plansLink}
+      >
+        <Text style={styles.plansLinkInverse}>All plans</Text>
+        <Icon name="forward" size={fontSizes.md} color={colors.textInverse} />
+      </Pressable>
+    </Card>
+  );
+}
+
+/** Nothing planned yet: a quiet way into Plans. */
+function PlansRow(): React.JSX.Element {
+  const nav = useRootNav();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => nav.navigate('Plans')}
+      style={styles.plansRow}
+    >
+      <View style={base.grow}>
+        <Text style={base.heading}>Your plans</Text>
+        <Text style={base.caption}>Nothing planned yet</Text>
+      </View>
+      <Icon name="forward" color={colors.accent} />
+    </Pressable>
+  );
+}
+
+function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
+  const saver = useSaveWord(word);
+  return (
+    <Card>
+      <Text style={styles.eyebrow}>Word of the day</Text>
+      <Text style={base.caption}>{word.reason}</Text>
+      <View style={base.rowBetween}>
+        <View style={base.grow}>
+          <Jp
+            text={word.text}
+            reading={word.reading}
+            romaji={word.romaji}
+            bold
+            size="jumbo"
+          />
+          <Text style={styles.wordMeaning}>{word.meaning}</Text>
+        </View>
+        <IconButton
+          icon="play"
+          label={`Play ${word.text}`}
+          onPress={() => playWord(word.text)}
+        />
+      </View>
+      <Button
+        label={SAVE_LABEL[saver.state]}
+        icon={SAVE_ICON[saver.state]}
+        variant="secondary"
+        disabled={saver.busy}
+        onPress={saver.save}
+      />
     </Card>
   );
 }
@@ -519,7 +383,7 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
           <Chip
             key={tango.id}
             jp={tango}
-            icon={tango.sightings.length ? '⌖' : undefined}
+            icon={tango.sightings.length ? 'pin' : undefined}
             onPress={() => nav.navigate('TangoDetail', { id: tango.id })}
           />
         ))}
@@ -559,7 +423,6 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
               <Text style={styles.stepTitle}>
                 Catch 3 Tango around the station
               </Text>
-              <Text style={base.caption}>Signs count, so do menus</Text>
             </View>
             <Button label="Start" onPress={() => nav.navigate('Capture')} />
           </View>
@@ -576,7 +439,7 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
               label="Go"
               variant="secondary"
               onPress={() =>
-                nav.navigate('Rehearse', { placeId: 'menya-taiki' })
+                nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })
               }
             />
           </View>
@@ -617,72 +480,93 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  map: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  top: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+  content: {
     paddingHorizontal: space.lg,
-    gap: space.sm,
-  },
-  search: {
-    ...base.text,
-    backgroundColor: colors.surface,
-    borderRadius: radii.pill,
-    paddingHorizontal: space.lg,
-    minHeight: sizes.touch,
-  },
-  results: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: space.sm,
-    gap: space.xs,
-  },
-  result: {
-    padding: space.sm,
-    borderRadius: radii.md,
-    backgroundColor: colors.bg,
-  },
-  areaCard: {
-    marginTop: space.xl,
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    backgroundColor: colors.bg,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    overflow: 'hidden',
-  },
-  handleArea: {
-    alignItems: 'center',
-    gap: space.xs,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
-    minHeight: PEEK,
-  },
-  handle: {
-    width: sizes.touch,
-    height: space.xs,
-    borderRadius: radii.pill,
-    backgroundColor: colors.border,
-  },
-  sheetContent: {
-    paddingHorizontal: space.lg,
-    paddingBottom: space.xl,
+    paddingBottom: space.xxl,
     gap: space.md,
   },
-  peekStrong: {
+  stats: {
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: space.md,
+    gap: space.xxs,
+  },
+  statValue: {
     ...base.text,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xl,
+    fontWeight: fontWeights.bold,
+  },
+  wordMeaning: {
+    ...base.text,
+    fontSize: fontSizes.lg,
+  },
+  areaRow: {
+    gap: space.sm,
+  },
+  areaTile: {
+    width: space.xxl * 5,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: space.md,
+    gap: space.xs,
+  },
+  // Matches the stamp pins on the map.
+  areaStamp: {
+    alignSelf: 'flex-start',
+    minWidth: sizes.touch * 0.75,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xxs,
+    borderRadius: radii.sm,
+    borderWidth: sizes.border * 2,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    transform: [{ rotate: '-4deg' }],
+  },
+  areaStampText: {
+    ...base.text,
+    fontWeight: fontWeights.bold,
+    color: colors.accent,
+  },
+  mapCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+  mapPreview: {
+    height: MAP_CARD_HEIGHT,
+  },
+  mapCaption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: space.md,
+  },
+  plansLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+  },
+  plansLinkInverse: {
+    ...base.caption,
+    color: colors.textInverse,
+    fontWeight: fontWeights.bold,
+  },
+  plansRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: space.md,
+  },
+  mapOpen: {
+    ...base.text,
+    color: colors.accent,
     fontWeight: fontWeights.bold,
   },
   eyebrow: {

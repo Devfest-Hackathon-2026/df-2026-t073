@@ -27,6 +27,7 @@ from app.schemas.rehearsal import (
 )
 from app.services import places
 from app.services import rehearsal_rules as rules
+from app.services import stt
 from app.services.firestore import USERS_COLLECTION
 from app.services.gemini import generate_json, jp_schema
 
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 SESSIONS_SUBCOLLECTION = "rehearsals"
 MAX_AUDIO_BYTES = 2 * 1024 * 1024  # ~1 minute of AAC; replies are a few seconds
-AUDIO_MIME_TYPES = {"audio/aac", "audio/mp4", "audio/m4a", "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm"}
+AUDIO_MIME_TYPES = {"audio/amr-wb", "audio/3gpp", "audio/aac", "audio/mp4", "audio/m4a", "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm"}
 
 _choice = {
     "type": "OBJECT",
@@ -189,19 +190,29 @@ async def answer_turn(
     else:
         audio, mime = _decode_audio(answer)
         staff = rules.staff_before(session.turns, turn_id)
-        prompt = (
-            "A Japanese learner answered a shop staff member out loud (audio attached).\n"
-            f"Staff said: {staff.text} ({staff.meaning or ''})\n"
-            f"A natural reply would be: {turn.jp.text} ({turn.jp.meaning or ''})\n"
-            "Transcribe what the learner said (Japanese text, hiragana reading, romaji, meaning in "
-            f"{session.language}). understood=false if the audio is silent or unintelligible. "
-            "ok=true if a staff member would understand it and it fits the situation politely enough, "
-            "even if it differs from the model reply. "
-            f"label: 2-5 words in {session.language}. note: one encouraging sentence in "
-            f"{session.language}. why_suggestion: one sentence on how the model reply would sound "
-            "more natural (empty if ok)."
-        )
-        raw = await generate_json(http=http, prompt=prompt, schema=RATING_SCHEMA, temperature=0.1, inline=[(audio, mime)])
+        # Speech-to-Text writes down what was said; Gemini only rates that text.
+        heard = await stt.transcribe(http=http, audio=audio, mime=mime)
+        if not heard:
+            raw: dict[str, Any] = {"transcript": {"text": ""}, "understood": False}
+        else:
+            prompt = (
+                "A Japanese learner answered a shop staff member out loud.\n"
+                f"Staff said: {staff.text} ({staff.meaning or ''})\n"
+                f"Speech recognition heard the learner say: {heard}\n"
+                "transcript: copy that text exactly as given (do not correct it), and add its "
+                f"hiragana reading, Hepburn romaji and meaning in {session.language}.\n"
+                "understood=true.\n"
+                "ok=true if a staff member would understand it and it fits the situation politely enough.\n"
+                f"label: 2-5 words in {session.language}. note: one encouraging sentence in "
+                f"{session.language}. why_suggestion: one sentence on what would sound more natural "
+                "(empty if ok)."
+            )
+            raw = await generate_json(http=http, prompt=prompt, schema=RATING_SCHEMA, temperature=0.1)
+            # Never let the rater rewrite what was actually said.
+            transcript = raw.get("transcript") if isinstance(raw.get("transcript"), dict) else {}
+            if transcript.get("text") != heard:
+                transcript = {"text": heard}
+            raw["transcript"] = transcript
         result = rules.result_from_audio(session.turns, turn, raw)
 
     try:

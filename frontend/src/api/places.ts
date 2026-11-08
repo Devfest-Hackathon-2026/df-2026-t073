@@ -90,6 +90,13 @@ interface TodayResponse {
     plan_place_id: string | null;
   }[];
   starter_tango: JpNameResponse[];
+  word_of_day?: {
+    text: string;
+    reading: string;
+    romaji: string;
+    meaning: string;
+    reason: string;
+  } | null;
 }
 
 function toJp(n: JpNameResponse): JpText {
@@ -134,6 +141,13 @@ export const getToday = pick(
       pins: MAP_PINS,
       areas: MAP_AREAS,
       starterTango: STARTER_TANGO,
+      wordOfDay: {
+        text: '食券',
+        reading: 'しょっけん',
+        romaji: 'shokken',
+        meaning: 'meal ticket',
+        reason: 'For your visit to 麺屋たいき',
+      },
     }),
   async (): Promise<TodaySummary> => {
     const r = await request<TodayResponse>(`${API_V1}/today`);
@@ -162,6 +176,7 @@ export const getToday = pick(
         planPlaceId: a.plan_place_id,
       })),
       starterTango: r.starter_tango.map(toJp),
+      wordOfDay: r.word_of_day ?? null,
     };
   },
 );

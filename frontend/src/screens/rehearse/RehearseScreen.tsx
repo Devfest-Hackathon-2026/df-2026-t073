@@ -21,6 +21,7 @@ import {
   stopPlaying,
   stopRecording,
 } from '../../audio/audio';
+import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { ScreenHeader } from '../../components/layout';
 import {
@@ -28,6 +29,7 @@ import {
   IconButton,
   Loadable,
   SegmentedControl,
+  IconLabel,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
@@ -42,6 +44,13 @@ import {
   space,
 } from '../../styles/tokens';
 import type { RehearsalScript, RehearsalTurn, TurnAnswer } from '../../types';
+
+/** Shown while loading: build anticipation, not impatience. */
+const REHEARSE_LINES = [
+  'Your staff member is getting ready…',
+  'Setting the scene…',
+  'Warming up the counter…',
+];
 
 const STAFF_DELAY_MS = { slower: 1400, natural: 700 } as const;
 
@@ -62,9 +71,10 @@ export function RehearseScreen({
     <SafeAreaView style={base.screen}>
       <View style={styles.top}>
         <ScreenHeader onBack={() => navigation.goBack()} close>
-          <Text style={styles.eyebrow}>✦ AI role-play</Text>
+          <IconLabel icon="ai" style={styles.eyebrow}>
+            AI role-play
+          </IconLabel>
           {script.data ? <Jp {...script.data.place.name} bold /> : null}
-          <Text style={base.caption}>⤨ New staff voice each time</Text>
         </ScreenHeader>
         <SegmentedControl
           options={[
@@ -75,7 +85,7 @@ export function RehearseScreen({
           onChange={setSpeed}
         />
       </View>
-      <Loadable state={script}>
+      <Loadable state={script} messages={REHEARSE_LINES}>
         {data => (
           <Conversation
             script={data}
@@ -238,7 +248,9 @@ function Conversation({
           if (turn.speaker === 'staff') {
             return (
               <View key={turn.id} style={styles.staffBlock}>
-                <Text style={styles.eyebrow}>✦ STAFF · AI</Text>
+                <IconLabel icon="ai" style={styles.eyebrow}>
+                  STAFF · AI
+                </IconLabel>
                 <View style={styles.staffRow}>
                   <Pressable
                     style={styles.staffBubble}
@@ -255,7 +267,7 @@ function Conversation({
                     )}
                   </Pressable>
                   <IconButton
-                    glyph="🔈"
+                    icon="play"
                     label="Play again"
                     onPress={() => speak(turn)}
                   />
@@ -279,7 +291,7 @@ function Conversation({
                     !said.ok && styles.naturalnessWarn,
                   ]}
                 >
-                  {said.ok ? '✓' : '!'} {said.label}
+                  {said.ok ? '○' : '△'} {said.label}
                 </Text>
               ) : null}
             </View>
@@ -291,7 +303,9 @@ function Conversation({
             <Text style={base.caption}>Your turn</Text>
             {hintOpen && next.hint ? (
               <View style={styles.hint}>
-                <Text style={styles.eyebrow}>✦ Hint</Text>
+                <IconLabel icon="hint" style={styles.eyebrow}>
+                  Hint
+                </IconLabel>
                 <Text style={base.caption}>{next.hint.explanation}</Text>
                 <Jp {...next.hint.model} size="lg" bold />
                 <Text style={base.caption}>{next.hint.modelEn}</Text>
@@ -344,14 +358,18 @@ function Conversation({
                 (!userTurnNow || checking) && styles.micDisabled,
               ]}
             >
-              <Text style={styles.micGlyph}>🎙</Text>
+              <Icon
+                name="mic"
+                size={fontSizes.xxl}
+                color={colors.textInverse}
+              />
             </Pressable>
             <Text style={base.caption}>
               {checking
                 ? 'Checking your reply…'
                 : listening
                 ? 'Listening… release to send'
-                : 'Hold to speak · tap a line to see English'}
+                : 'Hold to speak'}
             </Text>
             {userTurnNow && !choosing ? (
               <Text
@@ -489,9 +507,5 @@ const styles = StyleSheet.create({
   },
   micDisabled: {
     backgroundColor: colors.border,
-  },
-  micGlyph: {
-    fontSize: fontSizes.xl,
-    color: colors.textInverse,
   },
 });

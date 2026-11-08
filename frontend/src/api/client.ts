@@ -56,6 +56,19 @@ export async function request<T>(
     },
   );
   if (!response.ok) {
+    // Daily limits come with a message meant for the user; show it as-is.
+    if (response.status === 429) {
+      const detail = await response
+        .json()
+        .then((b: { detail?: unknown }) => b.detail)
+        .catch(() => undefined);
+      throw new ApiError(
+        typeof detail === 'string'
+          ? detail
+          : 'Daily limit reached. Try again tomorrow.',
+        429,
+      );
+    }
     throw new ApiError(
       `${method} ${path} failed with HTTP ${response.status}`,
       response.status,

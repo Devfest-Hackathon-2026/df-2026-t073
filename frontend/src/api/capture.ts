@@ -103,7 +103,8 @@ export const uploadCapture = pick(
 
 /** Where a Tango was found, sent with each catch. */
 export interface PlaceInput {
-  placeName: string;
+  /** Only for a matched place; labels like "Location off" are not sent. */
+  placeName?: string;
   placeId?: string;
   lat?: number;
   lng?: number;
@@ -147,10 +148,11 @@ export const catchTango = pick(
       history: [],
       examples: [],
     };
-    todaysCatch.unshift({ tango, placeName, status: 'new' });
+    todaysCatch.unshift({ tango, placeName: placeName ?? '', status: 'new' });
     return mockDelay<CatchResult>({ tango, created: true, sightingId: null });
   },
   // POST /api/v1/flashcards/generate. One card per word: a repeat catch adds a sighting.
+  // Without captureId it's a live catch: the text was read on the phone, no photo.
   async ({
     detection,
     captureId,
@@ -159,10 +161,8 @@ export const catchTango = pick(
     lat,
     lng,
   }: CatchInput) => {
-    if (!captureId) {
-      throw new ApiError(
-        'Upload the photo with uploadCapture() before catching.',
-      );
+    if (!captureId && !detection?.japanese_text) {
+      throw new ApiError('Nothing to catch.');
     }
     const result = await request<FlashcardCatchResponse>(
       `${API_V1}/flashcards/generate`,
@@ -170,7 +170,8 @@ export const catchTango = pick(
         method: 'POST',
         body: {
           capture_id: captureId,
-          item_id: detection?.item_id,
+          // Live item ids are made up on the phone; only photo reads have real ones.
+          item_id: captureId ? detection?.item_id : undefined,
           selected_text: detection?.japanese_text,
           place_id: placeId,
           place_name: placeName,

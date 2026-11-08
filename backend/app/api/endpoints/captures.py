@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import ValidationError
 
-from app.api.deps import CurrentUser, Db, HttpClient
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.core.config import settings
 from app.schemas.capture import CaptureResponse, CaptureUploadRequest
 from app.services.firestore import get_capture, list_captures, save_capture
@@ -38,6 +38,7 @@ router = APIRouter(prefix="/captures", tags=["captures"])
             },
         }
     },
+    dependencies=[daily_limit("vision")],
 )
 async def create_capture(
     request: Request,
