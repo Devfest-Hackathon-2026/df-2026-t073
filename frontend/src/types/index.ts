@@ -235,7 +235,7 @@ export interface MultipleChoiceExercise {
   options: string[];
   answerIndex: number;
   placeHint: string;
-  example: JpText & { en: string };
+  example?: JpText & { en: string };
   nextStep: string;
 }
 
@@ -253,12 +253,25 @@ export interface FillGapExercise {
 
 export type Exercise = MultipleChoiceExercise | FillGapExercise;
 
+export interface ReviewSession {
+  /** Null for mock sessions. Answers are recorded against it. */
+  sessionId: string | null;
+  exercises: Exercise[];
+}
+
 export interface SessionResult {
   reviewed: number;
   minutes: number;
-  biggestWin: { tango: JpText; title: string; detail: string };
+  /** Null when no answer moved a Tango up. */
+  biggestWin: { tango: JpText; title: string; detail: string } | null;
   byArea: { area: string; count: number }[];
-  next: { label: string; placeId: string; placeName: JpText; day: string };
+  /** Next planned visit; null until visits exist on the backend. */
+  next: {
+    label: string;
+    placeId: string;
+    placeName: JpText;
+    day: string;
+  } | null;
 }
 
 export interface UserProfile {

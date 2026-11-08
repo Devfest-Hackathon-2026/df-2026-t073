@@ -140,37 +140,45 @@ interface SelectionReading { tango: Tango; explanation: string; related: JpText[
 interface CatchEntry { tango: Tango; placeName: string; status: 'new' | 'reviewed' }
 ```
 
-### Review (`api/review.ts`)
+### Review (`api/review.ts`) — **implemented in P3**
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/review/card` | – | `ReviewCard` |
-| GET | `/review/summary` | – | `ReviewSummary` |
-| GET | `/review/session?collection=` | – | `Exercise[]` |
-| GET | `/review/session/result` | – | `SessionResult` |
+| GET | `/api/v1/review/card` | – | `ReviewCardResponse` |
+| GET | `/api/v1/review/summary` | – | `ReviewSummaryResponse` |
+| GET | `/api/v1/review/session?collection=` | `collection`: `place:<name>`, `place-cue`, or omitted (= everything due) | `ReviewSessionResponse` |
+| GET | `/api/v1/review/session/{session_id}/result` | – | `SessionResultResponse` |
 
-Answers go to the existing `POST /flashcards/{id}/review` (`good` if correct, `again` if not).
+Answers go to `POST /api/v1/flashcards/{id}/review` with `{ rating: 'good' | 'again', session_id }` (correct → `good`). The `session_id` makes the answer count in the results.
+
+Rules: up to 10 cards, weakest first; without a collection only due cards, with a collection not-yet-due cards fill the rest. Cards with a photo and a box alternate as fill-the-gap; the rest are multiple choice. Wrong choices come from one batched Gemini call per session, cached on each card (`distractors`); if Gemini fails they come from the user's other cards, then a built-in list.
 
 ```ts
-interface ReviewCard { dueCount: number; minutes: number; areas: string[]; sample: Tango[]; moreCount: number }
-interface ReviewSummary {
-  dueCount: number; minutes: number; placeCueCount: number; totalTango: number;
-  collections: { id: string; label: string; count: number; isPlace: boolean; isPlaceCue: boolean }[];
-  exerciseTypes: { id: string; label: string; enabled: boolean }[];
+// snake_case on the wire (backend/app/schemas/review.py); frontend adapters convert.
+interface ReviewCardResponse { due_count: number; minutes: number; areas: string[]; sample: FlashcardResponse[]; more_count: number }
+interface ReviewSummaryResponse {
+  due_count: number; minutes: number; place_cue_count: number; total_tango: number;
+  collections: { id: string; label: string; count: number; is_place: boolean; is_place_cue: boolean }[];
+  exercise_types: { id: string; label: string; enabled: boolean }[];
 }
+type JpOption = { text: string; reading: string; romaji: string };
 type Exercise =
-  | { id: string; type: 'multiple_choice'; tangoId: string; prompt: JpText; options: string[];
-      answerIndex: number; placeHint: string; example: JpText & { en: string }; nextStep: string }
-  | { id: string; type: 'fill_gap'; tangoId: string;
-      photo: { imageUrl?: string; caption: string; lines: string[] };
-      gap: NormalizedBox; options: JpText[]; answerIndex: number; note: string };
-interface SessionResult {
+  | { id: string; type: 'multiple_choice'; flashcard_id: string; prompt: JpOption; options: string[];
+      answer_index: number; place_hint: string;
+      example: { japanese: string; reading: string; english: string } | null; next_step: string }
+  | { id: string; type: 'fill_gap'; flashcard_id: string; image_url: string; caption: string;
+      gap: { x: number; y: number; w: number; h: number };   // normalized, display orientation
+      options: JpOption[]; answer_index: number; note: string };
+interface ReviewSessionResponse { session_id: string; exercises: Exercise[] }
+interface SessionResultResponse {
   reviewed: number; minutes: number;
-  biggestWin: { tango: JpText; title: string; detail: string };
-  byArea: { area: string; count: number }[];
-  next: { label: string; placeId: string; placeName: JpText; day: string };
+  biggest_win: { flashcard_id: string; tango: JpOption; meaning: string; title: string; detail: string } | null;
+  by_area: { area: string; count: number }[];
+  next: null;   // next planned visit, once visits exist (P4)
 }
 ```
+
+Detection boxes are stored in **display orientation**: `POST /captures` reads the photo's EXIF orientation and rotates Cloud Vision's boxes to match.
 
 ### Me (`api/user.ts`)
 

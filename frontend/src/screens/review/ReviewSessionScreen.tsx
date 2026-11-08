@@ -1,9 +1,26 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getReviewSession, getSessionResult, submitAnswer } from '../../api/review';
+import {
+  getReviewSession,
+  getSessionResult,
+  submitAnswer,
+} from '../../api/review';
 import { Jp } from '../../components/Jp';
-import { Button, Card, IconButton, Loadable, ProgressBar } from '../../components/ui';
+import {
+  Button,
+  Card,
+  IconButton,
+  Loadable,
+  ProgressBar,
+} from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootNavigation, RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
@@ -26,18 +43,23 @@ export function ReviewSessionScreen({
   navigation,
 }: RootScreenProps<'ReviewSession'>): React.JSX.Element {
   const collectionId = route.params?.collectionId;
-  const session = useAsync(() => getReviewSession(collectionId), collectionId ?? 'all');
+  const session = useAsync(
+    () => getReviewSession(collectionId),
+    collectionId ?? 'all',
+  );
   const [finished, setFinished] = useState(false);
+  const sessionId = session.data?.sessionId ?? null;
 
   return (
     <SafeAreaView style={base.screen}>
       {finished ? (
-        <Results navigation={navigation} />
+        <Results navigation={navigation} sessionId={sessionId} />
       ) : (
         <Loadable state={session}>
-          {exercises => (
+          {data => (
             <Session
-              exercises={exercises}
+              exercises={data.exercises}
+              sessionId={data.sessionId}
               onClose={() => navigation.goBack()}
               onFinish={() => setFinished(true)}
             />
@@ -50,10 +72,12 @@ export function ReviewSessionScreen({
 
 function Session({
   exercises,
+  sessionId,
   onClose,
   onFinish,
 }: {
   exercises: Exercise[];
+  sessionId: string | null;
   onClose: () => void;
   onFinish: () => void;
 }): React.JSX.Element {
@@ -73,8 +97,12 @@ function Session({
 
   const pick = (option: number) => {
     setPicked(option);
-    submitAnswer(exercise.tangoId, option === exercise.answerIndex).catch(() => {
-      // Mock never fails; the real call can be retried later.
+    submitAnswer(
+      exercise.tangoId,
+      option === exercise.answerIndex,
+      sessionId,
+    ).catch(() => {
+      // Not fatal for the session; the answer just won't count.
     });
   };
 
@@ -92,7 +120,9 @@ function Session({
     <View style={base.grow}>
       <View style={[base.row, styles.header]}>
         <IconButton glyph="✕" label="End review" onPress={onClose} />
-        <ProgressBar value={(index + (picked === null ? 0 : 1)) / exercises.length} />
+        <ProgressBar
+          value={(index + (picked === null ? 0 : 1)) / exercises.length}
+        />
         {exercise.type === 'multiple_choice' && picked === null ? (
           <IconButton
             glyph="💡"
@@ -113,10 +143,18 @@ function Session({
               onShowPlace={() => setShowPlace(true)}
             />
           ) : (
-            <FillGap exercise={exercise} index={index} total={exercises.length} onPick={pick} />
+            <FillGap
+              exercise={exercise}
+              index={index}
+              total={exercises.length}
+              onPick={pick}
+            />
           )
         ) : (
-          <Feedback exercise={exercise} correct={picked === exercise.answerIndex} />
+          <Feedback
+            exercise={exercise}
+            correct={picked === exercise.answerIndex}
+          />
         )}
       </ScrollView>
       {picked !== null ? (
@@ -163,7 +201,9 @@ function MultipleChoice({
         </Pressable>
       ))}
       {showPlace ? (
-        <Text style={[base.caption, styles.center]}>⌖ {exercise.placeHint}</Text>
+        <Text style={[base.caption, styles.center]}>
+          ⌖ {exercise.placeHint}
+        </Text>
       ) : (
         <Text style={[styles.link, styles.center]} onPress={onShowPlace}>
           Where did I see this Tango?
@@ -172,6 +212,9 @@ function MultipleChoice({
     </View>
   );
 }
+
+/** Until the real size is known: the upload size is 4:3. */
+const PHOTO_ASPECT = 4 / 3;
 
 function FillGap({
   exercise,
@@ -185,34 +228,68 @@ function FillGap({
   onPick: (option: number) => void;
 }): React.JSX.Element {
   const { gap } = exercise;
+  const imageUrl = exercise.photo.imageUrl;
+  // Frame matches the photo's shape, so the normalized gap box lines up.
+  const [aspect, setAspect] = useState(PHOTO_ASPECT);
+  useEffect(() => {
+    if (!imageUrl) {
+      return;
+    }
+    let alive = true;
+    Image.getSize(
+      imageUrl,
+      (w, h) => alive && h > 0 && setAspect(w / h),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [imageUrl]);
+  const gapStyle = {
+    left: `${gap.x * 100}%` as const,
+    top: `${gap.y * 100}%` as const,
+    width: `${gap.w * 100}%` as const,
+    height: `${gap.h * 100}%` as const,
+  };
   return (
     <View style={base.stack}>
       <Text style={base.label}>
         Fill the gap · {index + 1} of {total}
       </Text>
-      <View style={styles.photo}>
-        <View style={styles.sign}>
-          <Text style={styles.signIcon}>⛔</Text>
-          {exercise.photo.lines.map((line, i) =>
-            line ? (
-              <Jp key={`${line}-${i}`} text={line} size="lg" bold alwaysKanji />
-            ) : (
-              <View key={`gap-${i}`} style={styles.gapRow} />
-            ),
-          )}
-          <View
-            style={[
-              styles.gap,
-              {
-                left: `${gap.x * 100}%` as const,
-                top: `${gap.y * 100}%` as const,
-                width: `${gap.w * 100}%` as const,
-                height: `${gap.h * 100}%` as const,
-              },
-            ]}
+      {imageUrl ? (
+        // The user's own photo, with the caught item covered.
+        <View style={[styles.realPhoto, { aspectRatio: aspect }]}>
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="stretch"
+            accessibilityLabel="Your photo with one item covered"
           />
+          <View style={[styles.gap, styles.gapSolid, gapStyle]}>
+            <Text style={styles.gapMark}>?</Text>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.photo}>
+          <View style={styles.sign}>
+            <Text style={styles.signIcon}>⛔</Text>
+            {exercise.photo.lines.map((line, i) =>
+              line ? (
+                <Jp
+                  key={`${line}-${i}`}
+                  text={line}
+                  size="lg"
+                  bold
+                  alwaysKanji
+                />
+              ) : (
+                <View key={`gap-${i}`} style={styles.gapRow} />
+              ),
+            )}
+            <View style={[styles.gap, gapStyle]} />
+          </View>
+        </View>
+      )}
       <Text style={base.caption}>⌖ {exercise.photo.caption}</Text>
       <Text style={base.heading}>What goes in the gap?</Text>
       <View style={base.wrap}>
@@ -254,7 +331,9 @@ function Feedback({
         <Text style={[styles.verdict, !correct && styles.wrong]}>
           {correct ? 'Correct!' : 'Not quite'}
         </Text>
-        {!correct ? <Text style={base.caption}>The answer was “{answer}”.</Text> : null}
+        {!correct ? (
+          <Text style={base.caption}>The answer was “{answer}”.</Text>
+        ) : null}
       </View>
       {exercise.type === 'multiple_choice' ? (
         <>
@@ -262,20 +341,34 @@ function Feedback({
             <View style={base.row}>
               <Jp {...exercise.prompt} size="xl" bold />
               <Text style={base.caption}>
-                {exercise.prompt.reading} · {exercise.options[exercise.answerIndex]}
+                {exercise.prompt.reading} ·{' '}
+                {exercise.options[exercise.answerIndex]}
               </Text>
             </View>
-            <View style={styles.example}>
-              <Jp {...exercise.example} />
-              <Text style={base.caption}>{exercise.example.en}</Text>
-            </View>
+            {exercise.example ? (
+              <View style={styles.example}>
+                <Jp
+                  text={exercise.example.text ?? ''}
+                  reading={exercise.example.reading}
+                  romaji={exercise.example.romaji}
+                />
+                <Text style={base.caption}>{exercise.example.en}</Text>
+              </View>
+            ) : null}
             <Text style={base.caption}>⌖ {exercise.placeHint}</Text>
           </Card>
-          {correct ? <Text style={styles.next}>{exercise.nextStep}</Text> : null}
+          {correct ? (
+            <Text style={styles.next}>{exercise.nextStep}</Text>
+          ) : null}
         </>
       ) : (
         <Card>
-          <Jp {...exercise.options[exercise.answerIndex]} size="xl" bold alwaysKanji />
+          <Jp
+            {...exercise.options[exercise.answerIndex]}
+            size="xl"
+            bold
+            alwaysKanji
+          />
           <Text style={base.caption}>⌖ {exercise.photo.caption}</Text>
         </Card>
       )}
@@ -283,8 +376,17 @@ function Feedback({
   );
 }
 
-function Results({ navigation }: { navigation: RootNavigation }): React.JSX.Element {
-  const result = useAsync(getSessionResult);
+function Results({
+  navigation,
+  sessionId,
+}: {
+  navigation: RootNavigation;
+  sessionId: string | null;
+}): React.JSX.Element {
+  const result = useAsync(
+    () => getSessionResult(sessionId),
+    sessionId ?? 'mock',
+  );
   return (
     <Loadable state={result}>
       {r => (
@@ -300,39 +402,47 @@ function Results({ navigation }: { navigation: RootNavigation }): React.JSX.Elem
               </Text>
             </View>
 
-            <Text style={styles.eyebrow}>Biggest win today</Text>
-            <Card>
-              <View style={base.row}>
-                <View style={styles.winIcon}>
-                  <Text style={styles.badgeGlyph}>⌖</Text>
-                </View>
-                <View style={base.grow}>
+            {r.biggestWin ? (
+              <>
+                <Text style={styles.eyebrow}>Biggest win today</Text>
+                <Card>
                   <View style={base.row}>
-                    <Jp {...r.biggestWin.tango} bold />
-                    <Text style={styles.strong}>{r.biggestWin.title}</Text>
+                    <View style={styles.winIcon}>
+                      <Text style={styles.badgeGlyph}>⌖</Text>
+                    </View>
+                    <View style={base.grow}>
+                      <View style={base.row}>
+                        <Jp {...r.biggestWin.tango} bold />
+                        <Text style={styles.strong}>{r.biggestWin.title}</Text>
+                      </View>
+                      <Text style={base.caption}>{r.biggestWin.detail}</Text>
+                    </View>
                   </View>
-                  <Text style={base.caption}>{r.biggestWin.detail}</Text>
-                </View>
-              </View>
-            </Card>
+                </Card>
+              </>
+            ) : null}
 
-            <Card>
-              <Text style={base.heading}>Tango practiced</Text>
-              {r.byArea.map(row => (
-                <View key={row.area} style={base.rowBetween}>
-                  <Text style={base.text}>{row.area}</Text>
-                  <Text style={styles.strong}>{row.count} Tango</Text>
-                </View>
-              ))}
-            </Card>
+            {r.byArea.length > 0 ? (
+              <Card>
+                <Text style={base.heading}>Tango practiced</Text>
+                {r.byArea.map(row => (
+                  <View key={row.area} style={base.rowBetween}>
+                    <Text style={base.text}>{row.area}</Text>
+                    <Text style={styles.strong}>{row.count} Tango</Text>
+                  </View>
+                ))}
+              </Card>
+            ) : null}
 
-            <Card variant="soft">
-              <View style={base.row}>
-                <Text style={base.text}>📅 {r.next.label}</Text>
-                <Jp {...r.next.placeName} bold />
-                <Text style={base.text}>on {r.next.day}.</Text>
-              </View>
-            </Card>
+            {r.next ? (
+              <Card variant="soft">
+                <View style={base.row}>
+                  <Text style={base.text}>📅 {r.next.label}</Text>
+                  <Jp {...r.next.placeName} bold />
+                  <Text style={base.text}>on {r.next.day}.</Text>
+                </View>
+              </Card>
+            ) : null}
           </ScrollView>
           <View style={[base.row, styles.footer]}>
             <Button
@@ -344,11 +454,16 @@ function Results({ navigation }: { navigation: RootNavigation }): React.JSX.Elem
                 navigation.navigate('Tabs', { screen: 'Today' });
               }}
             />
-            <Button
-              label="Prepare next"
-              style={base.grow}
-              onPress={() => navigation.replace('Prepare', { placeId: r.next.placeId })}
-            />
+            {r.next ? (
+              <Button
+                label="Prepare next"
+                style={base.grow}
+                onPress={() =>
+                  r.next &&
+                  navigation.replace('Prepare', { placeId: r.next.placeId })
+                }
+              />
+            ) : null}
           </View>
         </View>
       )}
@@ -408,6 +523,22 @@ const styles = StyleSheet.create({
   },
   gapRow: {
     height: space.xxl,
+  },
+  realPhoto: {
+    width: '100%',
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.camera,
+  },
+  gapSolid: {
+    borderStyle: 'solid',
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gapMark: {
+    ...base.heading,
+    color: colors.accent,
   },
   gap: {
     position: 'absolute',
