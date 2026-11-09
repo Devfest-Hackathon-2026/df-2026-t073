@@ -61,6 +61,15 @@ export interface FlashcardResponse {
     meaning: string;
     relation_note: string;
   }[];
+  saved_sentences?: {
+    sentence_id: string;
+    text: string;
+    reading: string | null;
+    romaji: string | null;
+    meaning: string | null;
+    kind: 'yours' | 'suggested';
+    place_name: string;
+  }[];
   review_stats: {
     review_count: number;
     last_reviewed_at: string | null;
@@ -180,6 +189,17 @@ export function flashcardToTango(card: FlashcardResponse): Tango {
       meaning: r.meaning,
       relationNote: r.relation_note,
     })),
+    savedSentences: (card.saved_sentences ?? []).map(s => ({
+      id: s.sentence_id,
+      jp: {
+        text: s.text,
+        reading: s.reading ?? undefined,
+        romaji: s.romaji ?? undefined,
+        meaning: s.meaning ?? undefined,
+      },
+      kind: s.kind,
+      placeName: s.place_name,
+    })),
   };
 }
 
@@ -229,6 +249,25 @@ export const listTangoAtPlace = pick(
         query: { place_id: placeId },
       })
     ).map(flashcardToTango),
+);
+
+/** DELETE /flashcards/{id}/sentences/{sentenceId}: returns the updated Tango. */
+export const removeSavedSentence = pick(
+  'tango',
+  (tangoId: string, sentenceId: string) => {
+    const t = TANGO[tangoId] ?? ALL_TANGO[0];
+    t.savedSentences = (t.savedSentences ?? []).filter(s => s.id !== sentenceId);
+    return mockDelay<Tango>(t, 100);
+  },
+  async (tangoId: string, sentenceId: string) =>
+    flashcardToTango(
+      await request<FlashcardResponse>(
+        `${API_V1}/flashcards/${encodeURIComponent(
+          tangoId,
+        )}/sentences/${encodeURIComponent(sentenceId)}`,
+        { method: 'DELETE' },
+      ),
+    ),
 );
 
 export const getTango = pick(

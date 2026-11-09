@@ -92,9 +92,34 @@ class RehearsalSession(BaseModel):
     answers: dict[str, TurnResult] = Field(default_factory=dict)
 
 
+class SentenceTango(BaseModel):
+    """One of the user's Tango that appears in a sentence."""
+
+    flashcard_id: str
+    text: str
+
+
+class ResultLine(TurnResult):
+    """A result line, with the user's Tango that each version of it contains."""
+
+    said_tango: list[SentenceTango] = Field(default_factory=list)
+    suggestion_tango: list[SentenceTango] = Field(default_factory=list)
+
+
 class RehearsalResult(BaseModel):
     place: Place
-    lines: list[TurnResult]
+    lines: list[ResultLine]
+
+
+class SaveSentenceRequest(BaseModel):
+    # False: what the user said. True: Gemini's suggested version.
+    use_suggestion: bool = False
+
+
+class SaveSentenceResponse(BaseModel):
+    """The Tango the sentence was saved to (already-saved ones included)."""
+
+    saved_to: list[SentenceTango]
 
 
 class TtsRequest(BaseModel):

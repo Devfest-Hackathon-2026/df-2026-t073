@@ -6,6 +6,8 @@ from app.schemas.rehearsal import (
     RehearsalResult,
     RehearsalStartRequest,
     RehearsalStartResponse,
+    SaveSentenceRequest,
+    SaveSentenceResponse,
     TtsRequest,
     TtsResponse,
     TurnAnswerRequest,
@@ -67,6 +69,20 @@ async def answer_turn(
 @router.get("/rehearsals/{rehearsal_id}/results", response_model=RehearsalResult)
 async def get_results(rehearsal_id: str, current_user: CurrentUser, db: Db) -> RehearsalResult:
     return await rehearsal.get_results(db=db, uid=current_user["uid"], rehearsal_id=rehearsal_id)
+
+
+@router.post("/rehearsals/{rehearsal_id}/turns/{turn_id}/save", response_model=SaveSentenceResponse)
+async def save_sentence(
+    rehearsal_id: str, turn_id: str, payload: SaveSentenceRequest, current_user: CurrentUser, db: Db
+) -> SaveSentenceResponse:
+    """Save what was said (or the suggested version) to each Tango that appears in it."""
+    return await rehearsal.save_sentence(
+        db=db,
+        uid=current_user["uid"],
+        rehearsal_id=rehearsal_id,
+        turn_id=turn_id,
+        use_suggestion=payload.use_suggestion,
+    )
 
 
 @router.post("/speech/tts", response_model=TtsResponse, dependencies=[daily_limit("tts")])

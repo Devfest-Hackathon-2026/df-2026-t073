@@ -4,6 +4,7 @@ import {
   deleteTango,
   expandTango,
   getTango,
+  removeSavedSentence,
   setFavorite,
 } from '../../api/tango';
 import { Icon, type IconName } from '../../components/Icon';
@@ -283,6 +284,44 @@ export function TangoDetailScreen({
                 </View>
               ))}
             </Card>
+
+            {t.savedSentences?.length ? (
+              <Card>
+                <Text style={base.heading}>
+                  {copy.tangoDetail.yourSentences}
+                </Text>
+                {t.savedSentences.map(sentence => (
+                  <View key={sentence.id} style={styles.phrase}>
+                    <View style={base.grow}>
+                      <Text style={base.label}>
+                        {copy.tangoDetail.sentenceMeta(
+                          sentence.kind,
+                          sentence.placeName,
+                        )}
+                      </Text>
+                      <Jp {...sentence.jp} />
+                      {sentence.jp.meaning ? (
+                        <Text style={base.caption}>{sentence.jp.meaning}</Text>
+                      ) : null}
+                    </View>
+                    <IconButton
+                      icon="play"
+                      label={copy.common.play(sentence.jp.text)}
+                      onPress={() => playWord(sentence.jp.text)}
+                    />
+                    <IconButton
+                      icon="delete"
+                      label={copy.tangoDetail.removeSentence(sentence.jp.text)}
+                      onPress={() =>
+                        removeSavedSentence(t.id, sentence.id)
+                          .then(tango.reload)
+                          .catch(() => {})
+                      }
+                    />
+                  </View>
+                ))}
+              </Card>
+            ) : null}
 
             {settings.mapFeatures ? <PlacesCard tango={t} /> : null}
 

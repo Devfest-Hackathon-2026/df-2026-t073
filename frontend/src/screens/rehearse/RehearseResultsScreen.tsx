@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { getRehearsalResult } from '../../api/rehearse';
+import { getRehearsalResult, saveRehearsalSentence } from '../../api/rehearse';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
 import {
@@ -12,6 +12,7 @@ import {
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
+import type { SentenceTango } from '../../types';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, space } from '../../styles/tokens';
 import { copy } from '../../copy';
@@ -42,7 +43,7 @@ export function RehearseResultsScreen({
             onPress={() => navigation.replace('Rehearse', { placeId })}
           />
           <Button
-            label="I'm ready"
+            label={copy.rehearseResults.ready}
             style={base.grow}
             onPress={() => navigation.popToTop()}
           />
@@ -81,6 +82,19 @@ export function RehearseResultsScreen({
                   </Text>
                   <Jp {...line.said} size="lg" />
                 </View>
+                {line.saidTango.length > 0 ? (
+                  <SaveSentenceButton
+                    label={copy.rehearseResults.saveYours}
+                    onSave={() =>
+                      saveRehearsalSentence(
+                        rehearsalId ?? '',
+                        line.turnId,
+                        false,
+                        line.saidTango,
+                      )
+                    }
+                  />
+                ) : null}
                 {line.suggestion ? (
                   <View style={styles.suggestion}>
                     <View style={base.grow}>
@@ -89,6 +103,19 @@ export function RehearseResultsScreen({
                       </IconLabel>
                       <Jp {...line.suggestion.jp} size="lg" bold />
                       <Text style={base.caption}>{line.suggestion.why}</Text>
+                      {line.suggestionTango.length > 0 ? (
+                        <SaveSentenceButton
+                          label={copy.rehearseResults.saveSuggested}
+                          onSave={() =>
+                            saveRehearsalSentence(
+                              rehearsalId ?? '',
+                              line.turnId,
+                              true,
+                              line.suggestionTango,
+                            )
+                          }
+                        />
+                      ) : null}
                     </View>
                     <IconButton
                       icon="play"
@@ -107,7 +134,56 @@ export function RehearseResultsScreen({
   );
 }
 
+/** Saves a line to its Tango, then says where it was saved. */
+function SaveSentenceButton({
+  label,
+  onSave,
+}: {
+  label: string;
+  onSave: () => Promise<SentenceTango[]>;
+}): React.JSX.Element {
+  const [saved, setSaved] = useState<SentenceTango[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (saved) {
+    return (
+      <IconLabel icon="done" style={styles.saved}>
+        {copy.rehearseResults.savedTo(saved.map(t => t.text))}
+      </IconLabel>
+    );
+  }
+  return (
+    <View style={base.stackSm}>
+      <Button
+        label={label}
+        icon="add"
+        variant="secondary"
+        disabled={busy}
+        onPress={async () => {
+          setBusy(true);
+          setFailed(false);
+          try {
+            setSaved(await onSave());
+          } catch {
+            setFailed(true);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {failed ? (
+        <Text style={styles.warn}>{copy.rehearseResults.couldNotSave}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  saved: {
+    ...base.caption,
+    color: colors.positive,
+    fontWeight: fontWeights.bold,
+  },
   eyebrow: {
     ...base.label,
     color: colors.accent,

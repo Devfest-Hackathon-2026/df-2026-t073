@@ -200,6 +200,12 @@ const rehearseResults = {
   notQuiteMark: '△',
   geminiSuggests: 'Gemini suggests',
   playSuggestion: 'Play suggestion (coming soon)',
+  ready: "I'm ready",
+  /** Save a line to the Tango in it ("Your sentences" on the Tango page). */
+  saveYours: 'Save to Tango',
+  saveSuggested: 'Save suggested version',
+  savedTo: (words: string[]) => `Saved to ${words.join(', ')}`,
+  couldNotSave: 'Could not save. Try again',
 };
 
 const allTango = {
@@ -377,6 +383,10 @@ const tangoDetail = {
   generatingRelated: 'Generating related words…',
   expandRelated: 'Expand with related vocabulary',
   whereYouSawIt: 'Where you saw it',
+  yourSentences: 'Your sentences',
+  sentenceMeta: (kind: 'yours' | 'suggested', place: string) =>
+    [kind === 'yours' ? 'You said' : 'Suggested', place].filter(Boolean).join(' · '),
+  removeSentence: (text: string) => `Remove "${text}"`,
   timesSeen: (n: number) => ` · ${n}×`,
 };
 

@@ -2,14 +2,18 @@
 
 import hashlib
 import random
+from datetime import datetime
 from typing import Any
 
+from app.schemas.flashcard import FlashcardResponse, SavedSentence
 from app.schemas.place import JpName
 from app.schemas.prepare import BriefingContent, BriefingTango
 from app.schemas.rehearsal import (
     RehearsalScript,
     RehearsalTurn,
     ReplyChoice,
+    ResultLine,
+    SentenceTango,
     Speed,
     Suggestion,
     TurnResult,
@@ -144,3 +148,59 @@ def tts_cache_key(text: str, speed: Speed) -> str:
     """Same text, voice and speed -> same stored audio file."""
     digest = hashlib.sha256(f"{TTS_VOICE}:{TTS_RATE[speed]}:{text}".encode("utf-8")).hexdigest()
     return f"tts/{digest[:32]}.mp3"
+
+
+# ---- Saving rehearsal sentences to Tango ----
+
+
+def tango_in(text: str, cards: list[FlashcardResponse]) -> list[SentenceTango]:
+    """The user's Tango whose word appears in a sentence."""
+    return [
+        SentenceTango(flashcard_id=c.flashcard_id, text=c.kanji)
+        for c in cards
+        if c.kanji.strip() and c.kanji.strip() in text
+    ]
+
+
+def result_line(result: TurnResult, cards: list[FlashcardResponse]) -> ResultLine:
+    """A result line with the Tango each version of it could be saved to."""
+    return ResultLine(
+        **result.model_dump(),
+        said_tango=tango_in(result.said.text, cards),
+        suggestion_tango=tango_in(result.suggestion.jp.text, cards) if result.suggestion else [],
+    )
+
+
+def sentence_to_save(
+    result: TurnResult,
+    *,
+    use_suggestion: bool,
+    rehearsal_id: str,
+    place_name: str,
+    sentence_id: str,
+    now: datetime,
+) -> SavedSentence | None:
+    """The sentence to save: what was said, or the suggestion (None if there isn't one)."""
+    if use_suggestion and result.suggestion is None:
+        return None
+    jp = result.suggestion.jp if use_suggestion and result.suggestion else result.said
+    return SavedSentence(
+        sentence_id=sentence_id,
+        text=jp.text,
+        reading=jp.reading,
+        romaji=jp.romaji,
+        meaning=jp.meaning,
+        kind="suggested" if use_suggestion else "yours",
+        place_name=place_name,
+        rehearsal_id=rehearsal_id,
+        turn_id=result.turn_id,
+        saved_at=now,
+    )
+
+
+def already_saved(card: FlashcardResponse, sentence: SavedSentence) -> bool:
+    """The same line (rehearsal, turn and version) is already on this Tango."""
+    return any(
+        (s.rehearsal_id, s.turn_id, s.kind) == (sentence.rehearsal_id, sentence.turn_id, sentence.kind)
+        for s in card.saved_sentences
+    )

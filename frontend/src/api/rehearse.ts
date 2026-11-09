@@ -7,6 +7,7 @@ import type {
   ReplyChoice,
   Suggestion,
   TurnAnswer,
+  SentenceTango,
 } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
 import { type PlaceResponse, toPlace } from './places';
@@ -58,12 +59,24 @@ interface TurnResultResponse {
   label: string;
   note: string;
   suggestion: SuggestionResponse | null;
+  said_tango: SentenceTangoResponse[];
+  suggestion_tango: SentenceTangoResponse[];
+}
+
+interface SentenceTangoResponse {
+  flashcard_id: string;
+  text: string;
 }
 
 interface ResultResponse {
   place: PlaceResponse;
   lines: TurnResultResponse[];
 }
+
+const toSentenceTango = (t: SentenceTangoResponse): SentenceTango => ({
+  id: t.flashcard_id,
+  text: t.text,
+});
 
 // ---- Adapters ----
 
@@ -235,6 +248,34 @@ export const answerTurn = pick(
   },
 );
 
+/**
+ * POST /rehearsals/{id}/turns/{turnId}/save: saves what was said (or the suggested
+ * version) to each Tango in it. Returns the Tango it's saved to.
+ */
+export const saveRehearsalSentence = pick(
+  'rehearse',
+  (
+    _rehearsalId: string,
+    _turnId: string,
+    _useSuggestion: boolean,
+    tango: SentenceTango[],
+  ) => mockDelay<SentenceTango[]>(tango, 200),
+  async (
+    rehearsalId: string,
+    turnId: string,
+    useSuggestion: boolean,
+    _tango: SentenceTango[],
+  ): Promise<SentenceTango[]> => {
+    const r = await request<{ saved_to: SentenceTangoResponse[] }>(
+      `${API_V1}/rehearsals/${encodeURIComponent(
+        rehearsalId,
+      )}/turns/${encodeURIComponent(turnId)}/save`,
+      { method: 'POST', body: { use_suggestion: useSuggestion } },
+    );
+    return r.saved_to.map(toSentenceTango);
+  },
+);
+
 export const getRehearsalResult = pick(
   'rehearse',
   (_rehearsalId: string | null, placeId: string) =>
@@ -252,6 +293,9 @@ export const getRehearsalResult = pick(
     return {
       place: toPlace(r.place),
       lines: r.lines.map(l => ({
+        turnId: l.turn_id,
+        saidTango: l.said_tango.map(toSentenceTango),
+        suggestionTango: l.suggestion_tango.map(toSentenceTango),
         staff: toJp(l.staff),
         said: toJp(l.said),
         ok: l.ok,

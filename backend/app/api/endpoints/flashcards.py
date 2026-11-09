@@ -32,6 +32,7 @@ from app.services.firestore import (
     save_flashcard,
     save_use_cases,
     save_related_vocab,
+    remove_saved_sentence,
     update_flashcard_review,
 )
 from app.services.flashcard_generator import (
@@ -366,6 +367,16 @@ async def add_flashcard_sighting(
         count_as_review=True,
     )
     return FlashcardCatchResponse(card=updated, created=False, sighting_id=sighting.sighting_id)
+
+
+@router.delete("/{flashcard_id}/sentences/{sentence_id}", response_model=FlashcardResponse)
+async def delete_saved_sentence(
+    flashcard_id: str, sentence_id: str, current_user: CurrentUser, db: Db
+) -> FlashcardResponse:
+    """Remove one sentence from the Tango's "Your sentences"."""
+    return await remove_saved_sentence(
+        db=db, uid=current_user["uid"], flashcard_id=flashcard_id, sentence_id=sentence_id
+    )
 
 
 @router.delete(

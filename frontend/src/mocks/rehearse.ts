@@ -1,5 +1,18 @@
-import type { RehearsalResult, RehearsalScript } from '../types';
+import type {
+  RehearsalResult,
+  RehearsalScript,
+  SentenceTango,
+} from '../types';
 import { PLACES } from './places';
+import { ALL_TANGO } from './tango';
+
+/** Mock Tango whose word appears in a sentence (like the backend's match). */
+function tangoIn(text: string): SentenceTango[] {
+  return ALL_TANGO.filter(t => t.text && text.includes(t.text)).map(t => ({
+    id: t.id,
+    text: t.text,
+  }));
+}
 
 export function scriptFor(placeId: string): Omit<RehearsalScript, 'rehearsalId'> {
   const place = PLACES[placeId] ?? PLACES['menya-taiki'];
@@ -107,11 +120,22 @@ export function resultFor(placeId: string): RehearsalResult {
   return {
     place: script.place,
     lines: [
-      { staff: t1.jp, said: u1.jp, ok: true, note: 'Natural and polite. Nothing to change.' },
       {
+        turnId: u1.id,
+        staff: t1.jp,
+        said: u1.jp,
+        ok: true,
+        note: 'Natural and polite. Nothing to change.',
+        saidTango: tangoIn(u1.jp.text),
+        suggestionTango: [],
+      },
+      {
+        turnId: u2.id,
         staff: t2.jp,
         said: u2.jp,
         ok: false,
+        saidTango: tangoIn(u2.jp.text),
+        suggestionTango: tangoIn('かためでお願いします。'),
         note: 'Understood, but not what shops say.',
         suggestion: {
           jp: {
@@ -122,7 +146,15 @@ export function resultFor(placeId: string): RehearsalResult {
           why: 'Shops use かため for noodle firmness.',
         },
       },
-      { staff: t3.jp, said: u3.jp, ok: true, note: 'Natural and polite.' },
+      {
+        turnId: u3.id,
+        staff: t3.jp,
+        said: u3.jp,
+        ok: true,
+        note: 'Natural and polite.',
+        saidTango: tangoIn(u3.jp.text),
+        suggestionTango: [],
+      },
     ],
   };
 }

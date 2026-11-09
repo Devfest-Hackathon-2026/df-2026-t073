@@ -17,6 +17,7 @@ from app.schemas.flashcard import (
     QuestionType,
     RelatedVocabItem,
     ReviewStats,
+    SavedSentence,
     Sighting,
 )
 from app.schemas.review import (
@@ -728,3 +729,38 @@ async def delete_flashcard(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to delete flashcard.",
         ) from exc
+
+
+async def add_saved_sentence(
+    *, db: AsyncClient, uid: str, flashcard_id: str, sentence: SavedSentence
+) -> None:
+    """Add a rehearsal sentence to a Tango's "Your sentences"."""
+    try:
+        await _flashcard_ref(db, uid, flashcard_id).update(
+            {"saved_sentences": ArrayUnion([sentence.model_dump(mode="python")])}
+        )
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to save sentence to %s (uid=%s)", flashcard_id, uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to save the sentence.",
+        ) from exc
+
+
+async def remove_saved_sentence(
+    *, db: AsyncClient, uid: str, flashcard_id: str, sentence_id: str
+) -> FlashcardResponse:
+    """Remove one saved sentence from a Tango. Returns the updated card."""
+    card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+    kept = [s for s in card.saved_sentences if s.sentence_id != sentence_id]
+    try:
+        await _flashcard_ref(db, uid, flashcard_id).update(
+            {"saved_sentences": [s.model_dump(mode="python") for s in kept]}
+        )
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        logger.exception("Failed to remove sentence from %s (uid=%s)", flashcard_id, uid)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to remove the sentence.",
+        ) from exc
+    return card.model_copy(update={"saved_sentences": kept})

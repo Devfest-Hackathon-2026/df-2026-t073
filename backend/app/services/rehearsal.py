@@ -8,7 +8,7 @@ import base64
 import binascii
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 import httpx
@@ -22,18 +22,21 @@ from app.schemas.rehearsal import (
     RehearsalScript,
     RehearsalSession,
     RehearsalStartResponse,
+    SaveSentenceResponse,
     TurnAnswerRequest,
     TurnResult,
 )
 from app.services import places
 from app.services import rehearsal_rules as rules
 from app.services import stt
-from app.services.firestore import USERS_COLLECTION
+from app.services.firestore import USERS_COLLECTION, add_saved_sentence, list_flashcards
 from app.services.gemini import generate_json, jp_schema
 
 logger = logging.getLogger(__name__)
 
 SESSIONS_SUBCOLLECTION = "rehearsals"
+# Enough for a hackathon-sized collection; sentences match against all the user's Tango.
+MAX_CARDS = 200
 MAX_AUDIO_BYTES = 2 * 1024 * 1024  # ~1 minute of AAC; replies are a few seconds
 AUDIO_MIME_TYPES = {"audio/amr-wb", "audio/3gpp", "audio/aac", "audio/mp4", "audio/m4a", "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm"}
 
@@ -224,5 +227,37 @@ async def answer_turn(
 
 async def get_results(*, db: AsyncClient, uid: str, rehearsal_id: str) -> RehearsalResult:
     session = await _session(db, uid, rehearsal_id)
-    lines = [session.answers[t.id] for t in session.turns if t.id in session.answers]
+    cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
+    lines = [
+        rules.result_line(session.answers[t.id], cards)
+        for t in session.turns
+        if t.id in session.answers
+    ]
     return RehearsalResult(place=session.place, lines=lines)
+
+
+async def save_sentence(
+    *, db: AsyncClient, uid: str, rehearsal_id: str, turn_id: str, use_suggestion: bool
+) -> SaveSentenceResponse:
+    """Save a rehearsal line to every Tango that appears in it (once per Tango)."""
+    session = await _session(db, uid, rehearsal_id)
+    result = session.answers.get(turn_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"No answer for turn '{turn_id}'.")
+    sentence = rules.sentence_to_save(
+        result,
+        use_suggestion=use_suggestion,
+        rehearsal_id=rehearsal_id,
+        place_name=session.place.name.text,
+        sentence_id=f"sn_{uuid.uuid4().hex[:12]}",
+        now=datetime.now(UTC),
+    )
+    if sentence is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="This line has no suggested version.")
+    cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
+    matches = rules.tango_in(sentence.text, cards)
+    by_id = {c.flashcard_id: c for c in cards}
+    for match in matches:
+        if not rules.already_saved(by_id[match.flashcard_id], sentence):
+            await add_saved_sentence(db=db, uid=uid, flashcard_id=match.flashcard_id, sentence=sentence)
+    return SaveSentenceResponse(saved_to=matches)

@@ -133,6 +133,21 @@ class Distractors(BaseModel):
     synonyms: list[str] = Field(default_factory=list)
 
 
+class SavedSentence(BaseModel):
+    """A rehearsal line saved to this Tango: what the user said, or Gemini's better version."""
+
+    sentence_id: str
+    text: str
+    reading: str | None = None
+    romaji: str | None = None
+    meaning: str | None = None
+    kind: Literal["yours", "suggested"]
+    place_name: str = ""
+    rehearsal_id: str
+    turn_id: str
+    saved_at: datetime
+
+
 class SightingCreateRequest(BaseModel):
     """Seen again in the camera (B1)."""
 
@@ -161,6 +176,8 @@ class FlashcardResponse(GeneratedFlashcardContent):
     # Filled on first review; reused by later sessions.
     distractors: Distractors | None = None
     meaning_synonyms: list[str] = Field(default_factory=list)
+    # Rehearsal sentences the user saved to this Tango ("Your sentences").
+    saved_sentences: list[SavedSentence] = Field(default_factory=list)
     # Whether the Tango came from Vision object recognition ("object") or OCR ("text").
     capture_format: CaptureFormat | None = None
     # Marked by the user; reviewable as the "favorites" collection.

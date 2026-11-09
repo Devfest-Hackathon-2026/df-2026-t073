@@ -89,6 +89,8 @@ export interface Tango {
   history: TangoEvent[];
   examples: TangoExample[];
   relatedVocab?: RelatedVocab[];
+  /** Rehearsal lines saved to this Tango ("Your sentences"). */
+  savedSentences?: SavedSentence[];
   /** One-line explanation shown on detail cards. */
   explanation?: string;
   /** Marked by the user; reviewable as "Favourites". */
@@ -233,11 +235,30 @@ export interface RehearsalScript {
 }
 
 export interface RehearsalLineResult {
+  turnId: string;
   staff: JpText;
   said: JpText;
   ok: boolean;
   note: string;
   suggestion?: { jp: JpText; why: string };
+  /** The user's Tango in what they said / in the suggestion (where it can be saved). */
+  saidTango: SentenceTango[];
+  suggestionTango: SentenceTango[];
+}
+
+/** One of the user's Tango that appears in a rehearsal sentence. */
+export interface SentenceTango {
+  id: string;
+  text: string;
+}
+
+/** A rehearsal line saved to a Tango. */
+export interface SavedSentence {
+  id: string;
+  jp: JpText;
+  /** What the user said, or Gemini's suggested version. */
+  kind: 'yours' | 'suggested';
+  placeName: string;
 }
 
 export interface RehearsalResult {
