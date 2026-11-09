@@ -25,11 +25,13 @@ jest.mock('../src/api/review', () => {
 const submitMock = submitAnswer as jest.MockedFunction<typeof submitAnswer>;
 type Props = RootScreenProps<'ReviewSession'>;
 
+const navigation = {
+  goBack: jest.fn(),
+  navigate: jest.fn(),
+  popToTop: jest.fn(),
+};
+
 async function renderSession(): Promise<ReactTestRenderer.ReactTestRenderer> {
-  const nav = {
-    goBack: jest.fn(),
-    navigate: jest.fn(),
-  } as unknown as Props['navigation'];
   const route = {
     key: 'ReviewSession',
     name: 'ReviewSession',
@@ -39,7 +41,10 @@ async function renderSession(): Promise<ReactTestRenderer.ReactTestRenderer> {
   await ReactTestRenderer.act(async () => {
     tree = ReactTestRenderer.create(
       <SettingsProvider>
-        <ReviewSessionScreen navigation={nav} route={route} />
+        <ReviewSessionScreen
+          navigation={navigation as unknown as Props['navigation']}
+          route={route}
+        />
       </SettingsProvider>,
     );
   });
@@ -72,6 +77,9 @@ describe('session answers and the server verdict', () => {
   beforeEach(() => {
     submitMock.mockReset();
     submitMock.mockResolvedValue(null);
+    navigation.goBack.mockClear();
+    navigation.navigate.mockClear();
+    navigation.popToTop.mockClear();
   });
 
   test('a picked option is sent as a pick for that exercise', async () => {
@@ -142,6 +150,18 @@ describe('session answers and the server verdict', () => {
     expect(submitMock).toHaveBeenLastCalledWith('rs_test', 'ex-7', {
       kind: 'reveal',
     });
+  });
+
+  test('Back to Today pops to the existing tab instead of pushing another', async () => {
+    const tree = await renderSession();
+    await press(tree, 'meal ticket');
+    await press(tree, 'Continue');
+    await press(tree, 'Show answer');
+    await press(tree, 'Continue');
+    await press(tree, 'Back to Today');
+
+    expect(navigation.popToTop).toHaveBeenCalledTimes(1);
+    expect(navigation.navigate).not.toHaveBeenCalled();
   });
 });
 

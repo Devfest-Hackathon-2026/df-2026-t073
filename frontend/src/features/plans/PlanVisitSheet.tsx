@@ -9,6 +9,7 @@ import { copy } from '../../copy';
 import { base } from '../../styles/base';
 import { colors, radii, sizes, space } from '../../styles/tokens';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { Visit } from '../../types';
 import { formatVisitTime } from '../../utils/format';
 import { CalendarMonth, TimePicker } from './DateTimePicker';
@@ -52,10 +53,12 @@ export function PlanVisitSheet({
   const [now] = useState(() => new Date());
   const [chosen, setChosen] = useState<PlanPlace | null>(place ?? null);
   const [query, setQuery] = useState('');
+  const searchQuery = useDebouncedValue(query);
   // Only search once something is typed.
   const results = useAsync(
-    () => (query.trim() ? searchPlaces(query) : Promise.resolve([])),
-    query,
+    () =>
+      searchQuery.trim() ? searchPlaces(searchQuery) : Promise.resolve([]),
+    searchQuery,
   );
   const [changing, setChanging] = useState(false);
   const [pick, setPick] = useState(() => defaultPick(now));

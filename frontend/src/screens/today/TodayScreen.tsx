@@ -91,25 +91,22 @@ export function TodayScreen(): React.JSX.Element {
       keyboardShouldPersistTaps="handled"
     >
       <Loadable state={today} messages={TODAY_LINES}>
-        {summary =>
-          settings.dayOne ? (
-            <DayOne summary={summary} />
-          ) : (
-            <Regular
-              summary={summary}
-              review={review.data}
-              stats={stats.data}
-              here={here}
-              onOpenMap={areaId =>
-                nav.navigate('Tabs', {
-                  screen: 'Map',
-                  params: areaId ? { areaId } : undefined,
-                })
-              }
-              onPlansChanged={today.reload}
-            />
-          )
-        }
+        {summary => (
+          <Regular
+            summary={summary}
+            review={review.data}
+            stats={stats.data}
+            here={here}
+            showFirstOuting={settings.dayOne}
+            onOpenMap={areaId =>
+              nav.navigate('Tabs', {
+                screen: 'Map',
+                params: areaId ? { areaId } : undefined,
+              })
+            }
+            onPlansChanged={today.reload}
+          />
+        )}
       </Loadable>
     </ScrollView>
   );
@@ -236,6 +233,7 @@ function Regular({
   review,
   stats,
   here,
+  showFirstOuting,
   onOpenMap,
   onPlansChanged,
 }: {
@@ -243,16 +241,23 @@ function Regular({
   review: ReviewCard | undefined;
   stats: ReviewSummary | undefined;
   here: Coords | null;
+  showFirstOuting: boolean;
   onOpenMap: (areaId?: string) => void;
   /** After a plan is added from Today, so "Up next" shows it. */
   onPlansChanged: () => void;
 }): React.JSX.Element {
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const visits = useAsync(listVisits);
   const [planning, setPlanning] = useState(false);
   return (
     <>
       <Greeting name={summary.userName} />
+      {showFirstOuting ? (
+        <FirstOutingCard
+          summary={summary}
+          onDismiss={() => update({ dayOne: false })}
+        />
+      ) : null}
       {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {review ? (
@@ -379,74 +384,119 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   );
 }
 
+<<<<<<< Updated upstream
 function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
+=======
+function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
   const nav = useRootNav();
-  const { update } = useSettings();
   return (
-    <>
-      <View style={base.row}>
-        <Jp {...copy.today.welcomeJp} peek bold size="xl" />
-        <NameSan name={summary.userName} />
+    <Card>
+      <View style={base.rowBetween}>
+        <View style={base.grow}>
+          <SectionTitle
+            en={copy.today.reviewTitle}
+            jp={copy.today.reviewTitleJp}
+          />
+          <Text style={base.caption}>
+            {copy.today.reviewSummary(card.dueCount, card.minutes)}
+          </Text>
+          <Text style={base.caption}>
+            {copy.today.reviewFrom(card.areas)}
+          </Text>
+        </View>
+        <Button
+          label={copy.today.start}
+          variant="dark"
+          onPress={() => nav.navigate('ReviewSession')}
+        />
       </View>
-      <Card>
-        <View style={base.rowBetween}>
+      <View style={base.wrap}>
+        {card.sample.map(tango => (
+          <Chip
+            key={tango.id}
+            jp={tango}
+            icon={tango.sightings.length ? 'pin' : undefined}
+            onPress={() => nav.navigate('TangoDetail', { id: tango.id })}
+          />
+        ))}
+        {card.moreCount > 0 ? (
+          <Text style={base.caption}>{copy.today.more(card.moreCount)}</Text>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
+function FirstOutingCard({
+  summary,
+  onDismiss,
+}: {
+  summary: TodaySummary;
+  onDismiss: () => void;
+}): React.JSX.Element {
+>>>>>>> Stashed changes
+  const nav = useRootNav();
+  return (
+    <Card>
+      <View style={styles.firstOutingHeader}>
+        <View style={base.grow}>
           <Text style={base.heading}>{copy.today.firstOuting}</Text>
           <Text style={base.caption}>{copy.today.aboutTenMin}</Text>
         </View>
-        <NumberedStep index={1}>
-          <View style={base.rowBetween}>
-            <View style={base.grow}>
-              <Text style={styles.stepTitle}>{copy.today.stepCatch}</Text>
-            </View>
-            <Button
-              label={copy.today.start}
-              onPress={() => nav.navigate('Capture')}
-            />
+        <IconButton
+          icon="close"
+          label={copy.today.dismissFirstOuting}
+          onPress={onDismiss}
+        />
+      </View>
+      <NumberedStep index={1}>
+        <View style={base.rowBetween}>
+          <View style={base.grow}>
+            <Text style={styles.stepTitle}>{copy.today.stepCatch}</Text>
           </View>
-        </NumberedStep>
-        <NumberedStep index={2}>
-          <View style={base.rowBetween}>
-            <View style={base.grow}>
-              <Text style={styles.stepTitle}>
-                {copy.today.stepRehearse}
-              </Text>
-              <Text style={base.caption}>{copy.today.stepRehearseNote}</Text>
-            </View>
-            <Button
-              label={copy.today.go}
-              variant="secondary"
-              onPress={() =>
-                nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })
-              }
-            />
+          <Button
+            label={copy.today.start}
+            onPress={() => nav.navigate('Capture')}
+          />
+        </View>
+      </NumberedStep>
+      <NumberedStep index={2}>
+        <View style={base.rowBetween}>
+          <View style={base.grow}>
+            <Text style={styles.stepTitle}>
+              {copy.today.stepRehearse}
+            </Text>
+            <Text style={base.caption}>{copy.today.stepRehearseNote}</Text>
           </View>
-        </NumberedStep>
-        <NumberedStep index={3}>
-          <View style={base.rowBetween}>
-            <View style={base.grow}>
-              <Text style={styles.stepTitle}>{copy.today.stepReview}</Text>
-              <Text style={base.caption}>{copy.today.stepReviewNote}</Text>
-            </View>
-            <Button
-              label={copy.today.go}
-              variant="secondary"
-              onPress={() => nav.navigate('ReviewSession')}
-            />
+          <Button
+            label={copy.today.go}
+            variant="secondary"
+            onPress={() =>
+              nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })
+            }
+          />
+        </View>
+      </NumberedStep>
+      <NumberedStep index={3}>
+        <View style={base.rowBetween}>
+          <View style={base.grow}>
+            <Text style={styles.stepTitle}>{copy.today.stepReview}</Text>
+            <Text style={base.caption}>{copy.today.stepReviewNote}</Text>
           </View>
-        </NumberedStep>
-      </Card>
+          <Button
+            label={copy.today.go}
+            variant="secondary"
+            onPress={() => nav.navigate('ReviewSession')}
+          />
+        </View>
+      </NumberedStep>
       <Text style={styles.eyebrow}>{copy.today.starterTango}</Text>
       <View style={base.wrap}>
         {summary.starterTango.map(jp => (
           <Chip key={jp.text} jp={jp} label={jp.meaning} dashed />
         ))}
       </View>
-      <Button
-        label={copy.today.finishDayOne}
-        variant="ghost"
-        onPress={() => update({ dayOne: false })}
-      />
-    </>
+    </Card>
   );
 }
 
@@ -533,6 +583,12 @@ const styles = StyleSheet.create({
     ...base.text,
     color: colors.accent,
     fontWeight: fontWeights.bold,
+  },
+  firstOutingHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space.sm,
   },
   eyebrow: {
     ...base.label,

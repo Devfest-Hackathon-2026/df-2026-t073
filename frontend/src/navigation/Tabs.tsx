@@ -40,6 +40,7 @@ function EmptyScreen(): null {
 
 function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const { settings } = useSettings();
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
@@ -48,6 +49,25 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
         const focused = state.index === index;
 
         if (name === 'CaptureTab') {
+          if (!settings.mapFeatures) {
+            return (
+              <React.Fragment key={route.key}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.tabs.openCamera}
+                  onPress={() => navigation.getParent()?.navigate('Capture')}
+                  style={styles.item}
+                >
+                  <Icon
+                    name={meta.icon}
+                    size={fontSizes.xl}
+                    color={colors.textMuted}
+                  />
+                  <Text style={styles.label}>{meta.label}</Text>
+                </Pressable>
+              </React.Fragment>
+            );
+          }
           return (
             <View key={route.key} style={styles.item}>
               <Pressable

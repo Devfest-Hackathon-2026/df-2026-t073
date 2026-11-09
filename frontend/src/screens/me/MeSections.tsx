@@ -20,6 +20,7 @@ import {
   USE_MOCKS,
 } from '../../config';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { type AuthStatus, useAuth } from '../../state/AuthContext';
 import {
   settingsForReadingLevel,
@@ -156,10 +157,13 @@ function HomeAreaCard({
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const searchQuery = useDebouncedValue(query);
   const results = useAsync(
     () =>
-      query.trim().length >= 2 ? searchPlaces(query) : Promise.resolve([]),
-    query,
+      searchQuery.trim().length >= 2
+        ? searchPlaces(searchQuery)
+        : Promise.resolve([]),
+    searchQuery,
   );
   const [error, setError] = useState<string | null>(null);
 

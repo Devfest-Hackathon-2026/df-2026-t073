@@ -496,12 +496,6 @@ const today = {
     romaji: 'konnichiwa',
     meaning: 'Hello',
   },
-  welcomeJp: {
-    text: 'ようこそ',
-    reading: 'ようこそ',
-    romaji: 'yōkoso',
-    meaning: 'Welcome',
-  },
   nameSan: (name: string) => ({
     text: `${name}さん`,
     romaji: `${name}-san`,
@@ -536,6 +530,7 @@ const today = {
   start: 'Start',
   more: (n: number) => `+${n} more`,
   firstOuting: 'Your first outing',
+  dismissFirstOuting: 'Dismiss first outing card',
   aboutTenMin: 'About 10 min',
   stepCatch: 'Catch 3 Tango around the station',
   stepRehearse: 'Rehearse buying a ticket',
@@ -544,7 +539,6 @@ const today = {
   stepReview: 'Your first review tonight',
   stepReviewNote: 'Opens after you catch 3',
   starterTango: "Tango you'll likely see around Koenji Station",
-  finishDayOne: 'Finish day one (show the regular Today screen)',
 };
 
 const reviewSession = {
@@ -564,10 +558,8 @@ const reviewSession = {
   photoA11y: 'Your capture photo with the target highlighted',
   yourPhoto: 'Your photo',
   noPlace: 'No place saved',
-  flipA11y: 'Flip flashcard',
   flashcardTextPrompt: 'Do you remember how to read and translate this?',
   flashcardObjectPrompt: 'Do you remember the Japanese word for this object?',
-  tapToFlip: 'Tap to flip',
   flip: 'Flip card',
   howWell: 'How well did you know it?',
   again: 'Again',

@@ -467,34 +467,27 @@ function Flashcard({
       <PhotoLayerView photo={exercise.photo} />
 
       {!flipped ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={copy.reviewSession.flipA11y}
-          onPress={flip}
-        >
-          <Card>
-            <View style={styles.prompt}>
-              {exercise.front ? (
-                <>
-                  <Jp
-                    text={exercise.front.text}
-                    size="jumbo"
-                    bold
-                    alwaysKanji
-                  />
-                  <Text style={base.caption}>
-                    {copy.reviewSession.flashcardTextPrompt}
-                  </Text>
-                </>
-              ) : (
-                <Text style={base.heading}>
-                  {copy.reviewSession.flashcardObjectPrompt}
+        <Card>
+          <View style={styles.prompt}>
+            {exercise.front ? (
+              <>
+                <Jp
+                  text={exercise.front.text}
+                  size="jumbo"
+                  bold
+                  alwaysKanji
+                />
+                <Text style={base.caption}>
+                  {copy.reviewSession.flashcardTextPrompt}
                 </Text>
-              )}
-              <Text style={styles.link}>{copy.reviewSession.tapToFlip}</Text>
-            </View>
-          </Card>
-        </Pressable>
+              </>
+            ) : (
+              <Text style={base.heading}>
+                {copy.reviewSession.flashcardObjectPrompt}
+              </Text>
+            )}
+          </View>
+        </Card>
       ) : (
         <Animated.View style={{ opacity: flipAnim }}>
           <Card>
@@ -1025,10 +1018,7 @@ function Results({
               label={copy.sessionResults.backToToday}
               variant="secondary"
               style={base.grow}
-              onPress={() => {
-                navigation.popToTop();
-                navigation.navigate('Tabs', { screen: 'Today' });
-              }}
+              onPress={() => navigation.popToTop()}
             />
             {r.next ? (
               <Button
@@ -1094,10 +1084,6 @@ const styles = StyleSheet.create({
   },
   center: {
     textAlign: 'center',
-  },
-  link: {
-    ...base.caption,
-    color: colors.accent,
   },
   photo: {
     backgroundColor: colors.camera,

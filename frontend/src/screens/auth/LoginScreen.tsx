@@ -11,6 +11,7 @@ import {
 import { Screen } from '../../components/layout';
 import { Button, Card } from '../../components/ui';
 import { useAuth } from '../../state/AuthContext';
+import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
   colors,
@@ -57,6 +58,7 @@ function formatAuthError(err: unknown): string {
 
 export function LoginScreen(): React.JSX.Element {
   const { signIn, signUp } = useAuth();
+  const { update } = useSettings();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,6 +79,7 @@ export function LoginScreen(): React.JSX.Element {
         await signIn(trimmedEmail, trimmedPass);
       } else {
         await signUp(trimmedEmail, trimmedPass);
+        update({ dayOne: true });
       }
     } catch (err: unknown) {
       setError(formatAuthError(err));

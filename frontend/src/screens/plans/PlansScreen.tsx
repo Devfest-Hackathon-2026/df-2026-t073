@@ -13,6 +13,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
@@ -32,7 +33,8 @@ export function PlansScreen(): React.JSX.Element {
   // With the map off, place search lives here instead of on the Map tab.
   const { settings } = useSettings();
   const [query, setQuery] = useState('');
-  const results = useAsync(() => searchPlaces(query), query);
+  const searchQuery = useDebouncedValue(query);
+  const results = useAsync(() => searchPlaces(searchQuery), searchQuery);
 
   return (
     <Screen>

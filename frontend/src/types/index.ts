@@ -469,7 +469,7 @@ export interface Settings {
   locationAllowed: boolean;
   /** First-run flow finished. */
   onboarded: boolean;
-  /** Show the day-one checklist on Today. */
+  /** Show the first outing card on Today until the user dismisses it. */
   dayOne: boolean;
   /** Map tab, map cards and every use of location. Off = no GPS at all. */
   mapFeatures: boolean;

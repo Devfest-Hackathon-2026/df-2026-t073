@@ -18,6 +18,7 @@ import {
   Facts,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { type Coords, getCurrentCoords } from '../../location/location';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { type TabParamList, useRootNav } from '../../navigation/types';
@@ -44,7 +45,11 @@ export function MapScreen({
   const [area, setArea] = useState<MapArea | null>(null);
   // Place search: results near you first; a pick opens Prepare.
   const [query, setQuery] = useState('');
-  const results = useAsync(() => searchPlaces(query, here), query);
+  const searchQuery = useDebouncedValue(query);
+  const results = useAsync(
+    () => searchPlaces(searchQuery, here),
+    searchQuery,
+  );
 
   useEffect(() => {
     let alive = true;
