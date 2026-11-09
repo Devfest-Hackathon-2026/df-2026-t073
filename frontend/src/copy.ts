@@ -159,6 +159,28 @@ const plans = {
   placeLine: (category: string, area: string, tango: number) =>
     `${category} · ${area} · ${tango} Tango`,
   prepare: 'Prepare',
+  // Plan sheet (Prepare, Today)
+  sheetTitle: (place: string) => `Plan a visit to ${place}`,
+  day: 'Day',
+  time: 'Time',
+  today: 'Today',
+  tomorrow: 'Tomorrow',
+  dayLabel: (weekday: string, date: number) => `${weekday} ${date}`,
+  slots: {
+    morning: 'Morning',
+    lunch: 'Lunch',
+    afternoon: 'Afternoon',
+    evening: 'Evening',
+  },
+  slotLabel: (name: string, time: string) => `${name} ${time}`,
+  addToPlans: 'Add to plans',
+  saveChange: 'Save change',
+  planned: (when: string) => `Planned · ${when}`,
+  change: 'Change',
+  remove: 'Remove',
+  notPlanned: 'Not planned',
+  planVisit: 'Plan a visit',
+  couldNotSave: 'Could not save',
 };
 
 const rehearseResults = {
@@ -275,14 +297,11 @@ const prepare = {
     "Picking the words you'll hear at the counter…",
     'Planning your first moves inside…',
   ],
-  couldNotSave: 'Could not save',
   rehearse: 'Rehearse with staff · 2 min',
   aiNote: 'AI suggestion from reviews; may be out of date.',
   title: 'Prepare',
   titleJp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' },
   placeNote: (note: string) => ` · ${note}`,
-  addToPlans: 'Add to your plans',
-  plannedFor: (label: string) => `Planned for ${label.toLowerCase()}`,
   whatToExpect: 'What to expect',
   whatToExpectJp: {
     text: 'お店の流れ',
@@ -290,16 +309,13 @@ const prepare = {
     romaji: 'omise no nagare',
   },
   tangoForVisit: 'Tango for this visit',
-  historyHere: 'History here',
-  firstVisit: 'Your first visit',
+  learnerTips: 'Learner tips',
+  firstTime: "It's your first time here. Give it a try!",
   tipsSubtitle: 'Anonymous tips from other learners',
   noTips: 'No tips for this place yet.',
   tipQuote: (quote: string) => `"${quote}"`,
   tipMeta: (learners: number, when: string) => `${learners} learners · ${when}`,
   inRehearsal: 'In your rehearsal',
-  planToday: 'Today',
-  planTomorrow: 'Tomorrow',
-  planWeekend: 'This weekend',
 };
 
 const rehearse = {

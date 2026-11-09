@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { createVisit, getPlace } from '../../api/places';
+import { getPlace, listVisits } from '../../api/places';
+import { listTangoAtPlace } from '../../api/tango';
 import { getBriefing } from '../../api/prepare';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
@@ -13,9 +14,11 @@ import {
   SectionTitle,
   IconLabel,
 } from '../../components/ui';
+import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
+import { formatVisitTime } from '../../utils/format';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import { Icon } from '../../components/Icon';
@@ -37,18 +40,12 @@ export function PrepareScreen({
     ]);
     return p ? { ...b, place: p } : b;
   }, `${placeId}:${settings.explanationsLanguage}`);
-  const [planned, setPlanned] = useState<string | null>(null);
-  const [planError, setPlanError] = useState<string | null>(null);
-
-  const plan = async (label: string, when: Date) => {
-    setPlanError(null);
-    try {
-      await createVisit(placeId, when.toISOString());
-      setPlanned(label);
-    } catch (err) {
-      setPlanError(err instanceof Error ? err.message : copy.prepare.couldNotSave);
-    }
-  };
+  const visits = useAsync(listVisits);
+  const planned = visits.data?.find(v => v.place.id === placeId) ?? null;
+  const [planning, setPlanning] = useState(false);
+  // First time here: none of the user's Tango were seen at this place.
+  const here = useAsync(() => listTangoAtPlace(placeId), placeId);
+  const firstTime = here.data !== undefined && here.data.length === 0;
 
   return (
     <Screen
@@ -90,24 +87,29 @@ export function PrepareScreen({
             </View>
 
             <Card>
-              <Text style={base.heading}>{copy.prepare.addToPlans}</Text>
-              {planned ? (
-                <IconLabel icon="done" style={styles.planned}>
-                  {copy.prepare.plannedFor(planned)}
+              <View style={base.rowBetween}>
+                <IconLabel
+                  icon={planned ? 'done' : 'calendar'}
+                  style={planned ? styles.planned : base.text}
+                >
+                  {planned
+                    ? copy.plans.planned(formatVisitTime(planned.when))
+                    : copy.plans.notPlanned}
                 </IconLabel>
-              ) : (
-                <View style={base.wrap}>
-                  {planOptions().map(option => (
-                    <Chip
-                      key={option.label}
-                      label={option.label}
-                      tone="outline"
-                      onPress={() => plan(option.label, option.when)}
-                    />
-                  ))}
-                </View>
-              )}
-              {planError ? <Text style={styles.error}>{planError}</Text> : null}
+                <Button
+                  label={planned ? copy.plans.change : copy.plans.planVisit}
+                  variant="secondary"
+                  onPress={() => setPlanning(true)}
+                />
+              </View>
+              <PlanVisitSheet
+                visible={planning}
+                onClose={() => setPlanning(false)}
+                placeId={placeId}
+                placeName={data.place.name.text}
+                existing={planned}
+                onSaved={visits.reload}
+              />
             </Card>
 
             <Card>
@@ -154,10 +156,14 @@ export function PrepareScreen({
             </Card>
 
             <Card>
-              <View style={base.rowBetween}>
-                <Text style={base.heading}>{copy.prepare.historyHere}</Text>
-                <Text style={base.caption}>{copy.prepare.firstVisit}</Text>
-              </View>
+              <Text style={base.heading}>{copy.prepare.learnerTips}</Text>
+              {firstTime ? (
+                <View style={styles.firstTime}>
+                  <Text style={styles.firstTimeText}>
+                    {copy.prepare.firstTime}
+                  </Text>
+                </View>
+              ) : null}
               <Text style={base.caption}>{copy.prepare.tipsSubtitle}</Text>
               {data.tips.length === 0 ? (
                 <Text style={base.caption}>{copy.prepare.noTips}</Text>
@@ -185,31 +191,20 @@ export function PrepareScreen({
   );
 }
 
-/** Quick plan choices at noon local time: today, tomorrow, Saturday. */
-function planOptions(): { label: string; when: Date }[] {
-  const at = (daysAhead: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysAhead);
-    d.setHours(12, 0, 0, 0);
-    return d;
-  };
-  const toSaturday = (6 - new Date().getDay() + 7) % 7 || 7;
-  return [
-    { label: copy.prepare.planToday, when: at(0) },
-    { label: copy.prepare.planTomorrow, when: at(1) },
-    { label: copy.prepare.planWeekend, when: at(toSaturday) },
-  ];
-}
-
 const styles = StyleSheet.create({
+  firstTime: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.sm,
+    padding: space.md,
+  },
+  firstTimeText: {
+    ...base.text,
+    textAlign: 'center',
+  },
   planned: {
     ...base.text,
     color: colors.positive,
     fontWeight: fontWeights.bold,
-  },
-  error: {
-    ...base.caption,
-    color: colors.caution,
   },
   center: {
     alignItems: 'center',

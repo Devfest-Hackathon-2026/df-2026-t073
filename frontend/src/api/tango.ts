@@ -215,6 +215,22 @@ export const listTango = pick(
   },
 );
 
+/** The user's Tango seen at one place (GET /flashcards?place_id=). */
+export const listTangoAtPlace = pick(
+  'tango',
+  (placeId: string) =>
+    mockDelay<Tango[]>(
+      ALL_TANGO.filter(t => t.sightings.some(s => s.placeId === placeId)),
+      200,
+    ),
+  async (placeId: string) =>
+    (
+      await request<FlashcardResponse[]>(`${API_V1}/flashcards`, {
+        query: { place_id: placeId },
+      })
+    ).map(flashcardToTango),
+);
+
 export const getTango = pick(
   'tango',
   (id: string) => mockDelay<Tango>(TANGO[id] ?? ALL_TANGO[0]),
