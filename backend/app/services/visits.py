@@ -20,6 +20,7 @@ from app.services.favorite_places import favorite_pins, list_favorite_places
 from app.services.firestore import USERS_COLLECTION, list_flashcards
 from app.services.places import get_place, place_facts
 from app.services.profile import display_name
+from app.services.review_rules.selection import build_review_card
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ VISITS_SUBCOLLECTION = "visits"
 # A visit still counts as "up next" for a while after its start time.
 VISIT_GRACE = timedelta(hours=3)
 MAX_VISITS = 20
-MAX_CARDS = 500
+MAX_CARDS = 1000
 
 
 def _visits(db: AsyncClient, uid: str) -> Any:
@@ -117,6 +118,8 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
         areas=areas,
         starter_tango=rules.STARTER_TANGO,
         word_of_day=_word_of_day(uid, user, cards, visits, facts),
+        review_card=build_review_card(cards, datetime.now(timezone.utc)),
+        total_tango=len(cards),
     )
 
 

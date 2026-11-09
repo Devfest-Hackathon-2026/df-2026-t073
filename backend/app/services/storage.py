@@ -2,6 +2,7 @@ import base64
 import binascii
 import logging
 import uuid
+from datetime import timedelta
 from urllib.parse import quote
 
 import anyio
@@ -87,7 +88,7 @@ def validate_image_bytes(image_bytes: bytes, mime_type: str) -> str:
     return canonical_mime
 
 
-def _resolve_bucket_name() -> str:
+def resolve_bucket_name() -> str:
     if settings.GCS_BUCKET_NAME:
         return settings.GCS_BUCKET_NAME.removeprefix("gs://").strip("/")
     if settings.FIREBASE_PROJECT_ID:
@@ -98,24 +99,72 @@ def _resolve_bucket_name() -> str:
     )
 
 
-def _upload_blob_sync(
+# Backwards compatibility alias
+_resolve_bucket_name = resolve_bucket_name
+
+
+def upload_blob_sync(
     bucket_name: str,
     blob_path: str,
     image_bytes: bytes,
     content_type: str,
+    capture_id: str | None = None,
 ) -> str:
     client = get_storage_client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    download_token = str(uuid.uuid4())
-    blob.metadata = {"firebaseStorageDownloadTokens": download_token}
+    # Upload without permanent public download token
     blob.upload_from_string(image_bytes, content_type=content_type)
 
-    encoded_path = quote(blob_path, safe="")
-    return (
-        f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}"
-        f"/o/{encoded_path}?alt=media&token={download_token}"
-    )
+    # Return a short-lived V4 signed URL, or fall back to authenticated proxy URL
+    try:
+        return blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=1),
+            method="GET",
+        )
+    except Exception:
+        if capture_id:
+            return f"{settings.API_V1_STR}/captures/{capture_id}/image"
+        encoded_path = quote(blob_path, safe="")
+        return f"https://storage.googleapis.com/{bucket_name}/{encoded_path}"
+
+
+# Backwards compatibility alias
+_upload_blob_sync = upload_blob_sync
+
+
+async def download_capture_image(*, uid: str, capture_id: str) -> tuple[bytes, str]:
+    """Download capture image from Cloud Storage, verifying existence."""
+    bucket_name = resolve_bucket_name()
+    client = get_storage_client()
+    bucket = client.bucket(bucket_name)
+
+    for ext, mime in [("jpg", "image/jpeg"), ("png", "image/png"), ("webp", "image/webp")]:
+        blob_path = f"captures/{uid}/{capture_id}.{ext}"
+        blob = bucket.blob(blob_path)
+        exists = await anyio.to_thread.run_sync(blob.exists)
+        if exists:
+            data = await anyio.to_thread.run_sync(blob.download_as_bytes)
+            return data, mime
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capture image not found.")
+
+
+async def delete_capture_blob(*, uid: str, capture_id: str) -> None:
+    """Clean up a capture blob (e.g. if Firestore metadata write fails)."""
+    try:
+        bucket_name = resolve_bucket_name()
+        client = get_storage_client()
+        bucket = client.bucket(bucket_name)
+        for ext in ("jpg", "png", "webp"):
+            blob_path = f"captures/{uid}/{capture_id}.{ext}"
+            blob = bucket.blob(blob_path)
+            if await anyio.to_thread.run_sync(blob.exists):
+                await anyio.to_thread.run_sync(blob.delete)
+                break
+    except Exception:
+        logger.warning("Could not clean up orphaned blob for capture %s", capture_id)
 
 
 async def upload_capture_image(
@@ -125,14 +174,14 @@ async def upload_capture_image(
     image_bytes: bytes,
     mime_type: str,
 ) -> str:
-    """Upload capture image to Cloud Storage and return a persistent download URL."""
-    bucket_name = _resolve_bucket_name()
+    """Upload capture image to Cloud Storage and return a safe short-lived/authenticated URL."""
+    bucket_name = resolve_bucket_name()
     ext = _ALLOWED_MIME_TYPES[mime_type]
     blob_path = f"captures/{uid}/{capture_id}.{ext}"
 
     try:
         return await anyio.to_thread.run_sync(
-            lambda: _upload_blob_sync(bucket_name, blob_path, image_bytes, mime_type)
+            lambda: upload_blob_sync(bucket_name, blob_path, image_bytes, mime_type, capture_id=capture_id)
         )
     except GoogleAuthError as exc:
         logger.exception("Cloud Storage authentication failed for gs://%s/%s", bucket_name, blob_path)
@@ -152,3 +201,4 @@ async def upload_capture_image(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to store image in Cloud Storage.",
         ) from exc
+

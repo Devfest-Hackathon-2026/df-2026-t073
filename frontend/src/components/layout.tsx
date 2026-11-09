@@ -37,12 +37,14 @@ export function Screen({
   scroll = true,
   footer,
   edges = ['top', 'bottom'],
+  refreshControl,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   /** Pinned under the scroll area (e.g. a main action button). */
   footer?: React.ReactNode;
   edges?: Edge[];
+  refreshControl?: React.ReactElement;
 }): React.JSX.Element {
   return (
     <SafeAreaView style={base.screen} edges={edges}>
@@ -50,6 +52,7 @@ export function Screen({
         <ScrollView
           contentContainerStyle={base.content}
           keyboardShouldPersistTaps="handled"
+          refreshControl={refreshControl}
         >
           {children}
         </ScrollView>

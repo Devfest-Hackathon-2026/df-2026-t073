@@ -84,6 +84,16 @@ class WordOfDay(BaseModel):
     reason: WordReason
 
 
+class ReviewCardResponse(BaseModel):
+    """Small review card on the Today screen."""
+
+    due_count: int
+    minutes: int
+    areas: list[str] = []
+    sample: list[FlashcardResponse] = []
+    more_count: int = 0
+
+
 class TodayResponse(BaseModel):
     user_name: str
     up_next: Visit | None = None
@@ -91,3 +101,5 @@ class TodayResponse(BaseModel):
     areas: list[MapArea]
     starter_tango: list[JpName]
     word_of_day: WordOfDay | None = None
+    review_card: ReviewCardResponse | None = None
+    total_tango: int = 0

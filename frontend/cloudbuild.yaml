@@ -9,6 +9,7 @@ steps:
   - name: 'node:22'
     dir: 'frontend'
     entrypoint: 'sh'
+    secretEnv: ['GOOGLE_MAPS_API_KEY']
     args:
       - '-c'
       - |
@@ -23,8 +24,13 @@ steps:
         EOF
         echo "Generated frontend/.env successfully (USE_MOCKS=false)"
 
+        MAPS_KEY="$$GOOGLE_MAPS_API_KEY"
+        if [ -z "$$MAPS_KEY" ]; then
+          MAPS_KEY="${_GOOGLE_MAPS_API_KEY}"
+        fi
+
         cat <<EOF > ../.env
-        GOOGLE_MAPS_API_KEY=${_GOOGLE_MAPS_API_KEY}
+        GOOGLE_MAPS_API_KEY=$$MAPS_KEY
         EOF
         echo "Generated root .env for Android Google Maps"
 
@@ -39,32 +45,39 @@ steps:
     dir: 'frontend/android'
     entrypoint: './gradlew'
     args: ['assembleRelease', '--no-daemon', '--stacktrace']
-    env:
-      - 'GOOGLE_MAPS_API_KEY=${_GOOGLE_MAPS_API_KEY}'
+    secretEnv: ['GOOGLE_MAPS_API_KEY']
 
   # 5. Distribute Android APK exclusively via Firebase App Distribution
   - name: 'node:22'
     dir: 'frontend'
-    entrypoint: 'npx'
+    entrypoint: 'sh'
     args:
-      - '--yes'
-      - 'firebase-tools@latest'
-      - 'appdistribution:distribute'
-      - 'android/app/build/outputs/apk/release/app-release.apk'
-      - '--app'
-      - '${_FIREBASE_ANDROID_APP_ID}'
-      - '--groups'
-      - '${_TESTER_GROUPS}'
-      - '--release-notes'
-      - 'Automated Android build from commit $SHORT_SHA'
+      - '-c'
+      - |
+        TOKEN_ARG=""
+        if [ -n "${_FIREBASE_TOKEN}" ]; then
+          TOKEN_ARG="--token ${_FIREBASE_TOKEN}"
+        fi
+        npx --yes firebase-tools@latest appdistribution:distribute \
+          android/app/build/outputs/apk/release/app-release.apk \
+          --app '${_FIREBASE_ANDROID_APP_ID}' \
+          --groups '${_TESTER_GROUPS}' \
+          --release-notes "Automated Android build from commit $SHORT_SHA" \
+          $$TOKEN_ARG
 
 options:
   logging: CLOUD_LOGGING_ONLY
   machineType: 'E2_HIGHCPU_8'
+
+availableSecrets:
+  secretManager:
+    - versionName: 'projects/$PROJECT_ID/secrets/GOOGLE_MAPS_API_KEY/versions/latest'
+      env: 'GOOGLE_MAPS_API_KEY'
   
 substitutions:
   _FIREBASE_ANDROID_APP_ID: '1:166488207235:android:30da40c2a9509a1d2990b6'
   _TESTER_GROUPS: 'hackathon-testers'
+  _FIREBASE_TOKEN: ''
   _API_BASE_URL: 'https://fastapi-backend-ekebktvkka-de.a.run.app'
   _FIREBASE_PROJECT_ID: 'project-79470ae0-a7db-4972-b22'
   _FIREBASE_AUTH_DOMAIN: 'project-79470ae0-a7db-4972-b22.firebaseapp.com'

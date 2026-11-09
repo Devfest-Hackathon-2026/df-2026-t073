@@ -215,7 +215,6 @@ export function CaptureScreen({
   // Picked boxes in the order they were touched; several join into one word.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const dragged = useRef<string[]>([]);
-  const dragMoved = useRef(false);
   // Live aiming: upright camera frame size, and Tango the user already has.
   const [liveSize, setLiveSize] = useState<Size | null>(null);
   const owned = useRef(new Map<string, string>());
@@ -334,15 +333,15 @@ export function CaptureScreen({
   // Frozen photo: tap a box to pick it; drag across boxes to join them in
   // the order touched (text only, since joined object names make no sense).
   const onPickStart = (x: number, y: number) => {
-    dragMoved.current = false;
     const item = boxAt(x, y);
     dragged.current = item ? [item.item_id] : [];
     if (item) {
       setSelectedIds([item.item_id]);
+    } else {
+      setSelectedIds([]);
     }
   };
   const onPickMove = (x: number, y: number) => {
-    dragMoved.current = true;
     const item = boxAt(x, y);
     if (!item || dragged.current.includes(item.item_id)) {
       return;
@@ -351,18 +350,7 @@ export function CaptureScreen({
       mode === 'text' ? [...dragged.current, item.item_id] : [item.item_id];
     setSelectedIds(dragged.current);
   };
-  const onPickEnd = (x: number, y: number) => {
-    if (dragMoved.current || dragged.current.length > 0 || !found) {
-      return;
-    }
-    // A tap between boxes: the nearest one.
-    const item = pickAimed(found.items, photoSize ?? size, size, { x, y });
-    if (item) {
-      setSelectedIds([item.item_id]);
-    }
-  };
-
-  // Each live frame: outline Japanese words; the one at the center can be caught.
+  // Each live frame outlines Japanese words; they are selectable only after a photo.
   liveRef.current = (read: LiveRead) => {
     if (phase !== 'live' || mode !== 'text' || size.width === 0) {
       return;
@@ -568,11 +556,13 @@ export function CaptureScreen({
       const kind = mode === 'text' ? 'text' : 'object';
       const items = result.detected_items.filter(i => i.item_type === kind);
       setFound({ captureId: result.capture_id, items });
-      // Pre-pick what the user aimed at; tap or drag on the photo to change it.
-      const first = pickAimed(items, shot ?? size, size);
-      if (first) {
-        setSelectedIds([first.item_id]);
-      } else {
+      if (mode === 'objects') {
+        const first = pickAimed(items, shot ?? size, size);
+        if (first) {
+          setSelectedIds([first.item_id]);
+        }
+      }
+      if (items.length === 0) {
         setError(
           mode === 'text'
             ? copy.capture.noTextFound
@@ -689,6 +679,21 @@ export function CaptureScreen({
       await onShutterLive();
       return;
     }
+    const textItems: DetectedItem[] =
+      mode === 'text'
+        ? frame.items
+            .filter(item => item.item_type === 'text')
+            .map(item => ({
+              item_id: item.item_id,
+              item_type: item.item_type,
+              source_label: item.source_label,
+              japanese_text: item.japanese_text,
+              reading: item.reading,
+              english_gloss: item.english_gloss,
+              confidence: item.confidence,
+              bounding_box: item.bounding_box,
+            }))
+        : [];
     let uri: string | null = null;
     if (cameraReady) {
       try {
@@ -699,6 +704,12 @@ export function CaptureScreen({
       }
     }
     freeze(uri);
+    if (mode === 'text') {
+      setFound({ captureId: 'cap_mock', items: textItems });
+      if (textItems.length === 0) {
+        setError(copy.capture.noTextFound);
+      }
+    }
   };
 
   const onImport = async () => {
@@ -763,6 +774,7 @@ export function CaptureScreen({
 
   const examples = (tango: Tango) =>
     orderExamples(tango.examples, settings.phrasesFirst);
+  const photoSelection = live || (mode === 'text' && found !== null);
 
   return (
     <View style={styles.root} onLayout={onLayout}>
@@ -832,9 +844,16 @@ export function CaptureScreen({
             return (
               <Pressable
                 key={item.item_id}
-                accessibilityRole="button"
-                accessibilityLabel={copy.capture.lookUp(item.japanese_text)}
-                onPress={() => openDetection(item)}
+                accessibilityRole={mode === 'text' ? undefined : 'button'}
+                accessibilityLabel={
+                  mode === 'text'
+                    ? undefined
+                    : copy.capture.lookUp(item.japanese_text)
+                }
+                onPress={
+                  mode === 'text' ? undefined : () => openDetection(item)
+                }
+                pointerEvents={mode === 'text' ? 'none' : 'auto'}
                 style={[
                   styles.detection,
                   item.known
@@ -878,7 +897,7 @@ export function CaptureScreen({
         : null}
 
       {/* Live photo: every box dotted; tap one, or drag across several to join */}
-      {phase === 'frozen' && live && found && size.width > 0
+      {phase === 'frozen' && photoSelection && found && size.width > 0
         ? found.items.map(item => {
             if (item.bounding_box.length === 0) {
               return null;
@@ -916,7 +935,7 @@ export function CaptureScreen({
             );
           })
         : null}
-      {phase === 'frozen' && live ? (
+      {phase === 'frozen' && photoSelection ? (
         <View
           style={StyleSheet.absoluteFill}
           accessibilityLabel={copy.capture.frozenA11y}
@@ -927,9 +946,6 @@ export function CaptureScreen({
           }
           onResponderMove={e =>
             onPickMove(e.nativeEvent.locationX, e.nativeEvent.locationY)
-          }
-          onResponderRelease={e =>
-            onPickEnd(e.nativeEvent.locationX, e.nativeEvent.locationY)
           }
         />
       ) : null}
@@ -1023,7 +1039,7 @@ export function CaptureScreen({
           </Pressable>
         ) : null}
 
-        {phase === 'frozen' && live ? (
+        {phase === 'frozen' && photoSelection ? (
           <>
             {picked.length > 0 ? (
               <View style={styles.hint}>
@@ -1055,6 +1071,10 @@ export function CaptureScreen({
                     : copy.capture.pick}
                 </Text>
               </View>
+            ) : found && found.items.length > 0 ? (
+              <View style={styles.hint}>
+                <Text style={styles.hintText}>{copy.capture.selectText}</Text>
+              </View>
             ) : null}
             <View style={base.row}>
               <Button
@@ -1063,24 +1083,22 @@ export function CaptureScreen({
                 style={base.grow}
                 onPress={unfreeze}
               />
-              <Button
-                label={
-                  busy
-                    ? copy.capture.reading
-                    : picked.length === 0
-                    ? copy.capture.catch
-                    : pickedSaved
-                    ? copy.capture.saved
-                    : saving !== null
-                    ? copy.capture.saving
-                    : copy.capture.catch
-                }
-                style={base.grow}
-                disabled={
-                  busy || picked.length === 0 || pickedSaved || saving !== null
-                }
-                onPress={catchPicked}
-              />
+              {picked.length > 0 ? (
+                <Button
+                  label={
+                    busy
+                      ? copy.capture.reading
+                      : pickedSaved
+                      ? copy.capture.saved
+                      : saving !== null
+                      ? copy.capture.saving
+                      : copy.capture.catch
+                  }
+                  style={base.grow}
+                  disabled={busy || pickedSaved || saving !== null}
+                  onPress={catchPicked}
+                />
+              ) : null}
             </View>
           </>
         ) : phase === 'frozen' ? (
@@ -1142,7 +1160,7 @@ export function CaptureScreen({
                       {copy.capture.caught}
                     </IconLabel>
                   </View>
-                ) : centered ? (
+                ) : centered && mode !== 'text' ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={copy.capture.catchWord(centered.japanese_text)}

@@ -68,6 +68,8 @@ class HistoryEvent(BaseModel):
     # Links caught/seen_again events to their sighting, so Undo can remove both.
     sighting_id: str | None = None
     strength_after: int = 0
+    # Store prior review_stats so undoing a sighting restores the schedule
+    review_stats_before: ReviewStats | None = None
 
 
 class FlashcardCreateRequest(BaseModel):

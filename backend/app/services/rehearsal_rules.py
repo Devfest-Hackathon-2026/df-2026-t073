@@ -25,6 +25,23 @@ MAX_TANGO = 4
 TTS_RATE: dict[str, float] = {"slower": 0.8, "natural": 1.0}
 TTS_VOICE = "ja-JP-Neural2-B"
 
+SUPPORTED_LANGUAGES: frozenset[str] = frozenset(
+    {"english", "japanese", "spanish", "french", "german", "korean", "chinese", "italian", "portuguese"}
+)
+
+
+def normalize_language(language: str) -> str:
+    """Validate and normalize a user-supplied language string.
+
+    Returns the canonical capitalized name (e.g. 'English'). Raises ValueError if unsupported.
+    """
+    clean = str(language or "").strip().lower()
+    if clean not in SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"Unsupported language '{language}'. Supported: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
+        )
+    return clean.capitalize()
+
 
 def _jp(raw: dict[str, Any] | None) -> JpName:
     raw = raw or {}

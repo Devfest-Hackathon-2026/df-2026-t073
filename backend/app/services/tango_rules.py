@@ -6,8 +6,8 @@ No I/O here, so these are unit-tested directly (tests/test_tango_rules.py).
 import hashlib
 import unicodedata
 import uuid
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timezone
+from typing import Any, Literal
 
 from app.schemas.flashcard import HistoryEvent, Sighting
 
@@ -39,6 +39,36 @@ def apply_review(strength: int, rating: Literal["again", "good", "easy"]) -> int
 def apply_sighting(strength: int) -> int:
     """Strength after spotting the Tango again in the real world: +1, max 4."""
     return _clamp(strength + SIGHTING_DELTA)
+
+
+SIGHTING_COOLDOWN_SECONDS = 3600  # 1 hour cooldown for repeated sightings at same place
+RAPID_SPAM_COOLDOWN_SECONDS = 300  # 5 minutes cooldown regardless of location
+
+
+def can_increase_strength_from_sighting(
+    sightings: list[Sighting],
+    new_place_id: str | None = None,
+    now: datetime | None = None,
+    cooldown_seconds: int = SIGHTING_COOLDOWN_SECONDS,
+) -> bool:
+    """Guard against strength farming.
+
+    Returns False if a sighting was recorded too recently, preventing rapid re-catches
+    from boosting strength without real spaced learning.
+    """
+    if not sightings:
+        return True
+    current_time = now or datetime.now(timezone.utc)
+    latest = max(sightings, key=lambda s: s.seen_at)
+    time_diff = (current_time - latest.seen_at).total_seconds()
+    if time_diff < RAPID_SPAM_COOLDOWN_SECONDS:
+        return False
+    if time_diff < cooldown_seconds:
+        if new_place_id and latest.place_id and new_place_id == latest.place_id:
+            return False
+        if not new_place_id and not latest.place_id:
+            return False
+    return True
 
 
 def is_mastered(strength: int) -> bool:
@@ -86,6 +116,7 @@ def history_event(
     detail: str = "",
     sighting_id: str | None = None,
     strength_after: int,
+    review_stats_before: Any = None,
 ) -> HistoryEvent:
     return HistoryEvent(
         type=type,
@@ -93,4 +124,5 @@ def history_event(
         detail=detail,
         sighting_id=sighting_id,
         strength_after=strength_after,
+        review_stats_before=review_stats_before,
     )

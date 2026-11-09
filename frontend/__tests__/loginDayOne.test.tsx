@@ -5,10 +5,15 @@ import { LoginScreen } from '../src/screens/auth/LoginScreen';
 
 const mockSignIn = jest.fn(async () => undefined);
 const mockSignUp = jest.fn(async () => undefined);
+const mockSignInWithGoogle = jest.fn(async () => null);
 const mockUpdate = jest.fn();
 
 jest.mock('../src/state/AuthContext', () => ({
-  useAuth: () => ({ signIn: mockSignIn, signUp: mockSignUp }),
+  useAuth: () => ({
+    signIn: mockSignIn,
+    signUp: mockSignUp,
+    signInWithGoogle: mockSignInWithGoogle,
+  }),
 }));
 
 jest.mock('../src/state/SettingsContext', () => ({
@@ -47,6 +52,7 @@ describe('account creation onboarding', () => {
   beforeEach(() => {
     mockSignIn.mockClear();
     mockSignUp.mockClear();
+    mockSignInWithGoogle.mockClear();
     mockUpdate.mockClear();
   });
 
@@ -63,12 +69,45 @@ describe('account creation onboarding', () => {
     expect(mockUpdate).toHaveBeenCalledWith({ dayOne: true });
   });
 
-  test('existing account sign-in does not reset day one', async () => {
+  test('existing account sign-in does not reset day one and marks onboarded', async () => {
     const tree = await renderLogin();
     await fill(tree);
     await press(tree, 'Sign in');
 
     expect(mockSignIn).toHaveBeenCalledWith('new@example.com', 'password123');
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith({ onboarded: true });
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ dayOne: true }),
+    );
+  });
+
+  test('new Google account starts on day one', async () => {
+    const now = new Date().toISOString();
+    mockSignInWithGoogle.mockResolvedValueOnce({
+      metadata: { creationTime: now, lastSignInTime: now },
+    } as any);
+
+    const tree = await renderLogin();
+    await press(tree, 'Continue with Google');
+
+    expect(mockSignInWithGoogle).toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith({ dayOne: true });
+  });
+
+  test('existing Google account marks onboarded without resetting day one', async () => {
+    const created = new Date(Date.now() - 100000).toISOString();
+    const now = new Date().toISOString();
+    mockSignInWithGoogle.mockResolvedValueOnce({
+      metadata: { creationTime: created, lastSignInTime: now },
+    } as any);
+
+    const tree = await renderLogin();
+    await press(tree, 'Continue with Google');
+
+    expect(mockSignInWithGoogle).toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith({ onboarded: true });
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ dayOne: true }),
+    );
   });
 });

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from app.schemas.flashcard import (
     FlashcardResponse,
 )
+from app.schemas.review import ReviewCardResponse
 from app.services.review_rules.cards import effective_stage
 from app.services.review_rules.stages import STAGE_ORDER
 from app.services.tango_rules import clean_place_name
@@ -112,6 +113,26 @@ def pick_session_cards(
     rest = [c for c in chosen if not is_due(c, now)]
     rest.sort(key=lambda c: (c.strength, _aware(c.review_stats.next_review_at)))
     return (due + rest)[:limit]
+
+
+SAMPLE_SIZE = 4
+
+
+def build_review_card(
+    cards: list[FlashcardResponse], now: datetime
+) -> ReviewCardResponse:
+    from app.services.review_rules.results import areas_summary
+
+    due = [c for c in cards if is_due(c, now)]
+    due.sort(key=lambda c: (c.strength, _aware(c.review_stats.next_review_at)))
+    return ReviewCardResponse(
+        due_count=len(due),
+        minutes=estimate_minutes(min(len(due), SESSION_SIZE)),
+        areas=[a.area for a in areas_summary(due)][:3],
+        sample=due[:SAMPLE_SIZE],
+        more_count=max(0, len(due) - SAMPLE_SIZE),
+        next_due_at=next_due_at(cards, now),
+    )
 
 
 def order_session_cards(cards: list[FlashcardResponse]) -> list[FlashcardResponse]:

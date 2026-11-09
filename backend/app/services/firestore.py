@@ -304,7 +304,10 @@ async def add_sighting(
     """
     now = datetime.now(timezone.utc)
     if recognized:
-        strength = tango_rules.apply_sighting(card.strength)
+        if tango_rules.can_increase_strength_from_sighting(card.sightings, sighting.place_id, now):
+            strength = tango_rules.apply_sighting(card.strength)
+        else:
+            strength = card.strength
     else:
         strength = tango_rules.apply_review(card.strength, "again")
     event = tango_rules.history_event(
@@ -313,6 +316,7 @@ async def add_sighting(
         detail=sighting.place_name,
         sighting_id=sighting.sighting_id,
         strength_after=strength,
+        review_stats_before=card.review_stats if count_as_review else None,
     )
     backfill = backfill_photo_fields(card, sighting, bounding_box)
     updates: dict[str, Any] = {
@@ -374,15 +378,23 @@ async def remove_sighting(
         await delete_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
         return None
 
+    removed_event = next((e for e in card.history if e.sighting_id == sighting_id), None)
     history: list[HistoryEvent] = [e for e in card.history if e.sighting_id != sighting_id]
     strength = history[-1].strength_after if history else 0
+    if removed_event and removed_event.review_stats_before is not None:
+        stats = removed_event.review_stats_before.model_copy(
+            update={"mastered": tango_rules.is_mastered(strength)}
+        )
+    else:
+        stats = card.review_stats.model_copy(update={"mastered": tango_rules.is_mastered(strength)})
+
     try:
         await _flashcard_ref(db, uid, flashcard_id).update(
             {
                 "sightings": [s.model_dump(mode="python") for s in sightings],
                 "history": [e.model_dump(mode="python") for e in history],
                 "strength": strength,
-                "review_stats.mastered": tango_rules.is_mastered(strength),
+                "review_stats": stats.model_dump(mode="python"),
             }
         )
     except (GoogleAPICallError, GoogleAuthError) as exc:
@@ -392,7 +404,6 @@ async def remove_sighting(
             detail="Failed to remove sighting.",
         ) from exc
 
-    stats = card.review_stats.model_copy(update={"mastered": tango_rules.is_mastered(strength)})
     return card.model_copy(
         update={"sightings": sightings, "history": history, "strength": strength, "review_stats": stats}
     )
@@ -422,6 +433,7 @@ async def list_flashcards(
     mastered: bool | None = None,
     capture_id: str | None = None,
     place_id: str | None = None,
+    since: datetime | None = None,
     limit: int = 100,
 ) -> list[FlashcardResponse]:
     """List the user's flashcards, filtering in memory to avoid composite index requirements.
@@ -434,7 +446,7 @@ async def list_flashcards(
         .collection(FLASHCARDS_SUBCOLLECTION)
         .order_by("created_at", direction=Query.DESCENDING)
     )
-    if not due_only and mastered is None and not capture_id and not place_id:
+    if not due_only and mastered is None and not capture_id and not place_id and since is None:
         col_ref = col_ref.limit(limit)
     now = datetime.now(timezone.utc)
     try:
@@ -458,6 +470,21 @@ async def list_flashcards(
                 if due_at.tzinfo is None:
                     due_at = due_at.replace(tzinfo=timezone.utc)
                 if due_at > now:
+                    continue
+            if since:
+                since_utc = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
+                timestamps = [card.created_at]
+                if card.review_stats.last_reviewed_at:
+                    timestamps.append(card.review_stats.last_reviewed_at)
+                for s in card.sightings:
+                    timestamps.append(s.seen_at)
+                for h in card.history:
+                    timestamps.append(h.at)
+                latest_activity = max(
+                    (t if t.tzinfo else t.replace(tzinfo=timezone.utc))
+                    for t in timestamps
+                )
+                if latest_activity <= since_utc:
                     continue
             cards.append(card)
             if len(cards) >= limit:
@@ -666,18 +693,28 @@ async def save_distractors(
     """
     if not distractors:
         return True
-    batch = db.batch()
-    for flashcard_id, d in distractors.items():
-        updates: dict[str, Any] = {"distractors": d.model_dump(mode="python")}
-        if d.synonyms:
-            updates["meaning_synonyms"] = list(d.synonyms)
-        batch.update(_flashcard_ref(db, uid, flashcard_id), updates)
     try:
+        batch = db.batch()
+        for flashcard_id, d in distractors.items():
+            updates: dict[str, Any] = {"distractors": d.model_dump(mode="python")}
+            if d.synonyms:
+                updates["meaning_synonyms"] = list(d.synonyms)
+            batch.set(_flashcard_ref(db, uid, flashcard_id), updates, merge=True)
         await batch.commit()
-    except (GoogleAPICallError, GoogleAuthError):
-        logger.exception("Failed to cache distractors for uid=%s", uid)
-        return False
-    return True
+        return True
+    except (GoogleAPICallError, GoogleAuthError, Exception):
+        logger.warning("Batch distractor save failed for uid=%s; attempting individual saves", uid)
+        any_success = False
+        for flashcard_id, d in distractors.items():
+            updates = {"distractors": d.model_dump(mode="python")}
+            if d.synonyms:
+                updates["meaning_synonyms"] = list(d.synonyms)
+            try:
+                await _flashcard_ref(db, uid, flashcard_id).set(updates, merge=True)
+                any_success = True
+            except Exception:
+                logger.warning("Failed to update distractors on card %s for uid=%s", flashcard_id, uid)
+        return any_success
 
 
 async def save_related_vocab(

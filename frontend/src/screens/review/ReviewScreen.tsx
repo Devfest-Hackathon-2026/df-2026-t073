@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
+  RefreshControl,
   type ScrollViewInstance,
   StyleSheet,
   Text,
@@ -25,7 +26,7 @@ import {
   type TangoFilter,
   type TangoSort,
 } from '../../features/tango/sortFilter';
-import { useAsync } from '../../hooks/useAsync';
+import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { base } from '../../styles/base';
@@ -64,19 +65,23 @@ function collectionIcon(c: Collection) {
  */
 export function ReviewScreen(): React.JSX.Element {
   const nav = useRootNav();
-  const summary = useAsync(getReviewSummary);
-  const card = useAsync(getReviewCard);
-  const lists = useAsync(listLists);
+  const summary = useCachedAsync('review:summary', getReviewSummary);
+  const card = useCachedAsync('review:card', getReviewCard);
+  const lists = useCachedAsync('lists:all', listLists);
   const [query, setQuery] = useState('');
-  const tango = useAsync(() => listTango(query), query);
+  const tango = useCachedAsync(
+    `tango:list:${query}`,
+    () => listTango(query),
+    query,
+  );
   // Every Tango, unaffected by the search, for the collection sheet.
-  const everything = useAsync(() => listTango());
+  const everything = useCachedAsync('tango:list:all', () => listTango());
   useReloadOnFocus(
-    summary.reload,
-    card.reload,
-    lists.reload,
-    tango.reload,
-    everything.reload,
+    summary.revalidate,
+    card.revalidate,
+    lists.revalidate,
+    tango.revalidate,
+    everything.revalidate,
   );
   const [opened, setOpened] = useState<Collection | null>(null);
   const [naming, setNaming] = useState(false);
@@ -88,6 +93,22 @@ export function ReviewScreen(): React.JSX.Element {
   const [listId, setListId] = useState(ANY);
   const [picking, setPicking] = useState<Picking>(null);
   const [page, setPage] = useState(1);
+
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await Promise.all([
+        summary.reload(),
+        card.reload(),
+        lists.reload(),
+        tango.reload(),
+        everything.reload(),
+      ]);
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [summary, card, lists, tango, everything]);
 
   const scroll = useRef<ScrollViewInstance>(null);
   // Where the list starts, and how tall the pinned controls are over it.
@@ -129,6 +150,14 @@ export function ReviewScreen(): React.JSX.Element {
         contentContainerStyle={base.content}
         keyboardShouldPersistTaps="handled"
         stickyHeaderIndices={[STICKY_CONTROLS]}
+        refreshControl={
+          <RefreshControl
+            refreshing={pullRefreshing}
+            onRefresh={onRefresh}
+            colors={[colors.accent]}
+            tintColor={colors.accent}
+          />
+        }
       >
         {/* 0 */}
         <SectionTitle en={copy.review.title} size="title" />

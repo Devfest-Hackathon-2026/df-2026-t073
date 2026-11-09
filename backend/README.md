@@ -189,13 +189,13 @@ Once the server is running at `http://localhost:8000`, open `/docs` for the inte
 | Area | Endpoints |
 | :--- | :--- |
 | Health (no auth) | `GET /`, `GET /healthz`, `GET /readyz` |
-| Account | `GET /api/v1/me` (token claims, synced to `users/{uid}`); `GET`, `PUT /api/v1/me/profile` (name, reading level, home area, stats) |
-| Capture | `POST /api/v1/captures` (JSON base64 or raw image), `GET /api/v1/captures`, `GET /api/v1/captures/{id}` |
-| Tango | `POST /api/v1/flashcards/generate`, `GET /api/v1/flashcards`, `GET`, `PATCH`, `DELETE /api/v1/flashcards/{id}`, `POST .../review`, `POST .../expand`, `POST .../sightings`, `DELETE .../sightings/{sighting_id}` |
+| Account | `GET /api/v1/me` (token claims), `DELETE /api/v1/me` (purge user data); `GET`, `PUT /api/v1/me/profile` (name, reading level, home area, stats); `GET`, `PUT`, `DELETE /api/v1/me/favorite-places/{place_id}` |
+| Capture | `POST /api/v1/captures` (JSON base64 or raw image), `GET /api/v1/captures`, `GET /api/v1/captures/{id}`, `GET /api/v1/captures/{id}/image` |
+| Tango | `POST /api/v1/flashcards/generate`, `GET /api/v1/flashcards`, `GET`, `PATCH`, `DELETE /api/v1/flashcards/{id}`, `POST .../review`, `POST .../expand`, `POST .../sightings`, `DELETE .../sightings/{sighting_id}`, `DELETE .../sentences/{sentence_id}` |
 | Review | `GET /api/v1/review/card`, `/summary`, `/session`, `/session/{session_id}/result` |
 | Places | `GET /api/v1/places/search`, `/places/nearby`, `/places/{place_id}` |
 | Visits and Today | `GET`, `POST /api/v1/visits`, `DELETE /api/v1/visits/{visit_id}`, `GET /api/v1/today` |
-| Prepare and Rehearse | `GET /api/v1/places/{place_id}/briefing`, `POST /api/v1/rehearsals`, `POST /api/v1/rehearsals/{id}/turns/{turn_id}`, `GET /api/v1/rehearsals/{id}/results`, `POST /api/v1/speech/tts` |
+| Prepare and Rehearse | `GET /api/v1/places/{place_id}/briefing`, `POST /api/v1/rehearsals`, `POST /api/v1/rehearsals/{id}/turns/{turn_id}`, `POST /api/v1/rehearsals/{id}/turns/{turn_id}/save`, `GET /api/v1/rehearsals/{id}/results`, `POST /api/v1/speech/tts` |
 | Lists | `GET`, `POST /api/v1/lists`, `PATCH`, `DELETE /api/v1/lists/{list_id}` |
 | Dictionary | `GET /api/v1/dictionary/lookup?text=` |
 

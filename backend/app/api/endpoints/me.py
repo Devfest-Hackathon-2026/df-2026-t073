@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Response, status
 
-from app.api.deps import CurrentUser, Db, HttpClient
+from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.place import Place
 from app.schemas.user import ProfileResponse, ProfileUpdateRequest
-from app.services import favorite_places, profile
+from app.services import account_deletion, favorite_places, profile
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -30,7 +30,7 @@ async def list_my_favorite_places(current_user: CurrentUser, db: Db) -> list[Pla
     return await favorite_places.list_favorite_places(db=db, uid=current_user["uid"])
 
 
-@router.put("/favorite-places/{place_id}", response_model=Place)
+@router.put("/favorite-places/{place_id}", response_model=Place, dependencies=[daily_limit("places")])
 async def add_my_favorite_place(
     place_id: str, current_user: CurrentUser, db: Db, http_client: HttpClient
 ) -> Place:
@@ -44,4 +44,11 @@ async def add_my_favorite_place(
 async def remove_my_favorite_place(place_id: str, current_user: CurrentUser, db: Db) -> Response:
     """Un-favorite a place. Doing it for a place that isn't a favorite is fine."""
     await favorite_places.remove_favorite_place(db=db, uid=current_user["uid"], place_id=place_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_account(current_user: CurrentUser, db: Db) -> Response:
+    """Permanently delete user profile, all Tango, captures, visits, and Storage photos."""
+    await account_deletion.delete_user_account(db=db, uid=current_user["uid"])
     return Response(status_code=status.HTTP_204_NO_CONTENT)

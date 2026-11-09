@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -12,6 +13,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
 import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
+import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { type MeSectionId, useRootNav } from '../../navigation/types';
 import { useAuth } from '../../state/AuthContext';
@@ -38,8 +40,20 @@ export function MeScreen(): React.JSX.Element {
   const { height } = useWindowDimensions();
   const { settings } = useSettings();
   const auth = useAuth();
-  const profile = useAsync(getProfile);
-  useReloadOnFocus(profile.reload);
+  const profile = useCachedAsync('user:profile', getProfile, '', {
+    ttlMs: 30 * 60 * 1000,
+  });
+  useReloadOnFocus(profile.revalidate);
+
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await profile.reload();
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [profile]);
 
   const sections: {
     id: MeSectionId;
@@ -64,7 +78,17 @@ export function MeScreen(): React.JSX.Element {
   ];
 
   return (
-    <Screen edges={['top']}>
+    <Screen
+      edges={['top']}
+      refreshControl={
+        <RefreshControl
+          refreshing={pullRefreshing}
+          onRefresh={onRefresh}
+          colors={[colors.accent]}
+          tintColor={colors.accent}
+        />
+      }
+    >
       <SectionTitle en={copy.me.title} size="title" />
       <Loadable state={profile} messages={LINES}>
         {p => (

@@ -1,4 +1,12 @@
 steps:
+  # 0. Run automated tests before build
+  - name: 'python:3.12-slim'
+    dir: 'backend'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'pip install -r requirements.txt pytest pytest-asyncio && python -m pytest tests/'
+
   # 1. Build the backend Docker image
   - name: 'gcr.io/cloud-builders/docker'
     dir: 'backend'
@@ -17,7 +25,7 @@ steps:
       - '--all-tags'
       - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME'
 
-  # 3. Deploy the image to Cloud Run with Firebase, Storage & Gemini configuration
+  # 3. Deploy the image to Cloud Run with guardrails and secrets
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -28,18 +36,22 @@ steps:
       - '--region=$_REGION'
       - '--platform=managed'
       - '--allow-unauthenticated'
+      - '--max-instances=10'
+      - '--concurrency=80'
+      - '--timeout=60s'
       - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB,GCS_BUCKET_NAME=$_GCS_BUCKET_NAME'
-      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest'
+      - '--set-secrets=$_SECRETS_FLAG'
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  
+
 substitutions:
-  _REGION: 'asia-east1'
+  _REGION: 'asia-northeast1'
   _AR_REPO: 'devfest-repo'
   _SERVICE_NAME: 'fastapi-backend'
   _FIRESTORE_DB: '(default)'
-  _GCS_BUCKET_NAME: 'project-79470ae0-a7db-4972-b22.firebasestorage.app'
+  _GCS_BUCKET_NAME: '$PROJECT_ID.firebasestorage.app'
+  _SECRETS_FLAG: 'GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest'
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$COMMIT_SHA'

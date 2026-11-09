@@ -2,12 +2,13 @@ import asyncio
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from pydantic import ValidationError
 
 from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.core.config import settings
 from app.schemas.capture import CaptureResponse, CaptureUploadRequest
+from app.services import storage
 from app.services.firestore import get_capture, list_captures, save_capture
 from app.services.image_orientation import jpeg_orientation, to_display
 from app.services.storage import (
@@ -120,17 +121,21 @@ async def create_capture(
         for item in detected_items:
             item.bounding_box = [to_display(v, orientation) for v in item.bounding_box]
 
-    return await save_capture(
-        db=db,
-        uid=uid,
-        capture_id=capture_id,
-        image_url=image_url,
-        detected_items=detected_items,
-        place_id=place_id,
-        place_name=place_name,
-        lat=lat,
-        lng=lng,
-    )
+    try:
+        return await save_capture(
+            db=db,
+            uid=uid,
+            capture_id=capture_id,
+            image_url=image_url,
+            detected_items=detected_items,
+            place_id=place_id,
+            place_name=place_name,
+            lat=lat,
+            lng=lng,
+        )
+    except Exception:
+        await storage.delete_capture_blob(uid=uid, capture_id=capture_id)
+        raise
 
 
 @router.get("", response_model=list[CaptureResponse])
@@ -151,3 +156,17 @@ async def get_single_capture(
 ) -> CaptureResponse:
     """Get a single uploaded picture and its selectable objects/text."""
     return await get_capture(db=db, uid=current_user["uid"], capture_id=capture_id)
+
+
+@router.get("/{capture_id}/image")
+async def get_capture_image(
+    capture_id: str,
+    current_user: CurrentUser,
+    db: Db,
+) -> Response:
+    """Download a capture photo. Authenticated and strictly restricted to the photo owner."""
+    await get_capture(db=db, uid=current_user["uid"], capture_id=capture_id)
+    image_bytes, media_type = await storage.download_capture_image(
+        uid=current_user["uid"], capture_id=capture_id
+    )
+    return Response(content=image_bytes, media_type=media_type)

@@ -42,13 +42,24 @@ interface PhotoLayerResponse {
   area: string;
 }
 
-interface ReviewCardResponse {
+export interface ReviewCardResponse {
   due_count: number;
   minutes: number;
   areas: string[];
   sample: FlashcardResponse[];
   more_count: number;
   next_due_at?: string | null;
+}
+
+export function toReviewCard(r: ReviewCardResponse): ReviewCard {
+  return {
+    dueCount: r.due_count,
+    minutes: r.minutes,
+    areas: r.areas,
+    sample: r.sample.map(flashcardToTango),
+    moreCount: r.more_count,
+    nextDueAt: r.next_due_at ?? null,
+  };
 }
 
 interface ReviewSummaryResponse {
@@ -288,14 +299,7 @@ export const getReviewCard = pick(
   () => mockDelay<ReviewCard>(REVIEW_CARD),
   async () => {
     const r = await request<ReviewCardResponse>(`${API_V1}/review/card`);
-    return {
-      dueCount: r.due_count,
-      minutes: r.minutes,
-      areas: r.areas,
-      sample: r.sample.map(flashcardToTango),
-      moreCount: r.more_count,
-      nextDueAt: r.next_due_at ?? null,
-    };
+    return toReviewCard(r);
   },
 );
 
@@ -392,9 +396,19 @@ export const submitAnswer = pick(
     if (!sessionId) {
       return null;
     }
+    // Optimistic offline grading: flips with 'again' are marked incorrect, others correct
+    const fallbackVerdict: AnswerVerdictResponse = {
+      exercise_id: exerciseId,
+      correct: answer.kind === 'flip' ? answer.rating !== 'again' : true,
+      stale: false,
+    };
     const r = await request<AnswerVerdictResponse>(
       `${API_V1}/review/session/${encodeURIComponent(sessionId)}/answers`,
-      { method: 'POST', body: { exercise_id: exerciseId, ...answer } },
+      {
+        method: 'POST',
+        body: { exercise_id: exerciseId, ...answer },
+        outboxFallback: fallbackVerdict,
+      },
     );
     return { exerciseId: r.exercise_id, correct: r.correct, stale: r.stale };
   },

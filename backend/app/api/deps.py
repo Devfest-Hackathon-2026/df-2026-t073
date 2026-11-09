@@ -104,10 +104,10 @@ HttpClient = Annotated[httpx.AsyncClient, Depends(get_http)]
 
 
 def daily_limit(kind: str) -> Any:
-    """Route dependency: counts the call and returns 429 once today's limit is used."""
+    """Route dependency: verifies today's limit hasn't been exhausted before route starts."""
     from app.services import usage
 
     async def check(current_user: CurrentUser, db: Db) -> None:
-        await usage.charge(db=db, uid=current_user["uid"], kind=kind)
+        await usage.check_limit(db=db, uid=current_user["uid"], kind=kind)
 
     return Depends(check)

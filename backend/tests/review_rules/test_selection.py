@@ -3,6 +3,7 @@ from datetime import timedelta
 from app.services.review_rules.selection import (
     PLACE_CUE_COLLECTION,
     SESSION_SIZE,
+    build_review_card,
     next_due_at,
     order_session_cards,
     pick_session_cards,
@@ -80,3 +81,17 @@ class TestPicking:
             "mcq",
             "fill",
         ]
+
+    def test_build_review_card(self) -> None:
+        cards = [
+            card("c1", strength=0),
+            card("c2", strength=1),
+            card("c3", due_in=timedelta(days=3)),
+        ]
+        rc = build_review_card(cards, NOW)
+        assert rc.due_count == 2
+        assert rc.minutes > 0
+        assert len(rc.sample) == 2
+        assert rc.sample[0].flashcard_id == "c1"
+        assert rc.more_count == 0
+        assert rc.next_due_at is None

@@ -26,6 +26,7 @@ JST = timezone(timedelta(hours=9))
 LABELS = {
     "vision": "photo reads",
     "catch": "new Tango",
+    "expand": "word expansions",
     "briefing": "visit briefings",
     "rehearsal": "rehearsals",
     "reply": "rehearsal replies",
@@ -53,6 +54,27 @@ def limit_message(kind: str) -> str:
     return f"Daily limit reached for {LABELS.get(kind, kind)}. Try again tomorrow."
 
 
+async def check_limit(*, db: AsyncClient, uid: str, kind: str, now: datetime | None = None) -> None:
+    """Raises 429 when today's limit is already reached, without incrementing the counter."""
+    limit = limit_for(kind)
+    if limit <= 0:
+        return
+    ref = (
+        db.collection(USERS_COLLECTION)
+        .document(uid)
+        .collection(USAGE_SUBCOLLECTION)
+        .document(usage_key(now or datetime.now(timezone.utc)))
+    )
+    try:
+        snap = await ref.get()
+        count = int((snap.to_dict() or {}).get(kind, 0)) if getattr(snap, "exists", True) and hasattr(snap, "to_dict") else 0
+    except (GoogleAPICallError, GoogleAuthError, AttributeError):
+        logger.warning("Usage counter unavailable; allowing %s for %s", kind, uid)
+        return
+    if count >= limit:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail=limit_message(kind))
+
+
 async def charge(*, db: AsyncClient, uid: str, kind: str, now: datetime | None = None) -> None:
     """Counts one call; raises 429 when today's limit is used up."""
     limit = limit_for(kind)
@@ -68,7 +90,7 @@ async def charge(*, db: AsyncClient, uid: str, kind: str, now: datetime | None =
         await ref.set({kind: Increment(1)}, merge=True)
         snap = await ref.get()
         count = int((snap.to_dict() or {}).get(kind, 0))
-    except (GoogleAPICallError, GoogleAuthError):
+    except (GoogleAPICallError, GoogleAuthError, AttributeError):
         logger.warning("Usage counter unavailable; allowing %s for %s", kind, uid)
         return
     if is_over(count, limit):

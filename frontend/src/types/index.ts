@@ -158,6 +158,8 @@ export interface TodaySummary {
   areas: MapArea[];
   starterTango: JpText[];
   wordOfDay: WordOfDay | null;
+  reviewCard?: ReviewCard | null;
+  totalTango?: number;
 }
 
 export interface ReviewCard {

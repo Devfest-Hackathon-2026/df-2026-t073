@@ -21,6 +21,9 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
+import { clearCache } from '../cache/storage';
+import { clearOutbox } from '../cache/outbox';
+import { clearEtagCache } from '../api/client';
 import {
   FIREBASE_CONFIG,
   GOOGLE_WEB_CLIENT_ID,
@@ -261,9 +264,11 @@ export async function signInWithGoogle(): Promise<User | null> {
   return result.user;
 }
 
-/** Signs out the current user session and removes persisted auth. */
+/** Signs out the current user session and removes persisted auth, cache & outbox queue. */
 export async function signOutUser(): Promise<void> {
   const instance = getAuthInstance();
+  clearEtagCache();
+  await Promise.all([clearCache(), clearOutbox()]);
   if (!instance) {
     return;
   }

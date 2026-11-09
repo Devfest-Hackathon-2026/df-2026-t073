@@ -19,9 +19,14 @@ These are called as-is. The frontend converts the responses to its own types.
 |---|---|---|---|---|
 | GET | `/healthz` | – | `{ status: "ok" }` | Me › Developer › Check backend health (`api/health.ts`) |
 | GET | `/api/v1/me` | – | `{ uid, email, name, picture, email_verified }` | not used yet |
+| DELETE | `/api/v1/me` | – | 204 | Purges user profile, Tango, visits, and Storage photos |
+| GET | `/api/v1/me/favorite-places` | – | `Place[]` | `listFavoritePlaces()` |
+| PUT | `/api/v1/me/favorite-places/{place_id}` | – | `Place` | `addFavoritePlace()` |
+| DELETE | `/api/v1/me/favorite-places/{place_id}` | – | 204 | `removeFavoritePlace()` |
 | POST | `/api/v1/captures` | `{ image_base64: string, mime_type?: "image/jpeg" \| "image/png" \| "image/webp" }` | `CaptureResponse` | `uploadCapture()` |
 | GET | `/api/v1/captures?limit=` | – | `CaptureResponse[]` | not used yet |
 | GET | `/api/v1/captures/{capture_id}` | – | `CaptureResponse` | not used yet |
+| GET | `/api/v1/captures/{capture_id}/image` | – | Raw image binary | Authenticated image download |
 | POST | `/api/v1/flashcards/generate` | `{ capture_id?, item_id?, selected_text?, place_id?, place_name?, lat?, lng?, language? }` | `FlashcardCatchResponse` (one card per word: a repeat catch adds a sighting) | `catchTango()` |
 | GET | `/api/v1/flashcards?due_only=&mastered=&capture_id=&limit=` | – | `FlashcardResponse[]` | `listTango()` (search is client-side) |
 | GET | `/api/v1/flashcards/{id}` | – | `FlashcardResponse` | `getTango()` |
@@ -30,6 +35,8 @@ These are called as-is. The frontend converts the responses to its own types.
 | DELETE | `/api/v1/flashcards/{id}` | – | 204 | `undoCatch()` fallback |
 | POST | `/api/v1/flashcards/{id}/sightings` | `{ recognized?, capture_id?, place_id?, place_name?, lat?, lng? }` | `FlashcardCatchResponse` ("seen again": sighting + review) | `recordRecognition()` |
 | DELETE | `/api/v1/flashcards/{id}/sightings/{sighting_id}` | – | `FlashcardResponse \| null` (null = card deleted, it was the only sighting) | `undoCatch()` |
+| DELETE | `/api/v1/flashcards/{id}/sentences/{sentence_id}` | – | `FlashcardResponse` | `removeSavedSentence()` |
+| POST | `/api/v1/rehearsals/{id}/turns/{turn_id}/save` | `{ use_suggestion: boolean }` | `{ saved_to: SentenceTangoResponse[] }` | `saveRehearsalSentence()` |
 
 ```ts
 // From backend/app/schemas/capture.py

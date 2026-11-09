@@ -4,7 +4,7 @@ export interface AsyncState<T> {
   data: T | undefined;
   error: Error | undefined;
   loading: boolean;
-  reload: () => void;
+  reload: () => void | Promise<void>;
 }
 
 /**

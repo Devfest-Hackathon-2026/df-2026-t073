@@ -37,7 +37,7 @@ async def nearby_place(
     return await places.nearby_place(http=http_client, db=db, lat=lat, lng=lng)
 
 
-@router.get("/places/{place_id}", response_model=Place)
+@router.get("/places/{place_id}", response_model=Place, dependencies=[daily_limit("places")])
 async def get_place(place_id: str, _user: CurrentUser, db: Db, http_client: HttpClient) -> Place:
     return await places.get_place(http=http_client, db=db, place_id=place_id)
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { listVisits, searchPlaces } from '../../api/places';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
@@ -12,6 +12,7 @@ import {
   SectionTitle,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
+import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -38,8 +39,8 @@ export function PlansScreen({
 }): React.JSX.Element {
   const nav = useRootNav();
   const favorites = useFavoritePlaces();
-  const visits = useAsync(listVisits);
-  useReloadOnFocus(visits.reload);
+  const visits = useCachedAsync('visits:list', listVisits);
+  useReloadOnFocus(visits.revalidate);
   // With the map off, place search lives here instead of on the Map tab.
   const { settings } = useSettings();
   const [query, setQuery] = useState('');
@@ -47,8 +48,28 @@ export function PlansScreen({
   const searchQuery = useDebouncedValue(query);
   const results = useAsync(() => searchPlaces(searchQuery), searchQuery);
 
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await visits.reload();
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [visits]);
+
   return (
-    <Screen edges={asTab ? ['top'] : undefined}>
+    <Screen
+      edges={asTab ? ['top'] : undefined}
+      refreshControl={
+        <RefreshControl
+          refreshing={pullRefreshing}
+          onRefresh={onRefresh}
+          colors={[colors.accent]}
+          tintColor={colors.accent}
+        />
+      }
+    >
       {asTab ? (
         <SectionTitle
           en={copy.plans.title}

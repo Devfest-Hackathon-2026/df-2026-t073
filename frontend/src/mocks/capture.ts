@@ -64,19 +64,19 @@ export const MOCK_DETECTOR_STEPS: Record<'text' | 'objects', MockDetectorStep[]>
     {
       items: [],
       centeredId: null,
-      hint: 'Nothing new spotted. You can still press the shutter and mark it yourself.',
+      hint: 'No text detected yet. Take a photo to select text to catch.',
       ms: 2500,
     },
     {
       items: [bento, hangakuOff],
       centeredId: null,
-      hint: 'New Tango spotted. Bring it to the center to catch it.',
+      hint: 'Text detected and highlighted. Take a photo to select it.',
       ms: 2000,
     },
     {
       items: [bento, hangakuCenter],
       centeredId: hangakuCenter.item_id,
-      hint: 'Centered and steady, so the shutter became Catch. Tap the sticker to look it up first.',
+      hint: 'Text detected and highlighted. Take a photo to select it.',
       ms: 0,
     },
   ],

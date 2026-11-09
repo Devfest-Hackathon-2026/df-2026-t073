@@ -25,6 +25,7 @@ import {
 import { STAGE_LABEL } from '../../features/review/labels';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
+import { useCachedAsync } from '../../hooks/useCachedAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
@@ -112,7 +113,7 @@ export function TangoDetailScreen({
 }: RootScreenProps<'TangoDetail'>): React.JSX.Element {
   const { id } = route.params;
   const { settings } = useSettings();
-  const tango = useAsync(() => getTango(id), id);
+  const tango = useCachedAsync(`tango:detail:${id}`, () => getTango(id), id);
   // Cards from the dictionary get their phrases a few seconds after the catch.
   const tries = useRef(0);
   const noPhrases = tango.data?.examples.length === 0;

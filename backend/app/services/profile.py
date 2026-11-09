@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_NAME = "Learner"
 # Enough for a hackathon-sized collection; stats count everything loaded.
-MAX_CARDS = 500
+MAX_CARDS = 1000
 
 def display_name(stored: dict[str, Any]) -> str:
     """Chosen name, else the sign-in name, else a friendly default."""

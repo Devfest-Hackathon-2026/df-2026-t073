@@ -39,10 +39,10 @@ export function RootNavigator(): React.JSX.Element {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!settings.onboarded ? (
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      ) : !user && firebaseConfigured ? (
+      {!user && firebaseConfigured ? (
         <Stack.Screen name="Login" component={LoginScreen} />
+      ) : !settings.onboarded ? (
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
       ) : (
         <>
           <Stack.Screen name="Tabs" component={Tabs} />

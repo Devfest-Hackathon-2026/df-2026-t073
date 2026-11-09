@@ -5,6 +5,8 @@ import type { Coords } from '../location/location';
 import type { JpText, MapArea, Place, TodaySummary, Visit } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
 import { flashcardToTango, type FlashcardResponse } from './tango';
+import { toReviewCard, type ReviewCardResponse } from './review';
+import { setCache } from '../cache/storage';
 import { copy } from '../copy';
 
 const MAP_AREAS: MapArea[] = [
@@ -103,6 +105,8 @@ interface TodayResponse {
       topic: string | null;
     };
   } | null;
+  review_card?: ReviewCardResponse | null;
+  total_tango?: number;
 }
 
 /** Why this word of the day was picked, in words. */
@@ -172,6 +176,10 @@ export const getToday = pick(
     }),
   async (): Promise<TodaySummary> => {
     const r = await request<TodayResponse>(`${API_V1}/today`);
+    const reviewCard = r.review_card ? toReviewCard(r.review_card) : null;
+    if (reviewCard) {
+      setCache('review:card', reviewCard).catch(() => {});
+    }
     return {
       userName: r.user_name,
       upNext: r.up_next ? toVisit(r.up_next) : null,
@@ -201,6 +209,8 @@ export const getToday = pick(
       wordOfDay: r.word_of_day
         ? { ...r.word_of_day, reason: wordReason(r.word_of_day.reason) }
         : null,
+      reviewCard,
+      totalTango: r.total_tango ?? 0,
     };
   },
 );

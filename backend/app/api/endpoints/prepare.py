@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.prepare import BriefingResponse
@@ -13,7 +13,7 @@ from app.schemas.rehearsal import (
     TurnAnswerRequest,
     TurnResult,
 )
-from app.services import briefing, rehearsal, tts
+from app.services import briefing, rehearsal, rehearsal_rules, tts
 
 router = APIRouter(tags=["prepare"])
 
@@ -27,8 +27,12 @@ async def get_briefing(
     place_id: str, current_user: CurrentUser, db: Db, http_client: HttpClient, language: str = "English"
 ) -> BriefingResponse:
     """What to expect, Tango to know, and anonymous tips. Cached per place for 7 days."""
+    try:
+        norm_lang = rehearsal_rules.normalize_language(language)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return await briefing.get_briefing(
-        db=db, http=http_client, uid=current_user["uid"], place_id=place_id, language=language
+        db=db, http=http_client, uid=current_user["uid"], place_id=place_id, language=norm_lang
     )
 
 
@@ -42,8 +46,12 @@ async def start_rehearsal(
     payload: RehearsalStartRequest, current_user: CurrentUser, db: Db, http_client: HttpClient
 ) -> RehearsalStartResponse:
     """Start a role-play for a place. The script is written once per place and reused."""
+    try:
+        norm_lang = rehearsal_rules.normalize_language(payload.language)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return await rehearsal.start_rehearsal(
-        db=db, http=http_client, uid=current_user["uid"], place_id=payload.place_id, language=payload.language
+        db=db, http=http_client, uid=current_user["uid"], place_id=payload.place_id, language=norm_lang
     )
 
 

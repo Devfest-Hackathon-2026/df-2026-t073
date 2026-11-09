@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     LIMIT_TTS: int = 400
     LIMIT_REVIEW: int = 80
     LIMIT_PLACES: int = 400
+    LIMIT_EXPAND: int = 100
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

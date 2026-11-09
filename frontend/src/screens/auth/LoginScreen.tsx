@@ -80,6 +80,7 @@ export function LoginScreen(): React.JSX.Element {
     try {
       if (mode === 'signin') {
         await signIn(trimmedEmail, trimmedPass);
+        update({ onboarded: true });
       } else {
         await signUp(trimmedEmail, trimmedPass);
         update({ dayOne: true });
@@ -95,7 +96,21 @@ export function LoginScreen(): React.JSX.Element {
     setError(null);
     setBusy(true);
     try {
-      await signInWithGoogle();
+      const u = await signInWithGoogle();
+      if (u) {
+        const isNewUser =
+          u.metadata.creationTime &&
+          u.metadata.lastSignInTime &&
+          Math.abs(
+            new Date(u.metadata.creationTime).getTime() -
+              new Date(u.metadata.lastSignInTime).getTime(),
+          ) < 5000;
+        if (isNewUser) {
+          update({ dayOne: true });
+        } else {
+          update({ onboarded: true });
+        }
+      }
     } catch (err: unknown) {
       setError(formatAuthError(err));
     } finally {

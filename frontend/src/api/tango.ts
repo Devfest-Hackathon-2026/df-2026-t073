@@ -230,8 +230,14 @@ export const listTango = pick(
       200,
     ),
   // Existing endpoint: GET /api/v1/flashcards. Search is client-side for now.
-  async (query: string = '') => {
-    const cards = await request<FlashcardResponse[]>(`${API_V1}/flashcards`);
+  async (query: string = '', options?: { since?: string | Date }) => {
+    const sinceParam =
+      options?.since instanceof Date
+        ? options.since.toISOString()
+        : options?.since;
+    const cards = await request<FlashcardResponse[]>(`${API_V1}/flashcards`, {
+      query: sinceParam ? { since: sinceParam } : undefined,
+    });
     return cards.map(flashcardToTango).filter(t => matches(t, query));
   },
 );
@@ -294,13 +300,47 @@ export const setFavorite = pick(
     return mockDelay<Tango>({ ...(found ?? ALL_TANGO[0]), favorite }, 150);
   },
   // PATCH /api/v1/flashcards/{id}
-  async (id: string, favorite: boolean) =>
-    flashcardToTango(
+  async (id: string, favorite: boolean) => {
+    // Generate optimistic fallback representation
+    const fallbackResponse: FlashcardResponse = {
+      flashcard_id: id,
+      capture_id: '',
+      item_id: null,
+      image_url: '',
+      bounding_box: [],
+      favorite,
+      kanji: '',
+      reading: '',
+      romaji: '',
+      meaning: '',
+      part_of_speech: '',
+      kind: 'word',
+      capture_format: 'object',
+      use_cases: [],
+      related_vocab: [],
+      created_at: new Date().toISOString(),
+      strength: 1,
+      sightings: [],
+      history: [],
+      review_stats: {
+        review_count: 0,
+        last_reviewed_at: null,
+        next_review_at: new Date().toISOString(),
+        mastered: false,
+        stage: 'flashcard',
+      },
+    };
+    return flashcardToTango(
       await request<FlashcardResponse>(
         `${API_V1}/flashcards/${encodeURIComponent(id)}`,
-        { method: 'PATCH', body: { favorite } },
+        {
+          method: 'PATCH',
+          body: { favorite },
+          outboxFallback: fallbackResponse,
+        },
       ),
-    ),
+    );
+  },
 );
 
 /** Deletes a saved flashcard/Tango. */

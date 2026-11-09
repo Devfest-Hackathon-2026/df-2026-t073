@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 SESSIONS_SUBCOLLECTION = "rehearsals"
 # Enough for a hackathon-sized collection; sentences match against all the user's Tango.
-MAX_CARDS = 200
+MAX_CARDS = 1000
 MAX_AUDIO_BYTES = 2 * 1024 * 1024  # ~1 minute of AAC; replies are a few seconds
 AUDIO_MIME_TYPES = {"audio/amr-wb", "audio/3gpp", "audio/aac", "audio/mp4", "audio/m4a", "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm"}
 

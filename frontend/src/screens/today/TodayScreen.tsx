@@ -1,5 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isLive } from '../../config';
 import { getToday, listVisits } from '../../api/places';
@@ -30,7 +37,7 @@ import {
   RedPenUnderline,
   TicketCard,
 } from '../../components/shapes';
-import { useAsync } from '../../hooks/useAsync';
+import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
@@ -71,9 +78,9 @@ export function TodayScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const nav = useRootNav();
-  const today = useAsync(getToday);
-  const review = useAsync(getReviewCard);
-  useReloadOnFocus(today.reload, review.reload);
+  const today = useCachedAsync('today:summary', getToday);
+  const review = useCachedAsync('review:card', getReviewCard);
+  useReloadOnFocus(today.revalidate, review.revalidate);
   // Device position: the map preview centers on it.
   const [here, setHere] = useState<Coords | null>(null);
   useEffect(() => {
@@ -84,6 +91,16 @@ export function TodayScreen(): React.JSX.Element {
     };
   }, []);
 
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await Promise.all([today.reload(), review.reload()]);
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [today, review]);
+
   return (
     <ScrollView
       style={styles.root}
@@ -92,6 +109,14 @@ export function TodayScreen(): React.JSX.Element {
         { paddingTop: insets.top + space.md },
       ]}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={pullRefreshing}
+          onRefresh={onRefresh}
+          colors={[colors.accent]}
+          tintColor={colors.accent}
+        />
+      }
     >
       <SectionTitle en={copy.today.title} size="title" />
       <Loadable state={today} messages={TODAY_LINES}>
@@ -225,8 +250,11 @@ function Regular({
   onPlansChanged: () => void;
 }): React.JSX.Element {
   const { settings, update } = useSettings();
-  const visits = useAsync(listVisits);
+  const visits = useCachedAsync('visits:list', listVisits);
   const [planning, setPlanning] = useState(false);
+
+  const effectiveReview = summary.reviewCard ?? review;
+
   return (
     <>
       <Greeting name={summary.userName} />
@@ -237,8 +265,8 @@ function Regular({
         />
       ) : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
-      {review ? (
-        <ReviewStartCard card={review} title={copy.today.reviewTitle} />
+      {effectiveReview ? (
+        <ReviewStartCard card={effectiveReview} title={copy.today.reviewTitle} />
       ) : null}
       {summary.upNext ? <UpNextCard visit={summary.upNext} /> : null}
       <PlansRow

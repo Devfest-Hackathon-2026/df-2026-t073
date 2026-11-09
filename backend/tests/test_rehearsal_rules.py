@@ -101,3 +101,20 @@ def test_tts_cache_key_depends_on_text_and_speed() -> None:
     assert rules.tts_cache_key("いらっしゃいませ", "natural") == rules.tts_cache_key("いらっしゃいませ", "natural")
     assert rules.tts_cache_key("いらっしゃいませ", "natural") != rules.tts_cache_key("いらっしゃいませ", "slower")
     assert rules.tts_cache_key("a", "natural").startswith("tts/")
+
+
+class TestNormalizeLanguage:
+    def test_valid_languages_normalized(self) -> None:
+        assert rules.normalize_language("english") == "English"
+        assert rules.normalize_language("  JAPANESE  ") == "Japanese"
+        assert rules.normalize_language("French") == "French"
+
+    def test_invalid_or_malicious_languages_raise(self) -> None:
+        with pytest.raises(ValueError, match="Unsupported language"):
+            rules.normalize_language("../../etc/passwd")
+
+        with pytest.raises(ValueError, match="Unsupported language"):
+            rules.normalize_language("")
+
+        with pytest.raises(ValueError, match="Unsupported language"):
+            rules.normalize_language("klingon")

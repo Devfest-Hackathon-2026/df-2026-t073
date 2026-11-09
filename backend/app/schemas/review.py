@@ -9,7 +9,7 @@ from app.schemas.flashcard import (
     JpOption,
     QuestionType,
 )
-from app.schemas.place import Visit
+from app.schemas.place import ReviewCardResponse, Visit
 from app.schemas.review_types import Rating, ReviewStage
 
 

@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core import firebase
 from app.core.config import settings
+from app.core.etag import ETagMiddleware
+from app.core.upload_limit import ContentSizeLimitMiddleware
 
 
 @asynccontextmanager
@@ -29,7 +31,11 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["ETag"],
 )
+
+app.add_middleware(ETagMiddleware)
+app.add_middleware(ContentSizeLimitMiddleware)
 
 app.include_router(api_router)
 

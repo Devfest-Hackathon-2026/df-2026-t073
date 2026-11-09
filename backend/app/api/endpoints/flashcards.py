@@ -1,25 +1,28 @@
 from datetime import datetime, timezone
+import logging
 from typing import Annotated
 
-import logging
-
-import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from google.cloud.firestore import AsyncClient
+import httpx
 
 from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.capture import DetectedItem, Vertex
 from app.schemas.flashcard import (
     FlashcardCatchResponse,
-    GeneratedFlashcardContent,
     FlashcardCreateRequest,
     FlashcardResponse,
     FlashcardReviewRequest,
+    GeneratedFlashcardContent,
     RelatedVocabItem,
     SightingCreateRequest,
 )
 from app.schemas.lists import FlashcardUpdateRequest
-from app.services import dictionary, lists, tango_rules
+from app.services import dictionary, lists, tango_rules, usage
+from app.services.flashcard_generator import (
+    generate_flashcard_content,
+    generate_related_vocabulary,
+)
 from app.services.firestore import (
     add_sighting,
     delete_flashcard,
@@ -28,16 +31,12 @@ from app.services.firestore import (
     get_flashcard_if_exists,
     list_flashcards,
     make_flashcard_id,
+    remove_saved_sentence,
     remove_sighting,
     save_flashcard,
-    save_use_cases,
     save_related_vocab,
-    remove_saved_sentence,
+    save_use_cases,
     update_flashcard_review,
-)
-from app.services.flashcard_generator import (
-    generate_flashcard_content,
-    generate_related_vocabulary,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,6 +180,7 @@ async def create_flashcard(
         return FlashcardCatchResponse(card=card, created=False, sighting_id=sighting.sighting_id)
 
     # Dictionary words are saved at once; Gemini adds examples afterwards.
+    await usage.charge(db=db, uid=uid, kind="catch")
     generated = _from_dictionary(target_word, item_type, payload.language)
     if generated is not None:
         background.add_task(
@@ -227,9 +227,10 @@ async def get_user_flashcards(
     mastered: bool | None = None,
     capture_id: str | None = None,
     place_id: str | None = None,
+    since: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
 ) -> list[FlashcardResponse]:
-    """List saved flashcards, optionally filtered by due status, capture or place."""
+    """List saved flashcards, optionally filtered by due status, capture, place or updated since."""
     return await list_flashcards(
         db=db,
         uid=current_user["uid"],
@@ -237,6 +238,7 @@ async def get_user_flashcards(
         mastered=mastered,
         capture_id=capture_id,
         place_id=place_id,
+        since=since,
         limit=limit,
     )
 
@@ -260,11 +262,26 @@ async def get_single_flashcard(
     flashcard_id: str,
     current_user: CurrentUser,
     db: Db,
+    http_client: HttpClient,
+    background: BackgroundTasks,
 ) -> FlashcardResponse:
-    """Get a single flashcard by ID."""
-    return await get_flashcard(
+    """Get a single flashcard by ID. Triggers background retry if examples were missed."""
+    card = await get_flashcard(
         db=db, uid=current_user["uid"], flashcard_id=flashcard_id
     )
+    if not card.use_cases:
+        background.add_task(
+            _fill_examples,
+            db=db,
+            http_client=http_client,
+            uid=current_user["uid"],
+            flashcard_id=flashcard_id,
+            target_word=card.kanji,
+            source_label=card.kanji,
+            item_type="text",
+            language="English",
+        )
+    return card
 
 
 @router.post("/{flashcard_id}/review", response_model=FlashcardResponse)
@@ -290,7 +307,11 @@ async def review_flashcard(
     )
 
 
-@router.post("/{flashcard_id}/expand", response_model=list[RelatedVocabItem])
+@router.post(
+    "/{flashcard_id}/expand",
+    response_model=list[RelatedVocabItem],
+    dependencies=[daily_limit("expand")],
+)
 async def expand_flashcard_vocabulary(
     flashcard_id: str,
     current_user: CurrentUser,
@@ -305,6 +326,7 @@ async def expand_flashcard_vocabulary(
     if card.related_vocab and not refresh:
         return card.related_vocab
 
+    await usage.charge(db=db, uid=uid, kind="expand")
     related = await generate_related_vocabulary(
         http_client=http_client,
         kanji=card.kanji,
@@ -350,6 +372,8 @@ async def add_flashcard_sighting(
     """
     uid = current_user["uid"]
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
+    if payload.capture_id:
+        await get_capture(db=db, uid=uid, capture_id=payload.capture_id)
     sighting = tango_rules.new_sighting(
         now=datetime.now(timezone.utc),
         capture_id=payload.capture_id,

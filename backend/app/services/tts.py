@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.firebase import get_gcp_access_token, get_storage_client
 from app.schemas.rehearsal import Speed
 from app.services.rehearsal_rules import TTS_RATE, TTS_VOICE, tts_cache_key
-from app.services.storage import _resolve_bucket_name, _upload_blob_sync
+from app.services.storage import resolve_bucket_name, upload_blob_sync
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def _existing_url_sync(bucket_name: str, path: str) -> str | None:
 
 
 async def staff_audio_url(*, http: httpx.AsyncClient, text: str, speed: Speed) -> str:
-    bucket = _resolve_bucket_name()
+    bucket = resolve_bucket_name()
     path = tts_cache_key(text, speed)
     cached = await anyio.to_thread.run_sync(lambda: _existing_url_sync(bucket, path))
     if cached:
@@ -60,4 +60,4 @@ async def staff_audio_url(*, http: httpx.AsyncClient, text: str, speed: Speed) -
         logger.exception("Text-to-Speech failed")
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Text-to-speech failed.") from exc
 
-    return await anyio.to_thread.run_sync(lambda: _upload_blob_sync(bucket, path, audio, "audio/mpeg"))
+    return await anyio.to_thread.run_sync(lambda: upload_blob_sync(bucket, path, audio, "audio/mpeg"))
