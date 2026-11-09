@@ -46,7 +46,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _REGION: 'asia-northeast1'
+  _REGION: 'asia-east1'
   _AR_REPO: 'devfest-repo'
   _SERVICE_NAME: 'fastapi-backend'
   _FIRESTORE_DB: '(default)'
