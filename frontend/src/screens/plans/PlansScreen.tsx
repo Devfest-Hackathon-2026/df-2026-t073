@@ -20,9 +20,12 @@ import { colors, radii, sizes, space } from '../../styles/tokens';
 import { PlaceSearchResults } from '../../components/PlaceSearchResults';
 import { formatVisitTime } from '../../utils/format';
 import { copy } from '../../copy';
+import { favoriteHearts } from '../../features/places/FavoriteHeart';
+import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
 
 export function PlansScreen(): React.JSX.Element {
   const nav = useRootNav();
+  const favorites = useFavoritePlaces();
   const visits = useAsync(listVisits);
   useReloadOnFocus(visits.reload);
   // With the map off, place search lives here instead of on the Map tab.
@@ -59,6 +62,7 @@ export function PlansScreen(): React.JSX.Element {
                 setQuery('');
                 nav.navigate('Prepare', { placeId: place.id });
               }}
+              renderTrailing={favoriteHearts(favorites)}
             />
           ) : null}
         </>

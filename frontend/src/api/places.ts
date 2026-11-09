@@ -77,9 +77,10 @@ interface TodayResponse {
     count: number;
     lat: number;
     lng: number;
-    kind: 'tango' | 'next';
+    kind: 'tango' | 'next' | 'favorite';
     area_id: string | null;
     stars: number;
+    place_id?: string | null;
   }[];
   areas: {
     id: string;
@@ -158,7 +159,7 @@ export const getToday = pick(
     mockDelay<TodaySummary>({
       userName: USER_NAME,
       upNext: VISITS[0],
-      pins: MAP_PINS,
+      pins: [...MAP_PINS, ...mockFavoritePins()],
       areas: MAP_AREAS,
       starterTango: STARTER_TANGO,
       wordOfDay: {
@@ -185,6 +186,7 @@ export const getToday = pick(
         kind: p.kind,
         areaId: p.area_id ?? undefined,
         stars: p.stars,
+        placeId: p.place_id ?? undefined,
       })),
       areas: r.areas.map(a => ({
         id: a.id,
@@ -239,6 +241,71 @@ export const getPlace = pick(
         `${API_V1}/places/${encodeURIComponent(placeId)}`,
       ),
     ),
+);
+
+// ---- Favourite places ----
+
+/** Mock mode: favourites live in memory for the session. */
+const MOCK_FAVORITES = new Set<string>();
+
+function mockFavoritePins(): TodaySummary['pins'] {
+  return [...MOCK_FAVORITES]
+    .map(id => PLACES[id])
+    .filter(Boolean)
+    .map(p => ({
+      id: `fav-${p.id}`,
+      label: p.name.text,
+      count: 0,
+      x: 0.5,
+      y: 0.5,
+      lat: p.lat,
+      lng: p.lng,
+      kind: 'favorite' as const,
+      placeId: p.id,
+    }));
+}
+
+/** GET /me/favorite-places: the user's favourite places, newest first. */
+export const listFavoritePlaces = pick(
+  'places',
+  () =>
+    mockDelay<Place[]>(
+      [...MOCK_FAVORITES].map(id => PLACES[id]).filter(Boolean),
+    ),
+  async () =>
+    (await request<PlaceResponse[]>(`${API_V1}/me/favorite-places`)).map(
+      toPlace,
+    ),
+);
+
+/** PUT /me/favorite-places/{id} */
+export const addFavoritePlace = pick(
+  'places',
+  (placeId: string) => {
+    MOCK_FAVORITES.add(placeId);
+    return mockDelay<void>(undefined, 100);
+  },
+  async (placeId: string) => {
+    await request<PlaceResponse>(
+      `${API_V1}/me/favorite-places/${encodeURIComponent(placeId)}`,
+      { method: 'PUT' },
+    );
+  },
+);
+
+/** DELETE /me/favorite-places/{id} */
+export const removeFavoritePlace = pick(
+  'places',
+  (placeId: string) => {
+    MOCK_FAVORITES.delete(placeId);
+    return mockDelay<void>(undefined, 100);
+  },
+  async (placeId: string) => {
+    await request<void>(
+      `${API_V1}/me/favorite-places/${encodeURIComponent(placeId)}`,
+      { method: 'DELETE' },
+    );
+  },
 );
 
 export const listVisits = pick(

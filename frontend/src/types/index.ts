@@ -115,9 +115,11 @@ export interface MapPin {
   /** Real position, for the Google map. */
   lat: number;
   lng: number;
-  kind: 'tango' | 'next' | 'me';
+  kind: 'tango' | 'next' | 'me' | 'favorite';
   /** Area this pin belongs to (opens the area card on the full map). */
   areaId?: string;
+  /** Favourite pins: the place they open. */
+  placeId?: string;
   /** Mastered Tango here; shown with the "Stars" map filter. */
   stars?: number;
 }

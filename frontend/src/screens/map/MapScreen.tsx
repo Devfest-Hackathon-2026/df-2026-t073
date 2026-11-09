@@ -21,8 +21,10 @@ import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
 import type { MapArea, MapPin } from '../../types';
 import { PlaceSearchResults } from '../../components/PlaceSearchResults';
 import { copy } from '../../copy';
+import { favoriteHearts } from '../../features/places/FavoriteHeart';
+import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
 
-type MapFilter = 'all' | 'stars' | 'planned';
+type MapFilter = 'all' | 'stars' | 'planned' | 'favorites';
 
 /** The Map tab: your Tango as stamps, centred on where you are. */
 export function MapScreen({
@@ -30,6 +32,7 @@ export function MapScreen({
 }: BottomTabScreenProps<TabParamList, 'Map'>): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const nav = useRootNav();
+  const favorites = useFavoritePlaces();
   const today = useAsync(getToday);
   const [here, setHere] = useState<Coords | null>(null);
   const [filter, setFilter] = useState<MapFilter>('all');
@@ -59,6 +62,13 @@ export function MapScreen({
     // "You are here" is the native location dot (showUser), not a pin.
     const all: MapPin[] = fromServer.filter(p => p.kind !== 'me');
     return all.filter(pin => {
+      // Favourite places only show under their own filter.
+      if (filter === 'favorites') {
+        return pin.kind === 'favorite';
+      }
+      if (pin.kind === 'favorite') {
+        return false;
+      }
       if (filter === 'all') {
         return true;
       }
@@ -79,7 +89,9 @@ export function MapScreen({
         showUser
         showStars={filter === 'stars'}
         onPinPress={pin =>
-          setArea(today.data?.areas.find(a => a.id === pin.areaId) ?? null)
+          pin.kind === 'favorite' && pin.placeId
+            ? nav.navigate('Prepare', { placeId: pin.placeId })
+            : setArea(today.data?.areas.find(a => a.id === pin.areaId) ?? null)
         }
         onLocate={async () => {
           const coords = await getCurrentCoords();
@@ -115,9 +127,10 @@ export function MapScreen({
               setQuery('');
               nav.navigate('Prepare', { placeId: place.id });
             }}
+            renderTrailing={favoriteHearts(favorites)}
           />
         ) : null}
-        <View style={base.row}>
+        <View style={base.wrap}>
           <Chip
             label={copy.mapScreen.filterAll}
             selected={filter === 'all'}
@@ -136,6 +149,13 @@ export function MapScreen({
             selected={filter === 'planned'}
             tone="outline"
             onPress={() => setFilter('planned')}
+          />
+          <Chip
+            icon="heart"
+            label={copy.mapScreen.filterFavorites}
+            selected={filter === 'favorites'}
+            tone="outline"
+            onPress={() => setFilter('favorites')}
           />
         </View>
         {area && !query.trim() ? (

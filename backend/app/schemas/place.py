@@ -46,9 +46,11 @@ class MapPin(BaseModel):
     count: int
     lat: float
     lng: float
-    kind: str  # 'tango' | 'next'
+    kind: str  # 'tango' | 'next' | 'favorite'
     area_id: str | None = None
     stars: int = 0
+    # Favourite pins: the place they open.
+    place_id: str | None = None
 
 
 class MapArea(BaseModel):

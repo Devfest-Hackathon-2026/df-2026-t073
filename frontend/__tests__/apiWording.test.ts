@@ -97,7 +97,13 @@ test('the next planned visit comes from the server, with its real time', async (
   expect(r.next?.place.id).toBe('nakano-ward-office');
   expect(r.next?.when).toBe('2026-11-12T10:00:00+09:00');
 
-  respond({ reviewed: 0, minutes: 0, biggest_win: null, by_area: [], next: null });
+  respond({
+    reviewed: 0,
+    minutes: 0,
+    biggest_win: null,
+    by_area: [],
+    next: null,
+  });
   expect((await getSessionResult('rs')).next).toBeNull();
 });
 
@@ -201,6 +207,7 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   const t = await getToday();
   expect(t.areas[0].label).toBe('Around Koenji');
   expect(t.pins.map(p => p.label)).toEqual(['Koenji', 'Up next']);
+  expect(t.pins.map(p => p.placeId)).toEqual([undefined, undefined]);
   expect(t.wordOfDay?.reason).toBe('For your visit to 麺屋たいき');
 
   respond(today({ kind: 'topic', place_name: null, topic: 'transport' }));
@@ -212,4 +219,31 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   expect((await getToday()).wordOfDay?.reason).toBe(
     'An everyday word for your level',
   );
+});
+
+test('favourite pins keep the place they open', async () => {
+  respond({
+    user_name: 'Ari',
+    up_next: null,
+    pins: [
+      {
+        id: 'fav-menya-taiki',
+        label: '麺屋たいき',
+        count: 0,
+        lat: 0,
+        lng: 0,
+        kind: 'favorite',
+        area_id: null,
+        stars: 0,
+        place_id: 'menya-taiki',
+      },
+    ],
+    areas: [],
+    starter_tango: [],
+    word_of_day: null,
+  });
+  const [pin] = (await getToday()).pins;
+  expect(pin.kind).toBe('favorite');
+  expect(pin.placeId).toBe('menya-taiki');
+  expect(pin.label).toBe('麺屋たいき');
 });

@@ -49,7 +49,11 @@ export function PlanVisitSheet({
   const [now] = useState(() => new Date());
   const [chosen, setChosen] = useState<PlanPlace | null>(place ?? null);
   const [query, setQuery] = useState('');
-  const results = useAsync(() => searchPlaces(query), query);
+  // Only search once something is typed.
+  const results = useAsync(
+    () => (query.trim() ? searchPlaces(query) : Promise.resolve([])),
+    query,
+  );
   const [changing, setChanging] = useState(false);
   const [pick, setPick] = useState(() => defaultPick(now));
   const [busy, setBusy] = useState(false);

@@ -270,8 +270,12 @@ const mapScreen = {
   filterAll: 'All Tango',
   filterStamps: 'Stamp',
   filterPlanned: 'Planned',
+  filterFavorites: 'Favourites',
   noPlaces: 'No places found.',
   closeAreaCard: 'Close area card',
+  /** Heart on a place (Prepare, search results). */
+  favoritePlace: (name: string) => `Favourite ${name}`,
+  unfavoritePlace: (name: string) => `Remove ${name} from favourites`,
   areaSummary: (tango: number, places: number) =>
     `${tango} Tango · ${places} places`,
   reviewThese: 'Review these',

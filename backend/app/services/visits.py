@@ -16,6 +16,7 @@ from app.schemas.place import MapPin, TodayResponse, Visit, VisitCreateRequest, 
 from app.schemas.user import HomeArea
 from app.services import place_rules as rules
 from app.services import word_of_day
+from app.services.favorite_places import favorite_pins, list_favorite_places
 from app.services.firestore import USERS_COLLECTION, list_flashcards
 from app.services.places import get_place, place_facts
 from app.services.profile import display_name
@@ -106,6 +107,8 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
                 kind="next",
             )
         )
+
+    pins.extend(favorite_pins(await list_favorite_places(db=db, uid=uid)))
 
     return TodayResponse(
         user_name=display_name(user),

@@ -151,6 +151,7 @@ const pinStyles = StyleSheet.create({
     borderWidth: sizes.border * 2,
     borderColor: colors.accentSoft,
   },
+  favorite: { backgroundColor: colors.hanamaru },
 });
 
 // ---------- Bottom sheet (in-screen overlay) ----------

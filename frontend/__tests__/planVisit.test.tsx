@@ -181,11 +181,19 @@ describe('PlanVisitSheet', () => {
 describe('Prepare screen', () => {
   type Props = RootScreenProps<'Prepare'>;
   // The mock briefing and lists answer after a short delay.
+  // Screens rendered in a test; unmounted afterwards so no timers outlive it.
+  const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
+  afterEach(async () => {
+    for (const tree of mounted.splice(0)) {
+      await ReactTestRenderer.act(async () => tree.unmount());
+    }
+    jest.useRealTimers();
+  });
 
   const prepare = async (placeId: string) => {
     const tree = await renderScreen(placeId);
+    mounted.push(tree);
     for (let i = 0; i < 3; i++) {
       await ReactTestRenderer.act(async () => {
         jest.advanceTimersByTime(1000);
@@ -226,6 +234,22 @@ describe('Prepare screen', () => {
     );
     const again = await prepare('menya-taiki');
     expect(allTexts(again)).not.toContain("It's your first time here");
+  });
+
+  test('the header heart favourites the place', async () => {
+    const tree = await prepare('asagaya-pearl');
+    const heart = () =>
+      tree.root.findAll(
+        n =>
+          typeof n.props.accessibilityLabel === 'string' &&
+          /favourite/i.test(n.props.accessibilityLabel) &&
+          typeof n.props.onPress === 'function',
+      )[0];
+    expect(heart().props.accessibilityLabel).toMatch(/^Favourite /);
+    await ReactTestRenderer.act(async () => {
+      heart().props.onPress();
+    });
+    expect(heart().props.accessibilityLabel).toMatch(/from favourites$/);
   });
 
   test('without a plan: "Not planned" and a button that opens the sheet', async () => {

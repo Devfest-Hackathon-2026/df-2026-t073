@@ -1,0 +1,144 @@
+import asyncio
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.deps import get_current_user, get_db, get_http
+from app.core.config import settings
+from app.schemas.place import JpName, Place
+from app.services import favorite_places
+from main import app
+
+UID = "u1"
+
+
+def place(place_id: str, name: str = "麺屋たいき") -> Place:
+    return Place(id=place_id, name=JpName(text=name), lat=35.7, lng=139.65)
+
+
+class _Doc:
+    def __init__(self, data: dict[str, Any]) -> None:
+        self._data = data
+
+    def to_dict(self) -> dict[str, Any]:
+        return self._data
+
+
+class FakeDb:
+    """Just enough of Firestore for users/{uid}/favorite_places."""
+
+    def __init__(self) -> None:
+        self.docs: dict[str, dict[str, Any]] = {}
+        self._path: list[str] = []
+
+    def collection(self, name: str) -> "FakeDb":
+        self._path.append(name)
+        return self
+
+    def document(self, name: str) -> "FakeDb":
+        self._path.append(name)
+        return self
+
+    def order_by(self, *_: Any, **__: Any) -> "FakeDb":
+        return self
+
+    def limit(self, _: int) -> "FakeDb":
+        return self
+
+    async def set(self, data: dict[str, Any]) -> None:
+        self.docs[self._path[-1]] = data
+        self._path = []
+
+    async def delete(self) -> None:
+        self.docs.pop(self._path[-1], None)
+        self._path = []
+
+    async def stream(self) -> Any:
+        self._path = []
+        for data in sorted(
+            self.docs.values(), key=lambda d: d["added_at"], reverse=True
+        ):
+            yield _Doc(data)
+
+
+@pytest.fixture
+def db(monkeypatch: pytest.MonkeyPatch) -> FakeDb:
+    async def get_place(*, place_id: str, **_: Any) -> Place:
+        return place(place_id)
+
+    monkeypatch.setattr(favorite_places, "get_place", get_place)
+    return FakeDb()
+
+
+def fake(stub: object) -> Any:
+    """Typed as Any: the stubs stand in for AsyncClient and httpx.AsyncClient."""
+    return stub
+
+
+def run(coro: Any) -> Any:
+    return asyncio.run(coro)
+
+
+class TestService:
+    def test_add_list_remove(self, db: FakeDb) -> None:
+        run(
+            favorite_places.add_favorite_place(
+                db=fake(db), http=fake(None), uid=UID, place_id="a"
+            )
+        )
+        run(
+            favorite_places.add_favorite_place(
+                db=fake(db), http=fake(None), uid=UID, place_id="b"
+            )
+        )
+        listed = run(favorite_places.list_favorite_places(db=fake(db), uid=UID))
+        assert [p.id for p in listed] == ["b", "a"]  # newest first
+        run(favorite_places.remove_favorite_place(db=fake(db), uid=UID, place_id="a"))
+        listed = run(favorite_places.list_favorite_places(db=fake(db), uid=UID))
+        assert [p.id for p in listed] == ["b"]
+
+    def test_adding_twice_keeps_one(self, db: FakeDb) -> None:
+        for _ in range(2):
+            run(
+                favorite_places.add_favorite_place(
+                    db=fake(db), http=fake(None), uid=UID, place_id="a"
+                )
+            )
+        assert list(db.docs) == ["a"]
+
+    def test_removing_a_non_favourite_is_fine(self, db: FakeDb) -> None:
+        run(
+            favorite_places.remove_favorite_place(db=fake(db), uid=UID, place_id="nope")
+        )
+        assert db.docs == {}
+
+
+def test_each_favourite_is_a_pin_that_opens_its_place() -> None:
+    pins = favorite_places.favorite_pins([place("menya-taiki")])
+    assert len(pins) == 1
+    pin = pins[0]
+    assert (pin.kind, pin.place_id, pin.label) == (
+        "favorite",
+        "menya-taiki",
+        "麺屋たいき",
+    )
+    assert (pin.lat, pin.lng) == (35.7, 139.65)
+
+
+class TestRoutes:
+    URL = f"{settings.API_V1_STR}/me/favorite-places"
+
+    @pytest.fixture
+    def client(self, db: FakeDb) -> Any:
+        app.dependency_overrides[get_db] = lambda: db
+        app.dependency_overrides[get_http] = lambda: None
+        app.dependency_overrides[get_current_user] = lambda: {"uid": UID}
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    def test_put_get_delete(self, client: TestClient) -> None:
+        assert client.put(f"{self.URL}/menya-taiki").json()["id"] == "menya-taiki"
+        assert [p["id"] for p in client.get(self.URL).json()] == ["menya-taiki"]
+        assert client.delete(f"{self.URL}/menya-taiki").status_code == 204
+        assert client.get(self.URL).json() == []

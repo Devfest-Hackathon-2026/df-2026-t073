@@ -18,6 +18,7 @@ import {
 } from '../styles/tokens';
 import type { MapPin } from '../types';
 import { Hanamaru } from './Hanamaru';
+import { Icon } from './Icon';
 import { TANGO_MAP_STYLE } from './mapStyle';
 import { IconButton } from './ui';
 import { copy } from '../copy';
@@ -241,6 +242,15 @@ function PinBadge({
       </View>
     );
   }
+  if (pin.kind === 'favorite') {
+    // A heart tag with the place name.
+    return (
+      <View style={[styles.pin, styles.favorite]}>
+        <Icon name="heart" filled size={fontSizes.sm} color={colors.textInverse} />
+        <Text style={styles.text}>{pin.label}</Text>
+      </View>
+    );
+  }
   // Tango: a stamp, like the seals and station stamps collected in Japan.
   // 単 is from 単語 (word); the hanamaru filter turns it into a red 花丸 stamp.
   return (
@@ -331,6 +341,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space.xs,
     backgroundColor: colors.accent,
+  },
+  favorite: {
+    flexDirection: 'row',
+    gap: space.xs,
+    backgroundColor: colors.hanamaru,
   },
   nextGlyph: {
     ...base.text,

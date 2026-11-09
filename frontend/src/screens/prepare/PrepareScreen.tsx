@@ -14,6 +14,8 @@ import {
   SectionTitle,
   IconLabel,
 } from '../../components/ui';
+import { FavoriteHeart } from '../../features/places/FavoriteHeart';
+import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
@@ -40,6 +42,7 @@ export function PrepareScreen({
     ]);
     return p ? { ...b, place: p } : b;
   }, `${placeId}:${settings.explanationsLanguage}`);
+  const favorites = useFavoritePlaces();
   const visits = useAsync(listVisits);
   const planned = visits.data?.find(v => v.place.id === placeId) ?? null;
   const [planning, setPlanning] = useState(false);
@@ -64,7 +67,16 @@ export function PrepareScreen({
         </>
       }
     >
-      <ScreenHeader onBack={() => navigation.goBack()}>
+      <ScreenHeader
+        onBack={() => navigation.goBack()}
+        right={
+          <FavoriteHeart
+            placeId={placeId}
+            name={briefing.data?.place.name.text ?? ''}
+            favorites={favorites}
+          />
+        }
+      >
         <SectionTitle
           en={copy.prepare.title}
           jp={copy.prepare.titleJp}
