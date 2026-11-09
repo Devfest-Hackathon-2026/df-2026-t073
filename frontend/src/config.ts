@@ -10,8 +10,12 @@ import {
   USE_MOCKS as RAW_USE_MOCKS,
 } from '@env';
 
-/** Mock data is the default; set USE_MOCKS=false in frontend/.env to call the backend. */
-export const USE_MOCKS = RAW_USE_MOCKS !== 'false';
+const IS_TEST =
+  typeof process !== 'undefined' &&
+  (process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID));
+
+/** Mock data is the default; set USE_MOCKS=false in frontend/.env to call the backend. In tests, always mock. */
+export const USE_MOCKS = IS_TEST ? true : RAW_USE_MOCKS !== 'false';
 
 /** Optional test user credentials: keeps the same UID across app launches & devices. */
 export const TEST_USER_EMAIL = (RAW_TEST_USER_EMAIL ?? '').trim();
@@ -30,12 +34,14 @@ export type ApiArea =
  * Areas that call the backend even while USE_MOCKS is on, e.g.
  * LIVE_APIS=capture,tango. Lets one feature go live before the rest exists.
  */
-export const LIVE_APIS: ReadonlySet<string> = new Set(
-  (RAW_LIVE_APIS ?? '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean),
-);
+export const LIVE_APIS: ReadonlySet<string> = IS_TEST
+  ? new Set()
+  : new Set(
+      (RAW_LIVE_APIS ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+    );
 
 /** True when this area should call the backend instead of mock data. */
 export function isLive(area: ApiArea): boolean {

@@ -4,6 +4,22 @@
 // with small fakes here.
 
 jest.mock(
+  '@env',
+  () => ({
+    USE_MOCKS: 'true',
+    API_BASE_URL: 'http://10.0.2.2:8000',
+    LIVE_APIS: '',
+    FIREBASE_API_KEY: 'test-api-key',
+    FIREBASE_AUTH_DOMAIN: 'test.firebaseapp.com',
+    FIREBASE_PROJECT_ID: 'test-project',
+    FIREBASE_APP_ID: 'test-app-id',
+    TEST_USER_EMAIL: '',
+    TEST_USER_PASSWORD: '',
+  }),
+  { virtual: true },
+);
+
+jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default,
 );

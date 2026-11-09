@@ -10,3 +10,8 @@ declare module '@env' {
   export const TEST_USER_EMAIL: string | undefined;
   export const TEST_USER_PASSWORD: string | undefined;
 }
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
