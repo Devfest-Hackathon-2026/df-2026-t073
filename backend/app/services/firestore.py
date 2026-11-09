@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -19,11 +19,20 @@ from app.schemas.flashcard import (
     ReviewStats,
     Sighting,
 )
-from app.schemas.review import ReviewSessionRecord, SessionAnswer
+from app.schemas.review import (
+    ExerciseKey,
+    ReviewSessionRecord,
+    SessionAnswer,
+    SessionAnswerRequest,
+)
 from app.schemas.review_types import Rating
 from app.schemas.user import UserProfile
 from app.services import tango_rules
-from app.services.review_rules.answers import apply_answer
+from app.services.review_rules.answers import (
+    AnswerOutcome,
+    apply_answer,
+    apply_session_answer,
+)
 from app.services.review_rules.exercises import backfill_photo_fields
 from app.services.review_rules.scheduling import next_review_stats
 from app.services.review_rules.selection import area_of
@@ -503,7 +512,56 @@ async def update_flashcard_review(
         answer_text=answer_text,
         question_type=question_type,
     )
+    return await _save_outcome(
+        db=db,
+        uid=uid,
+        card=card,
+        outcome=outcome,
+        question_type=question_type,
+        session_id=session_id,
+        now=now,
+    )
 
+
+async def record_keyed_answer(
+    *,
+    db: AsyncClient,
+    uid: str,
+    session_id: str,
+    key: ExerciseKey,
+    answer: SessionAnswerRequest,
+) -> AnswerOutcome:
+    """Record a session answer graded against its stored question (the answer key)."""
+    card = await get_flashcard(db=db, uid=uid, flashcard_id=key.flashcard_id)
+    now = datetime.now(UTC)
+    outcome = apply_session_answer(card, key, answer, now)
+    await _save_outcome(
+        db=db,
+        uid=uid,
+        card=card,
+        outcome=outcome,
+        question_type=key.question_type,
+        session_id=session_id,
+        now=now,
+    )
+    return outcome
+
+
+async def _save_outcome(
+    *,
+    db: AsyncClient,
+    uid: str,
+    card: FlashcardResponse,
+    outcome: AnswerOutcome,
+    question_type: QuestionType | None,
+    session_id: str | None,
+    now: datetime,
+) -> FlashcardResponse:
+    """Write an answer's outcome to the card (unless stale) and to its session.
+
+    Returns the card as it is now.
+    """
+    flashcard_id = card.flashcard_id
     if outcome.event is None:
         # Stale: the card moved to another stage since this question was built.
         logger.info("Ignoring stale %s answer for %s (uid=%s)", question_type, flashcard_id, uid)

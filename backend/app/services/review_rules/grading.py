@@ -205,12 +205,22 @@ def check_card_answer(
     answer: str,
 ) -> bool:
     """Grade a typed answer for a specific card and question type."""
+    return check_typed_answer(
+        question_type, answer, accepted_answers_for(card, question_type)
+    )
+
+
+def check_typed_answer(
+    question_type: QuestionType, answer: str, accepted_answers: list[str]
+) -> bool:
+    """Grade a typed answer against a question's accepted answers.
+
+    A reading answer with kanji or romaji is wrong (the app asks for kana first).
+    """
     spec = QUESTIONS[question_type]
     if spec.asks_reading and has_non_kana_for_reading(answer):
         return False
-    return check_fill_answer(
-        answer, accepted_answers_for(card, question_type), spec.answer_kind or "kana"
-    )
+    return check_fill_answer(answer, accepted_answers, spec.answer_kind or "kana")
 
 
 def merge_synonyms(*lists: list[str]) -> list[str]:

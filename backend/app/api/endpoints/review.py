@@ -4,9 +4,11 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, Db, HttpClient, daily_limit
 from app.schemas.review import (
+    AnswerVerdict,
     ReviewCardResponse,
     ReviewSessionResponse,
     ReviewSummaryResponse,
+    SessionAnswerRequest,
     SessionResultResponse,
 )
 from app.services import review
@@ -38,14 +40,32 @@ async def start_review_session(
     language: str = "English",
 ) -> ReviewSessionResponse:
     """Start a session: up to 10 cards, weakest first, as multiple choice and
-    fill-the-gap questions. Send answers to POST /flashcards/{id}/review with
-    this session_id."""
+    fill-the-gap questions. Send answers to
+    POST /review/session/{session_id}/answers."""
     return await review.build_session(
         db=db,
         http_client=http_client,
         uid=current_user["uid"],
         collection=collection,
         language=language,
+    )
+
+
+@router.post("/session/{session_id}/answers", response_model=AnswerVerdict)
+async def answer_review_question(
+    session_id: str,
+    payload: SessionAnswerRequest,
+    current_user: CurrentUser,
+    db: Db,
+) -> AnswerVerdict:
+    """Answer one question of a session. Graded against the question as it was asked
+    (saved when the session started), then recorded on the card and in the session.
+
+    409 for sessions started before answer keys were saved; 422 when the answer kind
+    doesn't fit the question (e.g. "pick" for fill-in-the-blank).
+    """
+    return await review.answer_question(
+        db=db, uid=current_user["uid"], session_id=session_id, answer=payload
     )
 
 

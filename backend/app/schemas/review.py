@@ -9,7 +9,7 @@ from app.schemas.flashcard import (
     JpOption,
     QuestionType,
 )
-from app.schemas.review_types import ReviewStage
+from app.schemas.review_types import Rating, ReviewStage
 
 
 class ReviewCardResponse(BaseModel):
@@ -199,6 +199,53 @@ class ReviewSessionRecord(BaseModel):
     answers: list[SessionAnswer] = Field(default_factory=list)
     # Empty for sessions saved before answer keys existed.
     exercises: list[ExerciseKey] = Field(default_factory=list)
+
+
+class _SessionAnswerBase(BaseModel):
+    exercise_id: str
+
+
+class FlipAnswer(_SessionAnswerBase):
+    """A flashcard the learner rated themselves."""
+
+    kind: Literal["flip"]
+    rating: Rating
+
+
+class PickAnswer(_SessionAnswerBase):
+    """A multiple-choice option, by its index in the exercise's options."""
+
+    kind: Literal["pick"]
+    index: int = Field(ge=0)
+
+
+class TypedAnswer(_SessionAnswerBase):
+    """A typed fill-in-the-blank answer."""
+
+    kind: Literal["typed"]
+    text: str
+
+
+class RevealAnswer(_SessionAnswerBase):
+    """The "Show answer" button on a fill-in-the-blank question: counts as a miss."""
+
+    kind: Literal["reveal"]
+
+
+SessionAnswerRequest = Annotated[
+    FlipAnswer | PickAnswer | TypedAnswer | RevealAnswer,
+    Field(discriminator="kind"),
+]
+
+
+class AnswerVerdict(BaseModel):
+    """The server's grading of one session answer."""
+
+    exercise_id: str
+    correct: bool
+    # The card moved to another stage since the session started, so the answer was
+    # not counted (strength, schedule and stage are unchanged).
+    stale: bool
 
 
 class AreaCount(BaseModel):

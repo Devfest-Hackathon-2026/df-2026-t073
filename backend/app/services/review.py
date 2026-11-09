@@ -4,18 +4,22 @@ import uuid
 from datetime import datetime, timezone
 
 import httpx
+from fastapi import HTTPException, status
 from google.cloud.firestore import AsyncClient
 
 from app.schemas.flashcard import FlashcardResponse
 from app.schemas.review import (
+    AnswerVerdict,
     Collection,
     ExerciseType,
     ReviewCardResponse,
     ReviewSessionRecord,
     ReviewSessionResponse,
     ReviewSummaryResponse,
+    SessionAnswerRequest,
     SessionResultResponse,
 )
+from app.services.review_rules.answers import answer_fits
 from app.services.review_rules.distractors import complete_distractors, needs_distractors
 from app.services.review_rules.exercises import build_exercise, exercise_key
 from app.services.review_rules.grading import merge_synonyms
@@ -26,6 +30,7 @@ from app.services.firestore import (
     create_review_session,
     get_review_session,
     list_flashcards,
+    record_keyed_answer,
     save_distractors,
 )
 from app.services.flashcard_generator import generate_distractors
@@ -187,6 +192,33 @@ async def build_session(
         ),
     )
     return ReviewSessionResponse(session_id=session_id, exercises=exercises)
+
+
+async def answer_question(
+    *, db: AsyncClient, uid: str, session_id: str, answer: SessionAnswerRequest
+) -> AnswerVerdict:
+    """Grade one session answer against the question that was asked, and record it."""
+    record = await get_review_session(db=db, uid=uid, session_id=session_id)
+    if not record.exercises:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This session was started before answers were graded per question.",
+        )
+    key = next((k for k in record.exercises if k.exercise_id == answer.exercise_id), None)
+    if key is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Exercise '{answer.exercise_id}' is not in this session.",
+        )
+    if not answer_fits(key, answer):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"A '{answer.kind}' answer doesn't fit a {key.question_type} question.",
+        )
+    outcome = await record_keyed_answer(
+        db=db, uid=uid, session_id=session_id, key=key, answer=answer
+    )
+    return AnswerVerdict(exercise_id=key.exercise_id, correct=outcome.correct, stale=outcome.stale)
 
 
 async def get_session_result(*, db: AsyncClient, uid: str, session_id: str) -> SessionResultResponse:
