@@ -110,16 +110,16 @@ const reviewLabels = {
     fill: 'Fill in the blank',
   },
   questionTypes: {
-    flashcard_text: 'Flashcard · Text',
-    flashcard_object: 'Flashcard · Object',
-    mcq_text_reading: 'Reading · Multiple choice',
-    mcq_text_translate: 'Translate · Multiple choice',
-    mcq_text_reverse: 'Reverse translate · Multiple choice',
-    mcq_object_name: 'Object name · Multiple choice',
-    fill_text_reading: 'Reading · Type the answer',
-    fill_text_translate: 'Meaning · Type the answer',
-    fill_text_reverse: 'Reverse translate · Type the answer',
-    fill_object_name: 'Object name · Type the answer',
+    flashcard_text: 'Flip to reveal the answer',
+    flashcard_object: 'Flip to reveal the answer',
+    mcq_text_reading: 'Choose the most appropriate answer',
+    mcq_text_translate: 'Choose the most appropriate answer',
+    mcq_text_reverse: 'Choose the most appropriate answer',
+    mcq_object_name: 'Choose the most appropriate answer',
+    fill_text_reading: 'Type your answer',
+    fill_text_translate: 'Type your answer',
+    fill_text_reverse: 'Type your answer',
+    fill_object_name: 'Type your answer',
   },
 };
 
@@ -498,7 +498,7 @@ const today = {
   planVisit: 'Plan a visit',
   yourPlans: 'Your plans',
   nothingPlanned: 'Nothing planned yet',
-  wordOfDay: 'Word of the day',
+  wordOfDay: "Today's Tango",
   /** Why this word of the day was picked. */
   wordReason: {
     visit: (place: string) => `For your visit to ${place}`,
@@ -710,12 +710,32 @@ const settings = {
   hiragana: 'Hiragana',
   romaji: 'Romaji',
   furigana: 'Furigana over kanji',
-  /** Sample word shown under the display settings. */
+  /** Live previews at the top of the display and practice settings. */
   preview: {
-    text: '食券',
-    reading: 'しょっけん',
-    romaji: 'shokken',
-    meaning: 'meal ticket',
+    word: {
+      text: '食券',
+      reading: 'しょっけん',
+      romaji: 'shokken',
+      meaning: 'meal ticket',
+    },
+    /** Section titles: Japanese from "Some" / from "A lot" of Japanese in the app. */
+    titleSome: { en: 'Prepare', jp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' } },
+    titleLot: { en: 'Review', jp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' } },
+    staffLine: {
+      text: 'いらっしゃいませ。食券をお願いします。',
+      reading: 'いらっしゃいませ。しょっけんをおねがいします。',
+      romaji: 'irasshaimase. shokken o onegai shimasu.',
+    },
+    staffEnglish: 'Welcome. Your meal ticket, please.',
+    playStaff: 'Play the staff line',
+    phrases: {
+      easy: { text: '食券ください。', reading: 'しょっけんください。', romaji: 'shokken kudasai.' },
+      keigo: {
+        text: '食券をお願いいたします。',
+        reading: 'しょっけんをおねがいいたします。',
+        romaji: 'shokken o onegai itashimasu.',
+      },
+    },
   },
   japaneseInApp: 'Japanese in the app',
   aLittle: 'A little',

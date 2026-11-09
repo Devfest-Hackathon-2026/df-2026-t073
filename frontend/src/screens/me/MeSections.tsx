@@ -4,7 +4,6 @@ import { checkBackendAuth, checkBackendHealth } from '../../api/health';
 import { searchPlaces } from '../../api/places';
 import { getProfile, updateProfile } from '../../api/user';
 import { Icon } from '../../components/Icon';
-import { Jp } from '../../components/Jp';
 import {
   Button,
   Card,
@@ -30,6 +29,7 @@ import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import type { HomeArea, Place } from '../../types';
 import { READING_LEVELS } from '../welcome/WelcomeScreen';
 import { copy } from '../../copy';
+import { DisplayPreview, PracticePreview } from './SettingsPreviews';
 
 export const LANGUAGES = [
   { value: 'English', native: 'English' },
@@ -43,7 +43,6 @@ export const LANGUAGES = [
 
 const AUTH_LABEL: Record<AuthStatus, string> = copy.developer.authStatus;
 
-const PREVIEW = copy.settings.preview;
 
 const HOME_RADIUS_M = 500;
 
@@ -246,6 +245,7 @@ export function DisplaySection(): React.JSX.Element {
   const { settings, update } = useSettings();
   return (
     <View style={base.stack}>
+      <DisplayPreview />
       <Card>
         <Text style={base.label}>{copy.settings.showJapaneseAs}</Text>
         <SegmentedControl
@@ -262,9 +262,6 @@ export function DisplaySection(): React.JSX.Element {
           value={settings.furigana}
           onValueChange={value => update({ furigana: value })}
         />
-        <View style={styles.preview}>
-          <Jp {...PREVIEW} size="xl" bold />
-        </View>
       </Card>
       <Card>
         <Text style={base.label}>{copy.settings.japaneseInApp}</Text>
@@ -287,31 +284,34 @@ export function DisplaySection(): React.JSX.Element {
 export function PracticeSection(): React.JSX.Element {
   const { settings, update } = useSettings();
   return (
-    <Card>
-      <Text style={base.label}>{copy.settings.staffSpeed}</Text>
-      <SegmentedControl
-        options={[
-          { value: 'slower', label: copy.settings.slower },
-          { value: 'natural', label: copy.settings.natural },
-        ]}
-        value={settings.staffSpeed}
-        onChange={value => update({ staffSpeed: value })}
-      />
-      <Text style={base.label}>{copy.settings.phrasesFirst}</Text>
-      <SegmentedControl
-        options={[
-          { value: 'easy', label: copy.settings.easy },
-          { value: 'keigo', label: copy.settings.keigo },
-        ]}
-        value={settings.phrasesFirst}
-        onChange={value => update({ phrasesFirst: value })}
-      />
-      <ToggleRow
-        label={copy.settings.englishAfterLine}
-        value={settings.englishAfterRoleplayLine}
-        onValueChange={value => update({ englishAfterRoleplayLine: value })}
-      />
-    </Card>
+    <View style={base.stack}>
+      <PracticePreview />
+      <Card>
+        <Text style={base.label}>{copy.settings.staffSpeed}</Text>
+        <SegmentedControl
+          options={[
+            { value: 'slower', label: copy.settings.slower },
+            { value: 'natural', label: copy.settings.natural },
+          ]}
+          value={settings.staffSpeed}
+          onChange={value => update({ staffSpeed: value })}
+        />
+        <Text style={base.label}>{copy.settings.phrasesFirst}</Text>
+        <SegmentedControl
+          options={[
+            { value: 'easy', label: copy.settings.easy },
+            { value: 'keigo', label: copy.settings.keigo },
+          ]}
+          value={settings.phrasesFirst}
+          onChange={value => update({ phrasesFirst: value })}
+        />
+        <ToggleRow
+          label={copy.settings.englishAfterLine}
+          value={settings.englishAfterRoleplayLine}
+          onValueChange={value => update({ englishAfterRoleplayLine: value })}
+        />
+      </Card>
+    </View>
   );
 }
 
@@ -573,12 +573,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     borderBottomWidth: sizes.hairline,
     borderBottomColor: colors.border,
-  },
-  preview: {
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    padding: space.md,
-    alignItems: 'center',
   },
   searchBox: {
     flexDirection: 'row',

@@ -254,11 +254,11 @@ function Regular({
       {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {review ? <ReviewCardView card={review} /> : null}
-      {summary.upNext ? (
-        <UpNextCard visit={summary.upNext} onPlan={() => setPlanning(true)} />
-      ) : (
-        <PlansRow onPlan={() => setPlanning(true)} />
-      )}
+      {summary.upNext ? <UpNextCard visit={summary.upNext} /> : null}
+      <PlansRow
+        hasPlans={summary.upNext !== null}
+        onPlan={() => setPlanning(true)}
+      />
       <PlanVisitSheet
         visible={planning}
         onClose={() => setPlanning(false)}
@@ -278,13 +278,8 @@ function Regular({
   );
 }
 
-function UpNextCard({
-  visit,
-  onPlan,
-}: {
-  visit: Visit;
-  onPlan: () => void;
-}): React.JSX.Element {
+/** The next planned visit, ready to prepare. */
+function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
     <Card variant="accent">
@@ -308,30 +303,18 @@ function UpNextCard({
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
       </View>
-      <View style={base.rowBetween}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onPlan}
-          style={styles.plansLink}
-        >
-          <Icon name="add" size={fontSizes.md} color={colors.textInverse} />
-          <Text style={styles.plansLinkInverse}>{copy.today.planVisit}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => nav.navigate('Plans')}
-          style={styles.plansLink}
-        >
-          <Text style={styles.plansLinkInverse}>{copy.today.allPlans}</Text>
-          <Icon name="forward" size={fontSizes.md} color={colors.textInverse} />
-        </Pressable>
-      </View>
     </Card>
   );
 }
 
-/** Nothing planned yet: plan a visit, or open Plans. */
-function PlansRow({ onPlan }: { onPlan: () => void }): React.JSX.Element {
+/** Plan a new visit, or open all plans. */
+function PlansRow({
+  hasPlans,
+  onPlan,
+}: {
+  hasPlans: boolean;
+  onPlan: () => void;
+}): React.JSX.Element {
   const nav = useRootNav();
   return (
     <View style={styles.plansRow}>
@@ -341,7 +324,14 @@ function PlansRow({ onPlan }: { onPlan: () => void }): React.JSX.Element {
         style={base.grow}
       >
         <Text style={base.heading}>{copy.today.yourPlans}</Text>
-        <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
+        <View style={base.row}>
+          <Text style={styles.plansLinkText}>
+            {hasPlans ? copy.today.allPlans : copy.today.nothingPlanned}
+          </Text>
+          {hasPlans ? (
+            <Icon name="forward" size={fontSizes.md} color={colors.accent} />
+          ) : null}
+        </View>
       </Pressable>
       <Button label={copy.today.planVisit} icon="add" onPress={onPlan} />
     </View>
@@ -564,14 +554,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: space.md,
   },
-  plansLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-  },
-  plansLinkInverse: {
+  plansLinkText: {
     ...base.caption,
-    color: colors.textInverse,
+    color: colors.accent,
     fontWeight: fontWeights.bold,
   },
   plansRow: {
