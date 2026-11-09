@@ -245,3 +245,15 @@ test('favorite pins keep the place they open', async () => {
   expect(pin.placeId).toBe('menya-taiki');
   expect(pin.label).toBe('麺屋たいき');
 });
+
+test('time until the next session reads naturally', () => {
+  const { formatTimeUntil } = require('../src/utils/format');
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const at = (ms: number) => new Date(now + ms).toISOString();
+  expect(formatTimeUntil(at(30_000), now)).toBe('a minute');
+  expect(formatTimeUntil(at(25 * 60_000), now)).toBe('25 minutes');
+  expect(formatTimeUntil(at(60 * 60_000), now)).toBe('an hour');
+  expect(formatTimeUntil(at(3.2 * 3_600_000), now)).toBe('3 hours');
+  expect(formatTimeUntil(at(2 * 86_400_000), now)).toBe('2 days');
+  expect(formatTimeUntil(at(-1000), now)).toBeNull();
+});

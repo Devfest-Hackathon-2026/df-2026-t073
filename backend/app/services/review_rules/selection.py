@@ -39,6 +39,14 @@ def is_due(card: FlashcardResponse, now: datetime) -> bool:
     return _aware(card.review_stats.next_review_at) <= now
 
 
+def next_due_at(cards: list[FlashcardResponse], now: datetime) -> datetime | None:
+    """When the next card comes due, or None if one is due already (or there are none)."""
+    upcoming = [_aware(c.review_stats.next_review_at) for c in cards if not is_due(c, now)]
+    if not upcoming or len(upcoming) < len(cards):
+        return None
+    return min(upcoming)
+
+
 def area_of(card: FlashcardResponse) -> str:
     """The place this Tango was most recently found, or "" if none was named."""
     named = [s for s in card.sightings if clean_place_name(s.place_name)]

@@ -21,6 +21,8 @@ class ReviewCardResponse(BaseModel):
     areas: list[str]
     sample: list[FlashcardResponse]
     more_count: int
+    # When nothing is due: when the next Tango will be.
+    next_due_at: datetime | None = None
 
 
 class Collection(BaseModel):

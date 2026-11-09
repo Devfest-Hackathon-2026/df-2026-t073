@@ -166,6 +166,8 @@ export interface ReviewCard {
   areas: string[];
   sample: Tango[];
   moreCount: number;
+  /** When nothing is due: when the next Tango will be (ISO date-time). */
+  nextDueAt?: string | null;
 }
 
 export interface HistoryTip {

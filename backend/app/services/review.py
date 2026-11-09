@@ -23,7 +23,7 @@ from app.services.review_rules.distractors import complete_distractors, needs_di
 from app.services.review_rules.exercises import build_exercise, exercise_key
 from app.services.review_rules.grading import merge_synonyms
 from app.services.review_rules.results import answered_by_area, areas_summary, biggest_win, exercise_types_summary, session_minutes
-from app.services.review_rules.selection import AREA_PREFIX, FAVORITES_COLLECTION, LIST_PREFIX, PLACE_CUE_COLLECTION, PLACE_PREFIX, SESSION_SIZE, area_of, estimate_minutes, is_due, order_session_cards, pick_session_cards
+from app.services.review_rules.selection import AREA_PREFIX, FAVORITES_COLLECTION, LIST_PREFIX, PLACE_CUE_COLLECTION, PLACE_PREFIX, SESSION_SIZE, area_of, estimate_minutes, is_due, next_due_at, order_session_cards, pick_session_cards
 from app.services.lists import get_list, list_lists
 from app.services.firestore import (
     create_review_session,
@@ -52,13 +52,15 @@ def _due(cards: list[FlashcardResponse], now: datetime) -> list[FlashcardRespons
 
 async def get_review_card(*, db: AsyncClient, uid: str) -> ReviewCardResponse:
     now = datetime.now(timezone.utc)
-    due = _due(await _all_cards(db, uid), now)
+    cards = await _all_cards(db, uid)
+    due = _due(cards, now)
     return ReviewCardResponse(
         due_count=len(due),
         minutes=estimate_minutes(min(len(due), SESSION_SIZE)),
         areas=[a.area for a in areas_summary(due)][:3],
         sample=due[:SAMPLE_SIZE],
         more_count=max(0, len(due) - SAMPLE_SIZE),
+        next_due_at=next_due_at(cards, now),
     )
 
 

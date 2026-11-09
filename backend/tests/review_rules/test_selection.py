@@ -3,10 +3,27 @@ from datetime import timedelta
 from app.services.review_rules.selection import (
     PLACE_CUE_COLLECTION,
     SESSION_SIZE,
+    next_due_at,
     order_session_cards,
     pick_session_cards,
 )
 from tests.review_rules.factories import NOW, card
+
+
+class TestNextDue:
+    def test_soonest_upcoming_card(self) -> None:
+        cards = [
+            card("later", due_in=timedelta(days=2)),
+            card("soon", due_in=timedelta(hours=3)),
+        ]
+        assert next_due_at(cards, NOW) == NOW + timedelta(hours=3)
+
+    def test_none_while_something_is_due(self) -> None:
+        cards = [card("due"), card("later", due_in=timedelta(days=2))]
+        assert next_due_at(cards, NOW) is None
+
+    def test_none_without_cards(self) -> None:
+        assert next_due_at([], NOW) is None
 
 
 class TestPicking:

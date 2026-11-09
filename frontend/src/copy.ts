@@ -308,8 +308,10 @@ const review = {
   editList: 'Edit list',
   collectionEmpty: 'No Tango here yet',
   /** The Review card when nothing is due. */
-  caughtUp: 'All caught up',
-  caughtUpBody: 'Tango show up here again when they are due.',
+  caughtUp: 'All caught up!',
+  caughtUpBody: 'Check back again soon for your next review session.',
+  /** e.g. "Your next session is in 3 hours." */
+  caughtUpIn: (time: string) => `Your next review is in ${time}.`,
   placeCueAbout:
     'Tango due for review, each asked with the place you saw it as a hint.',
 };

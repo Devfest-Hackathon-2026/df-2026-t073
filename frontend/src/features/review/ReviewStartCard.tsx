@@ -9,8 +9,15 @@ import { useRootNav } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontSizes, fontWeights, space } from '../../styles/tokens';
 import type { ReviewCard } from '../../types';
+import { formatTimeUntil } from '../../utils/format';
 
 const HANAMARU_SIZE = 140;
+
+/** When the next session is, if the server said; otherwise a general line. */
+function caughtUpLine(card: ReviewCard): string {
+  const time = card.nextDueAt ? formatTimeUntil(card.nextDueAt) : null;
+  return time ? copy.review.caughtUpIn(time) : copy.review.caughtUpBody;
+}
 
 /** How many sample Tango the card shows. */
 const MAX_SAMPLE = 3;
@@ -41,7 +48,7 @@ export function ReviewStartCard({
           <View style={[styles.body, styles.caughtUpBodyRoom]}>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.caughtUp}>{copy.review.caughtUp}</Text>
-            <Text style={styles.caughtUpBody}>{copy.review.caughtUpBody}</Text>
+            <Text style={styles.caughtUpBody}>{caughtUpLine(card)}</Text>
           </View>
         </Card>
       </CardStack>

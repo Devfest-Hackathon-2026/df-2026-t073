@@ -48,6 +48,7 @@ interface ReviewCardResponse {
   areas: string[];
   sample: FlashcardResponse[];
   more_count: number;
+  next_due_at?: string | null;
 }
 
 interface ReviewSummaryResponse {
@@ -293,6 +294,7 @@ export const getReviewCard = pick(
       areas: r.areas,
       sample: r.sample.map(flashcardToTango),
       moreCount: r.more_count,
+      nextDueAt: r.next_due_at ?? null,
     };
   },
 );
