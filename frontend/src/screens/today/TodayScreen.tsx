@@ -277,9 +277,9 @@ function Regular({
         visible={planning}
         onClose={() => setPlanning(false)}
         visits={visits.data ?? []}
-        onSaved={() => {
-          visits.reload();
-          onPlansChanged();
+        onSaved={async () => {
+          await visits.reload();
+          await onPlansChanged();
         }}
       />
       {settings.mapFeatures && summary.areas.length > 0 ? (

@@ -12,6 +12,7 @@ import type {
   TangoKind,
 } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
+import { clearCache } from '../cache/storage';
 import { copy } from '../copy';
 
 /** Sighting as stored by the backend (app/schemas/flashcard.py). */
@@ -330,16 +331,19 @@ export const setFavorite = pick(
         stage: 'flashcard',
       },
     };
-    return flashcardToTango(
-      await request<FlashcardResponse>(
-        `${API_V1}/flashcards/${encodeURIComponent(id)}`,
-        {
-          method: 'PATCH',
-          body: { favorite },
-          outboxFallback: fallbackResponse,
-        },
-      ),
+    const updated = await request<FlashcardResponse>(
+      `${API_V1}/flashcards/${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        body: { favorite },
+        outboxFallback: fallbackResponse,
+      },
     );
+    await Promise.all([
+      clearCache('tango:'),
+      clearCache('review:'),
+    ]);
+    return flashcardToTango(updated);
   },
 );
 
@@ -363,6 +367,11 @@ export const deleteTango = pick(
     await request<void>(`${API_V1}/flashcards/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
+    await Promise.all([
+      clearCache('tango:'),
+      clearCache('review:'),
+      clearCache('today:'),
+    ]);
   },
 );
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Text, View } from 'react-native';
+import { clearCache } from '../../cache/storage';
 import {
   deleteList,
   listCollectionId,
@@ -42,6 +43,8 @@ export function TangoListScreen({
 
   const remove = async (id: string) => {
     await updateList(listId, { remove: [id] });
+    await clearCache('lists:');
+    await clearCache('review:');
     data.reload();
   };
   const confirmDelete = (name: string) =>
@@ -52,6 +55,8 @@ export function TangoListScreen({
         style: 'destructive',
         onPress: async () => {
           await deleteList(listId);
+          await clearCache('lists:');
+          await clearCache('review:');
           navigation.goBack();
         },
       },
@@ -121,6 +126,8 @@ export function TangoListScreen({
               onClose={() => setRenaming(false)}
               onSave={async name => {
                 await updateList(listId, { name });
+                await clearCache('lists:');
+                await clearCache('review:');
                 data.reload();
               }}
             />

@@ -97,7 +97,8 @@ export function useCachedAsync<T>(
           shouldFetch =
             isExpired || revalidateOnMount || currentData === undefined;
         } else {
-          // 'revalidate'
+          // 'revalidate' (e.g. on screen focus or explicit refresh):
+          // Only fetch if TTL expired or we have no data yet.
           shouldFetch = isExpired || currentData === undefined;
         }
 

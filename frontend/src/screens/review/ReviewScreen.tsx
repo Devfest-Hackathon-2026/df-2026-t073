@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { clearCache } from '../../cache/storage';
 import { createList, listLists } from '../../api/lists';
 import { getReviewCard, getReviewSummary } from '../../api/review';
 import { listTango } from '../../api/tango';
@@ -69,19 +70,12 @@ export function ReviewScreen(): React.JSX.Element {
   const card = useCachedAsync('review:card', getReviewCard);
   const lists = useCachedAsync('lists:all', listLists);
   const [query, setQuery] = useState('');
-  const tango = useCachedAsync(
-    `tango:list:${query}`,
-    () => listTango(query),
-    query,
-  );
-  // Every Tango, unaffected by the search, for the collection sheet.
-  const everything = useCachedAsync('tango:list:all', () => listTango());
+  const tango = useCachedAsync('tango:list:all', () => listTango());
   useReloadOnFocus(
     summary.revalidate,
     card.revalidate,
     lists.revalidate,
     tango.revalidate,
-    everything.revalidate,
   );
   const [opened, setOpened] = useState<Collection | null>(null);
   const [naming, setNaming] = useState(false);
@@ -103,12 +97,11 @@ export function ReviewScreen(): React.JSX.Element {
         card.reload(),
         lists.reload(),
         tango.reload(),
-        everything.reload(),
       ]);
     } finally {
       setPullRefreshing(false);
     }
-  }, [summary, card, lists, tango, everything]);
+  }, [summary, card, lists, tango]);
 
   const scroll = useRef<ScrollViewInstance>(null);
   // Where the list starts, and how tall the pinned controls are over it.
@@ -128,6 +121,7 @@ export function ReviewScreen(): React.JSX.Element {
   const shown = sortFilterTango(tango.data ?? [], filter, sort, {
     placeId: place?.id,
     listTangoIds: chosenList?.tangoIds,
+    query,
   });
   const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   // Every row would name the same place: leave it out.
@@ -271,6 +265,16 @@ export function ReviewScreen(): React.JSX.Element {
                     onPress={() => setPicking('list')}
                   />
                 ) : null}
+                {chosenList ? (
+                  <Chip
+                    icon="edit"
+                    label={copy.review.editList}
+                    tone="accent"
+                    onPress={() =>
+                      nav.navigate('TangoList', { listId: chosenList.id })
+                    }
+                  />
+                ) : null}
               </View>
             </View>
           </View>
@@ -355,7 +359,7 @@ export function ReviewScreen(): React.JSX.Element {
         collection={opened}
         tango={
           opened
-            ? collectionTango(opened, everything.data ?? [], lists.data ?? [])
+            ? collectionTango(opened, tango.data ?? [], lists.data ?? [])
             : null
         }
         onClose={() => setOpened(null)}
@@ -371,7 +375,9 @@ export function ReviewScreen(): React.JSX.Element {
         onEditList={
           opened?.isList
             ? () => {
-                const openedList = opened.id.slice('list:'.length);
+                const openedList = opened.id.startsWith('list:')
+                  ? opened.id.slice('list:'.length)
+                  : opened.id;
                 setOpened(null);
                 nav.navigate('TangoList', { listId: openedList });
               }
@@ -381,11 +387,16 @@ export function ReviewScreen(): React.JSX.Element {
       <NameListSheet
         visible={naming}
         title={copy.lists.newList}
+        existingNames={lists.data?.map(l => l.name)}
         onClose={() => setNaming(false)}
         onSave={async name => {
           const created = await createList(name);
-          summary.reload();
-          lists.reload();
+          await Promise.all([
+            clearCache('lists:'),
+            clearCache('review:'),
+            summary.reload(),
+            lists.reload(),
+          ]);
           nav.navigate('TangoList', { listId: created.id });
         }}
       />

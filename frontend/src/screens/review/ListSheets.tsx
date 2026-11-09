@@ -14,12 +14,14 @@ export function NameListSheet({
   visible,
   initial = '',
   title,
+  existingNames,
   onClose,
   onSave,
 }: {
   visible: boolean;
   initial?: string;
   title: string;
+  existingNames?: string[];
   onClose: () => void;
   onSave: (name: string) => Promise<void>;
 }): React.JSX.Element | null {
@@ -34,6 +36,17 @@ export function NameListSheet({
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
+      return;
+    }
+    if (
+      existingNames &&
+      existingNames.some(
+        n =>
+          n.trim().toLowerCase() === trimmed.toLowerCase() &&
+          n.trim().toLowerCase() !== initial.trim().toLowerCase(),
+      )
+    ) {
+      setError('A list with this name already exists.');
       return;
     }
     try {

@@ -1,10 +1,31 @@
 import type { Tango } from '../../types';
 
-/** Narrows to one place or one list; both optional. */
+/** Narrows to one place, one list, or text search; all optional. */
 export interface TangoScope {
   placeId?: string | null;
   /** Ids of the Tango in the chosen list. */
   listTangoIds?: string[] | null;
+  query?: string | null;
+}
+
+function matches(tango: Tango, query?: string | null): boolean {
+  if (!query) {
+    return true;
+  }
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+  const haystack = [
+    tango.text,
+    tango.reading,
+    tango.romaji,
+    tango.meaning,
+    ...tango.sightings.map(s => s.placeName),
+  ]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
 }
 
 /** The places the Tango were seen at, most Tango first. */
@@ -80,6 +101,7 @@ export function sortFilterTango(
     .filter(
       ({ tango }) =>
         keep(tango, filter) &&
+        matches(tango, scope.query) &&
         (!scope.placeId ||
           tango.sightings.some(s => s.placeId === scope.placeId)) &&
         (!inList || inList.has(tango.id)),

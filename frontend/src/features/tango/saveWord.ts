@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { catchTango } from '../../api/capture';
 import { getStaffAudio } from '../../api/rehearse';
 import { playUrl } from '../../audio/audio';
+import { API_BASE_URL } from '../../config';
 import { useSettings } from '../../state/SettingsContext';
 import { copy } from '../../copy';
 
@@ -25,7 +26,8 @@ export const SAVE_LABEL: Record<SaveState, string> = copy.saveWord;
 export async function playWord(text: string): Promise<void> {
   const url = await getStaffAudio(text, 'natural').catch(() => null);
   if (url) {
-    await playUrl(url).catch(() => {});
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    await playUrl(fullUrl).catch(() => {});
   }
 }
 

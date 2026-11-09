@@ -6,7 +6,7 @@ import type { JpText, MapArea, Place, TodaySummary, Visit } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
 import { flashcardToTango, type FlashcardResponse } from './tango';
 import { toReviewCard, type ReviewCardResponse } from './review';
-import { setCache } from '../cache/storage';
+import { clearCache, setCache } from '../cache/storage';
 import { copy } from '../copy';
 
 const MAP_AREAS: MapArea[] = [
@@ -336,13 +336,14 @@ export const createVisit = pick(
     VISITS.push(visit);
     return mockDelay<Visit>(visit);
   },
-  async (placeId: string, when: string) =>
-    toVisit(
-      await request<VisitResponse>(`${API_V1}/visits`, {
-        method: 'POST',
-        body: { place_id: placeId, when },
-      }),
-    ),
+  async (placeId: string, when: string) => {
+    const res = await request<VisitResponse>(`${API_V1}/visits`, {
+      method: 'POST',
+      body: { place_id: placeId, when },
+    });
+    await Promise.all([clearCache('visits:'), clearCache('today:')]);
+    return toVisit(res);
+  },
 );
 
 export const deleteVisit = pick(
@@ -354,8 +355,10 @@ export const deleteVisit = pick(
     }
     return mockDelay<void>(undefined, 100);
   },
-  (visitId: string) =>
-    request<void>(`${API_V1}/visits/${encodeURIComponent(visitId)}`, {
+  async (visitId: string) => {
+    await request<void>(`${API_V1}/visits/${encodeURIComponent(visitId)}`, {
       method: 'DELETE',
-    }),
+    });
+    await Promise.all([clearCache('visits:'), clearCache('today:')]);
+  },
 );

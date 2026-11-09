@@ -113,21 +113,15 @@ def upload_blob_sync(
     client = get_storage_client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    # Upload without permanent public download token
+
+    # Set permanent Firebase Storage download token so image/audio URLs never expire
+    # and require no IAM signing credentials or private keys.
+    token = uuid.uuid4().hex
+    blob.metadata = {"firebaseStorageDownloadTokens": token}
     blob.upload_from_string(image_bytes, content_type=content_type)
 
-    # Return a short-lived V4 signed URL, or fall back to authenticated proxy URL
-    try:
-        return blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(hours=1),
-            method="GET",
-        )
-    except Exception:
-        if capture_id:
-            return f"{settings.API_V1_STR}/captures/{capture_id}/image"
-        encoded_path = quote(blob_path, safe="")
-        return f"https://storage.googleapis.com/{bucket_name}/{encoded_path}"
+    encoded_path = quote(blob_path, safe="")
+    return f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{encoded_path}?alt=media&token={token}"
 
 
 # Backwards compatibility alias

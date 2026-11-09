@@ -60,9 +60,18 @@ async def get_list(*, db: AsyncClient, uid: str, list_id: str) -> TangoList:
 
 
 async def create_list(*, db: AsyncClient, uid: str, request: ListCreateRequest) -> TangoList:
+    name = request.name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="List name cannot be empty.")
+    existing = await list_lists(db=db, uid=uid)
+    if any(l.name.lower() == name.lower() for l in existing):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"A list named '{name}' already exists.",
+        )
     created = TangoList(
         list_id=f"ls_{uuid.uuid4().hex[:12]}",
-        name=request.name.strip(),
+        name=name,
         tango_ids=apply_ids([], request.tango_ids, []),
         created_at=datetime.now(timezone.utc),
     )
@@ -75,9 +84,19 @@ async def create_list(*, db: AsyncClient, uid: str, request: ListCreateRequest) 
 
 async def update_list(*, db: AsyncClient, uid: str, list_id: str, request: ListUpdateRequest) -> TangoList:
     current = await get_list(db=db, uid=uid, list_id=list_id)
+    new_name = request.name.strip() if request.name else current.name
+    if not new_name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="List name cannot be empty.")
+    if new_name.lower() != current.name.lower():
+        existing = await list_lists(db=db, uid=uid)
+        if any(l.name.lower() == new_name.lower() and l.list_id != list_id for l in existing):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"A list named '{new_name}' already exists.",
+            )
     updated = current.model_copy(
         update={
-            "name": request.name.strip() if request.name else current.name,
+            "name": new_name,
             "tango_ids": apply_ids(current.tango_ids, request.add, request.remove),
         }
     )

@@ -1,4 +1,5 @@
 import type { TangoList } from '../types';
+import { clearCache } from '../cache/storage';
 import { API_V1, mockDelay, pick, request } from './client';
 import { copy } from '../copy';
 
@@ -34,13 +35,16 @@ export const createList = pick(
     mockLists.push(created);
     return mockDelay<TangoList>(created, 150);
   },
-  async (name: string, tangoIds: string[] = []) =>
-    toList(
+  async (name: string, tangoIds: string[] = []) => {
+    const list = toList(
       await request<TangoListResponse>(`${API_V1}/lists`, {
         method: 'POST',
         body: { name, tango_ids: tangoIds },
       }),
-    ),
+    );
+    await Promise.all([clearCache('lists:'), clearCache('review:')]);
+    return list;
+  },
 );
 
 export interface ListChange {
@@ -69,8 +73,8 @@ export const updateList = pick(
     }
     return mockDelay<TangoList>({ ...found }, 150);
   },
-  async (id: string, change: ListChange) =>
-    toList(
+  async (id: string, change: ListChange) => {
+    const list = toList(
       await request<TangoListResponse>(
         `${API_V1}/lists/${encodeURIComponent(id)}`,
         {
@@ -82,7 +86,10 @@ export const updateList = pick(
           },
         },
       ),
-    ),
+    );
+    await Promise.all([clearCache('lists:'), clearCache('review:')]);
+    return list;
+  },
 );
 
 export const deleteList = pick(
@@ -98,6 +105,7 @@ export const deleteList = pick(
     await request<void>(`${API_V1}/lists/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
+    await Promise.all([clearCache('lists:'), clearCache('review:')]);
   },
 );
 

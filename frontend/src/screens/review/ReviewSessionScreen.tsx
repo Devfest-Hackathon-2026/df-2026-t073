@@ -34,6 +34,7 @@ import {
   hasNonKanaForReading,
 } from '../../features/review/answerCheck';
 import { QUESTION_TYPE_LABEL } from '../../features/review/labels';
+import { API_BASE_URL } from '../../config';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import { formatVisitTime } from '../../utils/format';
@@ -395,7 +396,12 @@ export function PhotoLayerView({
 }: {
   photo: PhotoLayer | null;
 }): React.JSX.Element | null {
-  const imageUrl = photo?.imageUrl;
+  const rawUrl = photo?.imageUrl;
+  const imageUrl = rawUrl
+    ? rawUrl.startsWith('http')
+      ? rawUrl
+      : `${API_BASE_URL}${rawUrl}`
+    : null;
   const [aspect, setAspect] = useState(PHOTO_ASPECT);
   useEffect(() => {
     if (!imageUrl) {
@@ -412,7 +418,7 @@ export function PhotoLayerView({
     };
   }, [imageUrl]);
 
-  if (!photo) {
+  if (!photo || (!imageUrl && (!photo.lines || photo.lines.length === 0))) {
     return null;
   }
 
@@ -436,7 +442,7 @@ export function PhotoLayerView({
           />
           <View style={[styles.highlightBox, boxStyle]} />
         </View>
-      ) : (
+      ) : photo.lines && photo.lines.length > 0 ? (
         <View style={styles.photo}>
           <View style={styles.sign}>
             <Icon name="camera" size={fontSizes.xl} color={colors.hanamaru} />
@@ -456,7 +462,7 @@ export function PhotoLayerView({
             <View style={[styles.highlightBox, boxStyle]} />
           </View>
         </View>
-      )}
+      ) : null}
       <Facts
         items={[
           { icon: 'photo', text: copy.reviewSession.yourPhoto },
@@ -518,7 +524,9 @@ function Flashcard({
       <Text style={base.label}>
         {QUESTION_TYPE_LABEL[exercise.questionType]}
       </Text>
-      <PhotoLayerView photo={exercise.photo} />
+      {exercise.questionType === 'flashcard_object' ? (
+        <PhotoLayerView photo={exercise.photo} />
+      ) : null}
 
       {!flipped ? (
         <Card>

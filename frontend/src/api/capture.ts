@@ -21,6 +21,7 @@ import {
   flashcardToTango,
   type FlashcardResponse,
 } from './tango';
+import { clearCache } from '../cache/storage';
 import { copy } from '../copy';
 
 /** Shape returned by the existing backend (app/schemas/capture.py). */
@@ -221,6 +222,11 @@ export const catchTango = pick(
         },
       },
     );
+    await Promise.all([
+      clearCache('tango:'),
+      clearCache('review:'),
+      clearCache('today:'),
+    ]);
     return {
       tango: flashcardToTango(result.card),
       created: result.created,
@@ -249,9 +255,19 @@ export const undoCatch = pick(
         )}`,
         { method: 'DELETE' },
       );
+      await Promise.all([
+        clearCache('tango:'),
+        clearCache('review:'),
+        clearCache('today:'),
+      ]);
       return;
     }
     await request<void>(`${API_V1}/flashcards/${card}`, { method: 'DELETE' });
+    await Promise.all([
+      clearCache('tango:'),
+      clearCache('review:'),
+      clearCache('today:'),
+    ]);
   },
 );
 

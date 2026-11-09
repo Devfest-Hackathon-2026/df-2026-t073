@@ -118,15 +118,19 @@ export async function removeCache(key: string): Promise<void> {
 }
 
 /**
- * Clear cached API entries (optionally filtered by key prefix),
+ * Clear cached API entries (optionally filtered by key prefix or RegExp pattern),
  * safely preserving user settings and auth tokens.
  */
-export async function clearCache(prefix?: string): Promise<void> {
+export async function clearCache(filter?: string | RegExp): Promise<void> {
   // Clear memory cache
-  if (prefix) {
-    const fullPrefix = `${CACHE_PREFIX}${prefix}`;
+  if (filter) {
     for (const k of memoryCache.keys()) {
-      if (k.startsWith(fullPrefix)) {
+      const bareKey = k.startsWith(CACHE_PREFIX) ? k.slice(CACHE_PREFIX.length) : k;
+      const matches =
+        typeof filter === 'string'
+          ? k.startsWith(`${CACHE_PREFIX}${filter}`) || bareKey.startsWith(filter)
+          : filter.test(bareKey) || filter.test(k);
+      if (matches) {
         memoryCache.delete(k);
       }
     }
@@ -144,10 +148,15 @@ export async function clearCache(prefix?: string): Promise<void> {
     const toDelete: string[] = [];
     const remaining: string[] = [];
 
-    const fullPrefix = prefix ? `${CACHE_PREFIX}${prefix}` : null;
-
     for (const k of keys) {
-      if (!fullPrefix || k.startsWith(fullPrefix)) {
+      const bareKey = k.startsWith(CACHE_PREFIX) ? k.slice(CACHE_PREFIX.length) : k;
+      const matches = !filter
+        ? true
+        : typeof filter === 'string'
+        ? k.startsWith(`${CACHE_PREFIX}${filter}`) || bareKey.startsWith(filter)
+        : filter.test(bareKey) || filter.test(k);
+
+      if (matches) {
         toDelete.push(k);
       } else {
         remaining.push(k);
@@ -160,4 +169,7 @@ export async function clearCache(prefix?: string): Promise<void> {
     // Non-fatal
   }
 }
+
+/** Invalidate cache entries matching a prefix or pattern. */
+export const invalidateCache = clearCache;
 

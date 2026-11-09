@@ -48,8 +48,18 @@ interface ETagCacheEntry {
 const etagCache = new Map<string, ETagCacheEntry>();
 
 /** Clears all cached ETags and HTTP 304 response data. */
-export function clearEtagCache(): void {
-  etagCache.clear();
+export function clearEtagCache(pattern?: string | RegExp): void {
+  if (!pattern) {
+    etagCache.clear();
+    return;
+  }
+  for (const k of etagCache.keys()) {
+    const matches =
+      typeof pattern === 'string' ? k.includes(pattern) : pattern.test(k);
+    if (matches) {
+      etagCache.delete(k);
+    }
+  }
 }
 
 /** JSON request against the backend. Throws ApiError on non-2xx responses. */
@@ -58,6 +68,9 @@ export async function request<T>(
   options: RequestOptions<T> = {},
 ): Promise<T> {
   const { method = 'GET', body, query, outboxFallback } = options;
+  if (method !== 'GET') {
+    clearEtagCache();
+  }
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';

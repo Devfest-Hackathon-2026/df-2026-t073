@@ -655,7 +655,10 @@ export function CaptureScreen({
       return;
     }
     try {
-      const photo = await photoOutput.capturePhoto({}, {});
+      const photo = await photoOutput.capturePhoto(
+        { enableShutterSound: false },
+        {},
+      );
       try {
         const shot = uprightSize(photo.width, photo.height, photo.orientation);
         const path = await photo.saveToTemporaryFileAsync();
@@ -697,7 +700,10 @@ export function CaptureScreen({
     let uri: string | null = null;
     if (cameraReady) {
       try {
-        const file = await photoOutput.capturePhotoToFile({}, {});
+        const file = await photoOutput.capturePhotoToFile(
+          { enableShutterSound: false },
+          {},
+        );
         uri = `file://${file.filePath}`;
       } catch {
         uri = null;
