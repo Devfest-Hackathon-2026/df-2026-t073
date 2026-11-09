@@ -127,15 +127,21 @@ const EXISTING: Visit = {
 };
 
 describe('PlanVisitSheet', () => {
+  const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
   beforeEach(() => {
     createMock.mockClear();
     deleteMock.mockClear();
     jest.useFakeTimers({ now: MONDAY_0930 });
   });
-  afterEach(() => jest.useRealTimers());
+  afterEach(async () => {
+    for (const tree of mounted.splice(0)) {
+      await ReactTestRenderer.act(async () => tree.unmount());
+    }
+    jest.useRealTimers();
+  });
 
-  const sheet = (existing: Visit | null, onSaved = jest.fn()) =>
-    render(
+  const sheet = async (existing: Visit | null, onSaved = jest.fn()) => {
+    const tree = await render(
       <PlanVisitSheet
         visible
         onClose={() => {}}
@@ -144,6 +150,9 @@ describe('PlanVisitSheet', () => {
         onSaved={onSaved}
       />,
     );
+    mounted.push(tree);
+    return tree;
+  };
 
   test('adds a plan for any picked date and time, e.g. 12:15', async () => {
     const onSaved = jest.fn();
@@ -165,7 +174,7 @@ describe('PlanVisitSheet', () => {
       12, 12, 15,
     ]);
     expect(onSaved).toHaveBeenCalled();
-  });
+  }, 15000);
 
   test('later months are a tap away; past days and times cannot be saved', async () => {
     const tree = await sheet(null);

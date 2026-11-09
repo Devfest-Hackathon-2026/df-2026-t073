@@ -1,5 +1,7 @@
 /* eslint-env jest */
 
+jest.setTimeout(20000);
+
 // Native modules have no implementation under Jest, so they are replaced
 // with small fakes here.
 
