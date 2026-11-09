@@ -3,7 +3,10 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.schemas.capture import Vertex
+from pydantic import ValidationError
+
 from app.schemas.flashcard import (
+    FlashcardReviewRequest,
     CaptureFormat,
     Distractors,
     FlashcardResponse,
@@ -239,7 +242,7 @@ class TestFormatAndStages:
         bbox = [Vertex(x=0.2, y=0.2), Vertex(x=0.5, y=0.4)]
         updates = rules.backfill_photo_fields(live_card, photo_sighting, bbox)
         updated = live_card.model_copy(update=updates)
-        assert rules.can_fill_gap(updated) is True
+        assert rules.card_has_photo(updated) is True
         assert updated.image_url == "https://example.com/caught.jpg"
         assert updated.capture_id == "cap_new"
         assert len(updated.bounding_box) == 2
@@ -424,6 +427,18 @@ class TestAnswerChecking:
             ("fill_text_translate", "食券", "しょっけん", "meal ticket; food voucher", ["coupon"], "coupon", True),
             # Typos in meaning are rejected
             ("fill_text_translate", "食券", "しょっけん", "meal ticket", [], "meel ticket", False),
+            # Fragments inside one gloss are not accepted on their own
+            ("fill_text_translate", "電源", "でんげん", "on/off switch", [], "on", False),
+            ("fill_text_translate", "千円札", "せんえんさつ", "1,000 yen bill", [], "1", False),
+            ("fill_text_translate", "千円札", "せんえんさつ", "1,000 yen bill", [], "1,000 yen bill", True),
+            # Comma separates whole glosses, with or without a space
+            ("fill_text_translate", "出口", "でぐち", "exit, way out", [], "exit", True),
+            ("fill_text_translate", "出口", "でぐち", "exit,way out", [], "way out", True),
+            # Single words around a slash are alternatives
+            ("fill_text_translate", "お手洗い", "おてあらい", "toilet/restroom", [], "restroom", True),
+            ("fill_text_translate", "お手洗い", "おてあらい", "toilet/restroom", [], "toilet", True),
+            ("fill_text_translate", "食券", "しょっけん", "meal ticket / food voucher", [], "food voucher", True),
+            ("fill_text_translate", "年中無休", "ねんじゅうむきゅう", "24/7", [], "24", False),
         ],
     )
     def test_answer_grading_table(
@@ -478,3 +493,94 @@ class TestResults:
         late.at = NOW + timedelta(seconds=90)
         assert rules.session_minutes(NOW, [late]) == 2
         assert rules.session_minutes(NOW, []) == 0
+
+
+class TestReviewFixes:
+    def test_object_card_without_photo_gets_text_questions(self) -> None:
+        obj = card("o", kind="object", stage="flashcard", image=False)
+        assert rules.pick_question_type(obj, "seed") == "flashcard_text"
+        ex = rules.build_exercise(obj, rules.complete_distractors(obj, None, []), 0, "rs")
+        assert isinstance(ex, FlashcardExercise) and ex.front is not None
+        obj_mcq = card("o2", kind="object", stage="mcq", image=False)
+        assert rules.pick_question_type(obj_mcq, "seed").startswith("mcq_text_")
+        obj_photo = card("o3", kind="object", stage="mcq", image=True)
+        assert rules.pick_question_type(obj_photo, "seed") == "mcq_object_name"
+
+    def test_answer_alone_never_counts_as_correct(self) -> None:
+        c = card("c", stage="mcq")
+        assert rules.grade_answer(c, "mcq_text_reading", None, None, "wrong") is False
+        assert rules.grade_answer(c, None, None, None, "x") is False
+        assert rules.grade_answer(c, "fill_text_reading", True, "good", "しょけん") is False
+        assert rules.grade_answer(c, "fill_text_reading", None, None, "しょっけん") is True
+        # Fill is always graded by the server, never by the client's flag.
+        assert rules.grade_answer(c, "fill_text_reading", True, "easy", None) is False
+
+    def test_request_needs_outcome_unless_fill_answer(self) -> None:
+        with pytest.raises(ValidationError):
+            FlashcardReviewRequest(answer="x", question_type="mcq_text_reading")
+        with pytest.raises(ValidationError):
+            FlashcardReviewRequest(answer="x")
+        with pytest.raises(ValidationError):
+            FlashcardReviewRequest(correct=True, question_type="fill_text_reading")
+        FlashcardReviewRequest(answer="x", question_type="fill_text_reading")
+        FlashcardReviewRequest(rating="good")
+
+    def test_merge_synonyms(self) -> None:
+        assert rules.merge_synonyms(["shut", "Closed"], ["closed", "not open"]) == [
+            "shut",
+            "Closed",
+            "not open",
+        ]
+
+    def test_exercise_accepts_only_the_cards_synonyms(self) -> None:
+        # The server grades against card.meaning_synonyms, so the exercise must too.
+        c = card("c", meaning="closed", synonyms=["shut"], stage="fill", strength=4)
+        d = rules.complete_distractors(c, Distractors(synonyms=["not open"]), [])
+        for qtype_seed in range(20):
+            ex = rules.build_exercise(c, d, 0, f"rs{qtype_seed}")
+            if ex.question_type == "fill_text_translate":
+                assert isinstance(ex, FillBlankExercise)
+                assert "shut" in ex.accepted_answers
+                assert "not open" not in ex.accepted_answers
+                assert all(rules.check_card_answer(c, ex.question_type, a) for a in ex.accepted_answers)
+                break
+        else:
+            pytest.fail("fill_text_translate never picked")
+
+    def test_gloss_of_this_card_is_never_a_wrong_option(self) -> None:
+        a = card("a", meaning="toilet/restroom")
+        b = card("b", meaning="restroom")
+        c2 = card("c", meaning="on/off switch")
+        d_on = card("d", meaning="on")
+        d = rules.complete_distractors(a, None, [a, b])
+        assert "restroom" not in d.meanings
+        # Wider than acceptance: "on" is not accepted but is still kept out of the options.
+        assert "on" not in rules.complete_distractors(c2, None, [c2, d_on]).meanings
+
+    def test_needs_distractors(self) -> None:
+        assert rules.needs_distractors(card("a")) is True
+        no_readings = Distractors(meanings=["x"], readings=[])
+        kanji = card("k").model_copy(update={"distractors": no_readings})
+        assert rules.needs_distractors(kanji) is True
+        kana = card("n", kanji="おしぼり", reading="おしぼり").model_copy(
+            update={"distractors": no_readings}
+        )
+        assert rules.needs_distractors(kana) is False
+        obj = card("o", kind="object", image=True).model_copy(update={"distractors": no_readings})
+        assert rules.needs_distractors(obj) is False
+
+    def test_stale_question_detection(self) -> None:
+        c = card("c", stage="mcq", image=True)
+        assert rules.is_stale_answer(c, "flashcard_text") is True
+        assert rules.is_stale_answer(c, "fill_text_reading") is True
+        assert rules.is_stale_answer(c, "mcq_text_reading") is False
+        assert rules.is_stale_answer(c, "mcq_text_translate") is False
+        assert rules.is_stale_answer(c, None) is False
+        photo_mcq = card("p", stage="mcq_photo", image=True)
+        assert rules.is_stale_answer(photo_mcq, "mcq_text_translate") is False
+        assert rules.is_stale_answer(photo_mcq, "mcq_text_reading") is True
+
+    def test_photo_backfill_keeps_mcq_progress(self) -> None:
+        # mcq_photo is easier than mcq, so a card already at mcq stays there.
+        c = card("c", stage="mcq", image=True)
+        assert rules.effective_stage(c) == "mcq"

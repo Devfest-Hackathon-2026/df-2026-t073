@@ -146,15 +146,29 @@ async def build_session(
     )
     session_id = f"rs_{uuid.uuid4().hex[:16]}"
 
-    # One Gemini call for every card that has no cached wrong answers or lacks reading distractors.
-    missing = [c for c in picked if c.distractors is None or not c.distractors.readings]
-    generated = await generate_distractors(http_client=http_client, cards=missing, language=language)
-    await save_distractors(db=db, uid=uid, distractors=generated)
+    # One Gemini call for every card that has no cached wrong answers or lacks needed readings.
+    missing = {c.flashcard_id: c for c in picked if rules.needs_distractors(c)}
+    raw = await generate_distractors(
+        http_client=http_client, cards=list(missing.values()), language=language
+    )
+    # The stored synonym list = the card's current ones plus the new ones. Exercises
+    # accept card.meaning_synonyms, which must match what the server grades against.
+    generated = {
+        fid: d.model_copy(
+            update={"synonyms": rules.merge_synonyms(missing[fid].meaning_synonyms, d.synonyms)}
+        )
+        for fid, d in raw.items()
+        if fid in missing
+    }
+    saved = await save_distractors(db=db, uid=uid, distractors=generated)
 
     exercises = []
     for position, card in enumerate(picked):
-        found = generated.get(card.flashcard_id) or card.distractors
-        distractors = rules.complete_distractors(card, found, cards)
+        found = generated.get(card.flashcard_id)
+        if found is not None and saved:
+            # Exercises accept card.meaning_synonyms, so use the list just stored.
+            card = card.model_copy(update={"meaning_synonyms": found.synonyms})
+        distractors = rules.complete_distractors(card, found or card.distractors, cards)
         exercises.append(rules.build_exercise(card, distractors, position, session_id))
 
     await create_review_session(

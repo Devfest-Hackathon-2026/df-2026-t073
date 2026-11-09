@@ -23,6 +23,37 @@ QuestionType = Literal[
 ]
 
 
+# Stage rules shared by the FlashcardResponse validator and review_rules.
+# They live here (not in review_rules) so the schema can use them without a circular import.
+
+
+def card_has_photo(card: "FlashcardResponse") -> bool:
+    """True when the card has an uploaded capture photo and a usable bounding box."""
+    return bool(card.image_url) and len(card.bounding_box) >= 2
+
+
+def infer_stage(strength: int, fmt: CaptureFormat, photo: bool = True) -> "ReviewStage":
+    """Starting stage for older cards that have no stored stage."""
+    if strength <= 1:
+        return "flashcard"
+    if strength == 2:
+        return "mcq_photo" if (fmt == "text" and photo) else "mcq"
+    if strength == 3:
+        return "mcq"
+    return "fill"
+
+
+def normalize_stage(stage: "ReviewStage", fmt: CaptureFormat, photo: bool) -> "ReviewStage":
+    """The photo MCQ stage only exists for text cards with a photo; otherwise it is plain mcq.
+
+    A photo added later (backfill) does not move a card back from mcq to mcq_photo:
+    mcq_photo is the easier stage, so progress already made is kept.
+    """
+    if stage == "mcq_photo" and (fmt == "object" or not photo):
+        return "mcq"
+    return stage
+
+
 class UseCaseExample(BaseModel):
     # "register" is the JSON/Firestore name; the Python name avoids shadowing
     # BaseModel.register.
@@ -124,8 +155,13 @@ class FlashcardReviewRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_outcome(self) -> "FlashcardReviewRequest":
-        if self.rating is None and self.correct is None and self.answer is None:
-            raise ValueError("One of rating, correct, or answer must be provided.")
+        # Fill-in-the-blank is graded by the server, so it needs the typed answer.
+        if self.question_type is not None and self.question_type.startswith("fill_"):
+            if self.answer is None:
+                raise ValueError("answer is required for fill_* questions.")
+            return self
+        if self.rating is None and self.correct is None:
+            raise ValueError("Provide rating or correct.")
         return self
 
 
@@ -183,21 +219,11 @@ class FlashcardResponse(GeneratedFlashcardContent):
     def populate_defaults(self) -> "FlashcardResponse":
         if self.capture_format is None:
             self.capture_format = "object" if self.kind == "object" else "text"
-        has_photo = bool(self.image_url) and len(self.bounding_box) >= 2
-        if self.review_stats.stage is None:
-            if self.strength <= 1:
-                inferred: ReviewStage = "flashcard"
-            elif self.strength == 2:
-                inferred = "mcq_photo" if (self.capture_format == "text" and has_photo) else "mcq"
-            elif self.strength == 3:
-                inferred = "mcq"
-            else:
-                inferred = "fill"
-            self.review_stats = self.review_stats.model_copy(update={"stage": inferred})
-        elif self.review_stats.stage == "mcq_photo" and (
-            self.capture_format == "object" or not has_photo
-        ):
-            self.review_stats = self.review_stats.model_copy(update={"stage": "mcq"})
+        photo = card_has_photo(self)
+        stage = self.review_stats.stage or infer_stage(self.strength, self.capture_format, photo)
+        stage = normalize_stage(stage, self.capture_format, photo)
+        if stage != self.review_stats.stage:
+            self.review_stats = self.review_stats.model_copy(update={"stage": stage})
         if not self.meaning_synonyms and self.distractors and self.distractors.synonyms:
             self.meaning_synonyms = list(self.distractors.synonyms)
         return self

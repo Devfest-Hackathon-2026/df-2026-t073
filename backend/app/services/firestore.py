@@ -22,7 +22,7 @@ from app.schemas.flashcard import (
 from app.schemas.review import ReviewSessionRecord, SessionAnswer
 from app.schemas.user import UserProfile
 from app.services import review_rules, tango_rules
-from app.services.review_rules import area_of
+from app.services.review_rules import area_of, card_has_photo
 
 Rating = Literal["again", "good", "easy"]
 
@@ -478,6 +478,23 @@ async def list_flashcards(
         ) from exc
 
 
+def _session_answer(
+    card: FlashcardResponse, correct: bool, strength_after: int, now: datetime
+) -> SessionAnswer:
+    return SessionAnswer(
+        flashcard_id=card.flashcard_id,
+        correct=correct,
+        strength_before=card.strength,
+        strength_after=strength_after,
+        at=now,
+        text=card.kanji,
+        reading=card.reading,
+        romaji=card.romaji,
+        meaning=card.meaning,
+        area=area_of(card),
+    )
+
+
 async def update_flashcard_review(
     *,
     db: AsyncClient,
@@ -496,14 +513,19 @@ async def update_flashcard_review(
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
 
-    # Backend is source of truth for fill-in-the-blank answers when answer_text is sent.
-    if question_type and question_type.startswith("fill_") and answer_text is not None:
-        is_correct = review_rules.check_card_answer(card, question_type, answer_text)
-    elif correct is not None:
-        is_correct = correct
-    else:
-        is_correct = rating != "again"
+    is_correct = review_rules.grade_answer(card, question_type, correct, rating, answer_text)
 
+    if review_rules.is_stale_answer(card, question_type):
+        # The card moved to another stage since this question was built: don't count it.
+        logger.info("Ignoring stale %s answer for %s (uid=%s)", question_type, flashcard_id, uid)
+        if session_id:
+            await record_session_answer(
+                db=db,
+                uid=uid,
+                session_id=session_id,
+                answer=_session_answer(card, is_correct, card.strength, now),
+            )
+        return card
     effective_rating = review_rules.rating_for_answer(question_type, is_correct, rating)
     strength = tango_rules.apply_review(card.strength, effective_rating)
     scheduled_stats = next_review_stats(card.review_stats, effective_rating, now, strength)
@@ -511,7 +533,7 @@ async def update_flashcard_review(
         scheduled_stats,
         review_rules.capture_format(card),
         is_correct,
-        has_photo=review_rules.can_fill_gap(card),
+        has_photo=card_has_photo(card),
         question_type=question_type,
     )
     event = tango_rules.history_event(
@@ -536,19 +558,12 @@ async def update_flashcard_review(
         ) from exc
 
     if session_id:
-        answer = SessionAnswer(
-            flashcard_id=flashcard_id,
-            correct=is_correct,
-            strength_before=card.strength,
-            strength_after=strength,
-            at=now,
-            text=card.kanji,
-            reading=card.reading,
-            romaji=card.romaji,
-            meaning=card.meaning,
-            area=area_of(card),
+        await record_session_answer(
+            db=db,
+            uid=uid,
+            session_id=session_id,
+            answer=_session_answer(card, is_correct, strength, now),
         )
-        await record_session_answer(db=db, uid=uid, session_id=session_id, answer=answer)
 
     return card.model_copy(
         update={"review_stats": new_stats, "strength": strength, "history": [*card.history, event]}
@@ -611,11 +626,15 @@ async def record_session_answer(
 
 async def save_distractors(
     *, db: AsyncClient, uid: str, distractors: dict[str, Distractors]
-) -> None:
-    """Cache wrong-answer choices and meaning synonyms on each card. Best effort:
-    a failure only means they get generated again next time."""
+) -> bool:
+    """Cache wrong-answer choices and meaning synonyms on each card.
+
+    Each Distractors.synonyms must be the card's full synonym list (its current ones plus
+    new ones); it replaces meaning_synonyms so the stored list matches what exercises accept.
+    Best effort: returns False on failure (they get generated again next time).
+    """
     if not distractors:
-        return
+        return True
     batch = db.batch()
     for flashcard_id, d in distractors.items():
         updates: dict[str, Any] = {"distractors": d.model_dump(mode="python")}
@@ -626,6 +645,8 @@ async def save_distractors(
         await batch.commit()
     except (GoogleAPICallError, GoogleAuthError):
         logger.exception("Failed to cache distractors for uid=%s", uid)
+        return False
+    return True
 
 
 async def save_related_vocab(

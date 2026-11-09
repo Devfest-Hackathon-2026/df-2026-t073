@@ -8,6 +8,7 @@ import random
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -21,6 +22,7 @@ from app.schemas.flashcard import (
     ReviewStage,
     ReviewStats,
     Sighting,
+    card_has_photo,
 )
 from app.schemas.review import (
     AreaCount,
@@ -97,6 +99,11 @@ _KANJI_OR_LATIN_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff々a-z
 _LATIN_RE = re.compile(r"[a-zA-Z]")
 _PAREN_RE = re.compile(r"\s*\([^)]*\)")
 _LEADING_ARTICLE_RE = re.compile(r"^(?:to|a|an|the)\s+", re.IGNORECASE)
+# Separators between whole glosses: ";", a comma not inside a number ("exit,way out"
+# but not "1,000 yen bill"), and a spaced slash ("meal ticket / food voucher").
+_GLOSS_SEPARATOR_RE = re.compile(r";|,(?!\d)|\s+/\s+")
+_LETTERS_ONLY_RE = re.compile(r"[^\W\d_]+")
+_ANY_SEPARATOR_RE = re.compile(r"[,;/]")
 
 
 def _aware(dt: datetime) -> datetime:
@@ -174,9 +181,6 @@ def pick_session_cards(
     return (due + rest)[:limit]
 
 
-def can_fill_gap(card: FlashcardResponse) -> bool:
-    """True when the card has an uploaded capture photo and bounding box."""
-    return bool(card.image_url) and len(card.bounding_box) >= 2
 
 
 def gap_from_bbox(vertices: list[Vertex]) -> GapBox:
@@ -211,10 +215,20 @@ def backfill_photo_fields(
 
 
 def capture_format(card: FlashcardResponse) -> CaptureFormat:
-    """Whether the Tango was captured via object recognition or OCR text."""
-    if card.capture_format in ("object", "text"):
-        return card.capture_format
-    return "object" if card.kind == "object" else "text"
+    """Whether the Tango was captured via object recognition or OCR text.
+
+    FlashcardResponse.populate_defaults always sets it.
+    """
+    assert card.capture_format is not None
+    return card.capture_format
+
+
+def uses_object_questions(card: FlashcardResponse) -> bool:
+    """Object questions use the photo as their only prompt, so they need a usable photo.
+
+    Object cards without one get the text questions instead.
+    """
+    return capture_format(card) == "object" and card_has_photo(card)
 
 
 def stage_path(fmt: CaptureFormat, has_photo: bool = True) -> tuple[ReviewStage, ...]:
@@ -224,25 +238,14 @@ def stage_path(fmt: CaptureFormat, has_photo: bool = True) -> tuple[ReviewStage,
     return ("flashcard", "mcq_photo", "mcq", "fill")
 
 
-def infer_stage(strength: int, fmt: CaptureFormat, has_photo: bool = True) -> ReviewStage:
-    """Work out the starting stage for older cards that have no stored stage."""
-    if strength <= 1:
-        return "flashcard"
-    if strength == 2:
-        return "mcq_photo" if (fmt == "text" and has_photo) else "mcq"
-    if strength == 3:
-        return "mcq"
-    return "fill"
-
-
 def effective_stage(card: FlashcardResponse) -> ReviewStage:
-    """The card's active review stage, normalized for its format and photo availability."""
-    fmt = capture_format(card)
-    has_photo = can_fill_gap(card)
-    stage = card.review_stats.stage or infer_stage(card.strength, fmt, has_photo)
-    if stage == "mcq_photo" and (fmt == "object" or not has_photo):
-        return "mcq"
-    return stage
+    """The card's active review stage.
+
+    FlashcardResponse.populate_defaults always sets it, inferred for older cards and
+    normalized for the card's format and photo.
+    """
+    assert card.review_stats.stage is not None
+    return card.review_stats.stage
 
 
 def shows_photo(stage: ReviewStage, fmt: CaptureFormat, has_photo: bool = True) -> bool:
@@ -320,6 +323,48 @@ def rating_for_answer(
     return "good" if correct else "again"
 
 
+# Which stages each question type is asked at. An answer to a question that doesn't
+# match the card's current stage (a stale exercise) doesn't move the stage.
+QUESTION_STAGES: dict[QuestionType, frozenset[ReviewStage]] = {
+    "flashcard_text": frozenset({"flashcard"}),
+    "flashcard_object": frozenset({"flashcard"}),
+    "mcq_text_reading": frozenset({"mcq"}),
+    "mcq_text_translate": frozenset({"mcq_photo", "mcq"}),
+    "mcq_text_reverse": frozenset({"mcq"}),
+    "mcq_object_name": frozenset({"mcq"}),
+    "fill_text_reading": frozenset({"fill"}),
+    "fill_text_translate": frozenset({"fill"}),
+    "fill_text_reverse": frozenset({"fill"}),
+    "fill_object_name": frozenset({"fill"}),
+}
+
+
+def grade_answer(
+    card: FlashcardResponse,
+    question_type: QuestionType | None,
+    correct: bool | None,
+    rating: Rating | None,
+    answer_text: str | None,
+) -> bool:
+    """Whether a submitted review counts as correct.
+
+    The server always grades fill-in-the-blank itself, whatever the client says.
+    Otherwise it trusts the client's correct flag, then its rating.
+    Missing information is never correct.
+    """
+    if question_type and question_type.startswith("fill_"):
+        return answer_text is not None and check_card_answer(card, question_type, answer_text)
+    if correct is not None:
+        return correct
+    return rating is not None and rating != "again"
+
+
+def is_stale_answer(card: FlashcardResponse, question_type: QuestionType | None) -> bool:
+    """True when the question no longer fits the card's stage (e.g. an old session's
+    exercise after the card moved on). Such answers are not counted."""
+    return question_type is not None and effective_stage(card) not in QUESTION_STAGES[question_type]
+
+
 # ---- Strict answer normalization & checking ----
 
 
@@ -361,29 +406,45 @@ def normalize_meaning(text: str) -> str:
     return stripped or collapsed
 
 
+def split_glosses(item: str) -> list[str]:
+    """Split a meaning into the glosses a learner may type on their own.
+
+    "toilet/restroom" gives both words, since single words around a slash are
+    alternatives. "on/off switch" and "24/7" stay whole: there the slash is part of one gloss.
+    """
+    out: list[str] = []
+    for part in _GLOSS_SEPARATOR_RE.split(item):
+        part = part.strip()
+        words = [w.strip() for w in part.split("/")]
+        if len(words) > 1 and all(_LETTERS_ONLY_RE.fullmatch(w) for w in words):
+            out.extend(words)
+        elif part:
+            out.append(part)
+    return out
+
+
+def _with_variants(items: list[str], split: Callable[[str], list[str]]) -> list[str]:
+    """Each item, its parts, and each of those without parenthesized notes."""
+    out: list[str] = []
+    for item in items:
+        for piece in [item, *split(item)]:
+            out.append(piece.strip())
+            out.append(_PAREN_RE.sub("", piece).strip())
+    return [c for c in out if c]
+
+
 def accepted_meanings(card: FlashcardResponse) -> list[str]:
     """All accepted meaning strings: full meaning, individual glosses, and synonyms."""
-    raw_candidates: list[str] = [card.meaning, *card.meaning_synonyms]
-    for item in [card.meaning, *card.meaning_synonyms]:
-        without_parens = _PAREN_RE.sub("", item).strip()
-        if without_parens:
-            raw_candidates.append(without_parens)
-        for part in re.split(r"[,;/]", item):
-            clean = part.strip()
-            if clean:
-                raw_candidates.append(clean)
-            clean_no_parens = _PAREN_RE.sub("", clean).strip()
-            if clean_no_parens:
-                raw_candidates.append(clean_no_parens)
+    return merge_synonyms(_with_variants([card.meaning, *card.meaning_synonyms], split_glosses))
 
-    seen: set[str] = set()
-    out: list[str] = []
-    for candidate in raw_candidates:
-        key = normalize_meaning(candidate)
-        if key and key not in seen:
-            seen.add(key)
-            out.append(candidate.strip())
-    return out
+
+def _excluded_meaning_keys(card: FlashcardResponse, synonyms: list[str]) -> set[str]:
+    """Normalized meanings a wrong option must never match. Splits on every separator,
+    so it is wider than what is accepted as a typed answer."""
+    items = [card.meaning, *synonyms]
+    loose = _with_variants(items, lambda t: _ANY_SEPARATOR_RE.split(t))
+    strict = _with_variants(items, split_glosses)
+    return {k for k in (normalize_meaning(m) for m in [*loose, *strict]) if k}
 
 
 def accepted_answers_for(card: FlashcardResponse, question_type: QuestionType) -> list[str]:
@@ -438,10 +499,9 @@ def check_card_answer(
 
 def pick_question_type(card: FlashcardResponse, seed: str = "") -> QuestionType:
     """Pick the question type for a card's stage and format, rotating away from last_question_type."""
-    fmt = capture_format(card)
     stage = effective_stage(card)
 
-    if fmt == "object":
+    if uses_object_questions(card):
         if stage == "flashcard":
             return "flashcard_object"
         if stage == "fill":
@@ -482,6 +542,20 @@ def pick_question_type(card: FlashcardResponse, seed: str = "") -> QuestionType:
 # ---- Distractors & exercise builders ----
 
 
+def merge_synonyms(*lists: list[str]) -> list[str]:
+    """Combine synonym lists in order, dropping duplicates (by normalized meaning)."""
+    return _unique_meanings([s for items in lists for s in items], exclude_norm=set())
+
+
+def needs_distractors(card: FlashcardResponse) -> bool:
+    """True when the card has no cached wrong answers, or lacks the readings its
+    questions need (cached before reading questions existed)."""
+    if card.distractors is None:
+        return True
+    asks_reading = not uses_object_questions(card) and not is_kana_only(card)
+    return asks_reading and not card.distractors.readings
+
+
 def _unique_meanings(items: list[str], exclude_norm: set[str]) -> list[str]:
     seen = set(exclude_norm)
     out: list[str] = []
@@ -506,14 +580,8 @@ def complete_distractors(
     other_cards = [o for o in others if o.flashcard_id != card.flashcard_id]
     other_cards.sort(key=lambda o: 0 if capture_format(o) == fmt else 1)
 
-    synonyms = [*card.meaning_synonyms, *found.synonyms]
-    card_with_synonyms = (
-        card.model_copy(update={"meaning_synonyms": synonyms})
-        if synonyms and synonyms != card.meaning_synonyms
-        else card
-    )
-    excluded_meanings = {normalize_meaning(m) for m in accepted_meanings(card_with_synonyms)}
-    excluded_meanings.add(card.meaning.strip().lower())
+    synonyms = merge_synonyms(card.meaning_synonyms, found.synonyms)
+    excluded_meanings = _excluded_meaning_keys(card, synonyms)
 
     meanings = _unique_meanings(
         [
@@ -620,7 +688,7 @@ def build_cloze(card: FlashcardResponse) -> Example | None:
 
 def _photo_layer(card: FlashcardResponse, stage: ReviewStage, area: str) -> PhotoLayer | None:
     fmt = capture_format(card)
-    has_photo = can_fill_gap(card)
+    has_photo = card_has_photo(card)
     if not shows_photo(stage, fmt, has_photo):
         return None
     return PhotoLayer(
@@ -643,7 +711,7 @@ def _stage_transitions(
     card: FlashcardResponse, stage: ReviewStage
 ) -> tuple[ReviewStage | None, ReviewStage | None]:
     fmt = capture_format(card)
-    has_photo = can_fill_gap(card)
+    has_photo = card_has_photo(card)
     stats = card.review_stats.model_copy(update={"stage": stage})
     after_right = next_stage(stats, fmt, True, has_photo=has_photo)
     after_wrong = next_stage(stats, fmt, False, has_photo=has_photo)
@@ -658,7 +726,11 @@ def build_exercise(
     position: int,
     session_id: str,
 ) -> Exercise:
-    """Build the staged exercise (flashcard, MCQ, or fill-in-the-blank) for a card."""
+    """Build the staged exercise (flashcard, MCQ, or fill-in-the-blank) for a card.
+
+    Typed meanings are accepted from card.meaning_synonyms only (what the server grades
+    against), never from distractors.synonyms.
+    """
     exercise_id = f"{session_id}-{position}"
     area = area_of(card)
     seed = f"{session_id}:{card.flashcard_id}:{position}"
@@ -670,9 +742,6 @@ def build_exercise(
     next_step = _next_step_text(card)
     promoted_to, demoted_to = _stage_transitions(card, stage)
     jp_prompt = JpOption(text=card.kanji, reading=card.reading, romaji=card.romaji)
-
-    if distractors.synonyms and not card.meaning_synonyms:
-        card = card.model_copy(update={"meaning_synonyms": list(distractors.synonyms)})
 
     if qtype in ("flashcard_text", "flashcard_object"):
         return FlashcardExercise(

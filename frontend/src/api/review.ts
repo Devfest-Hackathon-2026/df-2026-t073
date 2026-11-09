@@ -354,22 +354,16 @@ export const submitAnswer = pick(
     sessionId: string | null,
     options?: SubmitAnswerOptions,
   ) => {
-    const qtype = options?.questionType;
-    let rating: 'again' | 'good' | 'easy' =
-      options?.rating ?? (correct ? 'good' : 'again');
-    if (qtype?.startsWith('fill_')) {
-      rating = correct ? 'easy' : 'again';
-    } else if (qtype?.startsWith('mcq_')) {
-      rating = correct ? 'good' : 'again';
-    }
+    // The backend works out the rating from question_type and correct
+    // (rating_for_answer); only self-rated flashcards send their own rating.
     await request<FlashcardResponse>(
       `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/review`,
       {
         method: 'POST',
         body: {
-          rating,
+          rating: options?.rating,
           correct,
-          question_type: qtype,
+          question_type: options?.questionType,
           answer: options?.answer,
           session_id: sessionId ?? undefined,
         },
