@@ -13,6 +13,7 @@ import {
   getReviewSession,
   getSessionResult,
   submitAnswer,
+  type SessionAnswerInput,
 } from '../../api/review';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
@@ -65,8 +66,10 @@ const SESSION_LINES = [
 const PHOTO_ASPECT = 4 / 3;
 
 interface Outcome {
+  exerciseId: string;
   correct: boolean;
-  typedAnswer?: string;
+  /** The server didn't count the answer: the card moved on since the session started. */
+  stale: boolean;
 }
 
 export function ReviewSessionScreen({
@@ -128,18 +131,24 @@ function Session({
     );
   }
 
-  const recordOutcome = (
-    correct: boolean,
-    opts?: { rating?: 'again' | 'good' | 'easy'; answer?: string },
-  ) => {
-    setOutcome({ correct, typedAnswer: opts?.answer });
-    const p = submitAnswer(exercise.tangoId, correct, sessionId, {
-      questionType: exercise.questionType,
-      rating: opts?.rating,
-      answer: opts?.answer,
-    }).catch(() => {
-      // Not fatal for the session; the answer just won't count.
-    });
+  // Feedback shows right away from the exercise's own answer; the server's verdict
+  // replaces it if they differ, while that exercise is still on screen.
+  const recordOutcome = (correct: boolean, answer: SessionAnswerInput) => {
+    const exerciseId = exercise.id;
+    setOutcome({ exerciseId, correct, stale: false });
+    const p = submitAnswer(sessionId, exerciseId, answer)
+      .then(verdict => {
+        if (verdict) {
+          setOutcome(current =>
+            current?.exerciseId === verdict.exerciseId
+              ? { ...current, correct: verdict.correct, stale: verdict.stale }
+              : current,
+          );
+        }
+      })
+      .catch(() => {
+        // Not fatal for the session; the answer just won't count.
+      });
     inFlightSubmitsRef.current.push(p);
   };
 
@@ -191,7 +200,7 @@ function Session({
               total={exercises.length}
               showPlace={showPlace}
               onRate={rating =>
-                recordOutcome(rating !== 'again', { rating })
+                recordOutcome(rating !== 'again', { kind: 'flip', rating })
               }
               onShowPlace={() => setShowPlace(true)}
             />
@@ -203,7 +212,10 @@ function Session({
               total={exercises.length}
               showPlace={showPlace}
               onPick={pickedIndex =>
-                recordOutcome(pickedIndex === exercise.answerIndex)
+                recordOutcome(pickedIndex === exercise.answerIndex, {
+                  kind: 'pick',
+                  index: pickedIndex,
+                })
               }
               onShowPlace={() => setShowPlace(true)}
             />
@@ -215,13 +227,23 @@ function Session({
               total={exercises.length}
               showPlace={showPlace}
               onAnswer={(correct, typed) =>
-                recordOutcome(correct, { answer: typed })
+                recordOutcome(
+                  correct,
+                  // Nothing typed: the learner pressed "Show answer".
+                  typed === undefined
+                    ? { kind: 'reveal' }
+                    : { kind: 'typed', text: typed },
+                )
               }
               onShowPlace={() => setShowPlace(true)}
             />
           )
         ) : (
-          <Feedback exercise={exercise} correct={outcome.correct} />
+          <Feedback
+            exercise={exercise}
+            correct={outcome.correct}
+            stale={outcome.stale}
+          />
         )}
       </ScrollView>
       {outcome !== null ? (
@@ -748,12 +770,19 @@ function answerTextFor(exercise: Exercise): string {
 function Feedback({
   exercise,
   correct,
+  stale,
 }: {
   exercise: Exercise;
   correct: boolean;
+  stale: boolean;
 }): React.JSX.Element {
   const answer = answerTextFor(exercise);
-  const stageChange = correct ? exercise.promotedTo : exercise.demotedTo;
+  // A stale answer wasn't counted, so the stage didn't change.
+  const stageChange = stale
+    ? null
+    : correct
+    ? exercise.promotedTo
+    : exercise.demotedTo;
   const wordJp: JpText =
     exercise.type === 'flashcard'
       ? {
@@ -793,6 +822,12 @@ function Feedback({
         ) : null}
         {synonyms ? (
           <Text style={base.caption}>Also accepted: {synonyms}</Text>
+        ) : null}
+        {stale ? (
+          <Text style={base.caption} accessibilityRole="alert">
+            This one didn't count: you practiced this Tango elsewhere since
+            starting.
+          </Text>
         ) : null}
       </View>
 

@@ -8,7 +8,6 @@ import type {
   Exercise,
   JpText,
   PhotoLayer,
-  QuestionType,
   ReviewCard,
   ReviewSession,
   ReviewStage,
@@ -151,10 +150,24 @@ interface SessionResultResponse {
   next: null;
 }
 
-export interface SubmitAnswerOptions {
-  questionType?: QuestionType;
-  rating?: 'again' | 'good' | 'easy';
-  answer?: string;
+/** One answer to a session question; the server grades it against the question as asked. */
+export type SessionAnswerInput =
+  | { kind: 'flip'; rating: 'again' | 'good' | 'easy' }
+  | { kind: 'pick'; index: number }
+  | { kind: 'typed'; text: string }
+  | { kind: 'reveal' };
+
+/** The server's grading of one answer. Stale: the card moved on, so it wasn't counted. */
+export interface AnswerVerdict {
+  exerciseId: string;
+  correct: boolean;
+  stale: boolean;
+}
+
+interface AnswerVerdictResponse {
+  exercise_id: string;
+  correct: boolean;
+  stale: boolean;
 }
 
 // ---- Adapters ----
@@ -339,40 +352,30 @@ export const getReviewSession = pick(
   },
 );
 
-/** Records one answer (POST /flashcards/{id}/review), inside the session when there is one. */
+/**
+ * Records one session answer (POST /review/session/{id}/answers) and returns the
+ * server's verdict. Mock sessions have no id, so there is nothing to record.
+ */
 export const submitAnswer = pick(
   'review',
   (
-    _tangoId: string,
-    _correct: boolean,
     _sessionId: string | null,
-    _options?: SubmitAnswerOptions,
-  ) => mockDelay<void>(undefined, 100),
+    _exerciseId: string,
+    _answer: SessionAnswerInput,
+  ) => mockDelay<AnswerVerdict | null>(null, 100),
   async (
-    tangoId: string,
-    correct: boolean,
     sessionId: string | null,
-    options?: SubmitAnswerOptions,
-  ) => {
-    // The backend works out the rating from question_type and correct
-    // (rating_for_answer); only self-rated flashcards send their own rating.
-    // The server grades fill questions itself and needs a typed answer, so
-    // "Show answer" (nothing typed) sends "" and is graded as a miss.
-    const isFill = options?.questionType?.startsWith('fill_') ?? false;
-    const answer = options?.answer ?? (isFill ? '' : undefined);
-    await request<FlashcardResponse>(
-      `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/review`,
-      {
-        method: 'POST',
-        body: {
-          rating: options?.rating,
-          correct,
-          question_type: options?.questionType,
-          answer,
-          session_id: sessionId ?? undefined,
-        },
-      },
+    exerciseId: string,
+    answer: SessionAnswerInput,
+  ): Promise<AnswerVerdict | null> => {
+    if (!sessionId) {
+      return null;
+    }
+    const r = await request<AnswerVerdictResponse>(
+      `${API_V1}/review/session/${encodeURIComponent(sessionId)}/answers`,
+      { method: 'POST', body: { exercise_id: exerciseId, ...answer } },
     );
+    return { exerciseId: r.exercise_id, correct: r.correct, stale: r.stale };
   },
 );
 
