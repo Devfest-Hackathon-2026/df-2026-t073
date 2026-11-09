@@ -105,9 +105,8 @@ export function PrepareScreen({
               <PlanVisitSheet
                 visible={planning}
                 onClose={() => setPlanning(false)}
-                placeId={placeId}
-                placeName={data.place.name.text}
-                existing={planned}
+                place={{ id: placeId, name: data.place.name.text }}
+                visits={visits.data ?? []}
                 onSaved={visits.reload}
               />
             </Card>

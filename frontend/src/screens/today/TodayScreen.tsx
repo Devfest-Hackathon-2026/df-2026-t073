@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isLive } from '../../config';
-import { getToday } from '../../api/places';
+import { getToday, listVisits } from '../../api/places';
 import { type Coords, getCurrentCoords } from '../../location/location';
 import { getReviewCard, getReviewSummary } from '../../api/review';
 import { Jp } from '../../components/Jp';
@@ -22,6 +22,7 @@ import {
   SAVE_LABEL,
   useSaveWord,
 } from '../../features/tango/saveWord';
+import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -103,6 +104,7 @@ export function TodayScreen(): React.JSX.Element {
                   params: areaId ? { areaId } : undefined,
                 })
               }
+              onPlansChanged={today.reload}
             />
           )
         }
@@ -233,21 +235,39 @@ function Regular({
   stats,
   here,
   onOpenMap,
+  onPlansChanged,
 }: {
   summary: TodaySummary;
   review: ReviewCard | undefined;
   stats: ReviewSummary | undefined;
   here: Coords | null;
   onOpenMap: (areaId?: string) => void;
+  /** After a plan is added from Today, so "Up next" shows it. */
+  onPlansChanged: () => void;
 }): React.JSX.Element {
   const { settings } = useSettings();
+  const visits = useAsync(listVisits);
+  const [planning, setPlanning] = useState(false);
   return (
     <>
       <Greeting name={summary.userName} />
       {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {review ? <ReviewCardView card={review} /> : null}
-      {summary.upNext ? <UpNextCard visit={summary.upNext} /> : <PlansRow />}
+      {summary.upNext ? (
+        <UpNextCard visit={summary.upNext} onPlan={() => setPlanning(true)} />
+      ) : (
+        <PlansRow onPlan={() => setPlanning(true)} />
+      )}
+      <PlanVisitSheet
+        visible={planning}
+        onClose={() => setPlanning(false)}
+        visits={visits.data ?? []}
+        onSaved={() => {
+          visits.reload();
+          onPlansChanged();
+        }}
+      />
       {settings.mapFeatures && summary.areas.length > 0 ? (
         <Neighbourhoods areas={summary.areas} onOpen={onOpenMap} />
       ) : null}
@@ -258,7 +278,13 @@ function Regular({
   );
 }
 
-function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
+function UpNextCard({
+  visit,
+  onPlan,
+}: {
+  visit: Visit;
+  onPlan: () => void;
+}): React.JSX.Element {
   const nav = useRootNav();
   return (
     <Card variant="accent">
@@ -282,33 +308,43 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => nav.navigate('Plans')}
-        style={styles.plansLink}
-      >
-        <Text style={styles.plansLinkInverse}>{copy.today.allPlans}</Text>
-        <Icon name="forward" size={fontSizes.md} color={colors.textInverse} />
-      </Pressable>
+      <View style={base.rowBetween}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPlan}
+          style={styles.plansLink}
+        >
+          <Icon name="add" size={fontSizes.md} color={colors.textInverse} />
+          <Text style={styles.plansLinkInverse}>{copy.today.planVisit}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => nav.navigate('Plans')}
+          style={styles.plansLink}
+        >
+          <Text style={styles.plansLinkInverse}>{copy.today.allPlans}</Text>
+          <Icon name="forward" size={fontSizes.md} color={colors.textInverse} />
+        </Pressable>
+      </View>
     </Card>
   );
 }
 
-/** Nothing planned yet: a quiet way into Plans. */
-function PlansRow(): React.JSX.Element {
+/** Nothing planned yet: plan a visit, or open Plans. */
+function PlansRow({ onPlan }: { onPlan: () => void }): React.JSX.Element {
   const nav = useRootNav();
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => nav.navigate('Plans')}
-      style={styles.plansRow}
-    >
-      <View style={base.grow}>
+    <View style={styles.plansRow}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => nav.navigate('Plans')}
+        style={base.grow}
+      >
         <Text style={base.heading}>{copy.today.yourPlans}</Text>
         <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
-      </View>
-      <Icon name="forward" color={colors.accent} />
-    </Pressable>
+      </Pressable>
+      <Button label={copy.today.planVisit} icon="add" onPress={onPlan} />
+    </View>
   );
 }
 

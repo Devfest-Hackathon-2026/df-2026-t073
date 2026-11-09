@@ -180,6 +180,7 @@ const plans = {
   remove: 'Remove',
   notPlanned: 'Not planned',
   planVisit: 'Plan a visit',
+  otherPlace: 'Pick another place',
   couldNotSave: 'Could not save',
 };
 
@@ -480,6 +481,7 @@ const today = {
     `${category} · ${area} · ${tango} Tango`,
   prepare: 'Prepare',
   allPlans: 'All plans',
+  planVisit: 'Plan a visit',
   yourPlans: 'Your plans',
   nothingPlanned: 'Nothing planned yet',
   wordOfDay: 'Word of the day',

@@ -120,9 +120,8 @@ describe('PlanVisitSheet', () => {
       <PlanVisitSheet
         visible
         onClose={() => {}}
-        placeId="menya-taiki"
-        placeName="麺屋たいき"
-        existing={existing}
+        place={{ id: 'menya-taiki', name: '麺屋たいき' }}
+        visits={existing ? [existing] : []}
         onSaved={onSaved}
       />,
     );

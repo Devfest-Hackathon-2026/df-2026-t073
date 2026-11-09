@@ -17,7 +17,7 @@ import { useRootNav } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import { colors, radii, sizes, space } from '../../styles/tokens';
-import { SearchResults } from '../map/MapScreen';
+import { PlaceSearchResults } from '../../components/PlaceSearchResults';
 import { formatVisitTime } from '../../utils/format';
 import { copy } from '../../copy';
 
@@ -52,10 +52,13 @@ export function PlansScreen(): React.JSX.Element {
             />
           </View>
           {query.trim() ? (
-            <SearchResults
+            <PlaceSearchResults
               places={results.data ?? []}
               loading={results.loading}
-              onPick={() => setQuery('')}
+              onPick={place => {
+                setQuery('');
+                nav.navigate('Prepare', { placeId: place.id });
+              }}
             />
           ) : null}
         </>

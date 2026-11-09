@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getToday, searchPlaces } from '../../api/places';
 import { TangoMap } from '../../components/TangoMap';
 import { Icon } from '../../components/Icon';
-import { Jp } from '../../components/Jp';
 import { Button, Card, Chip } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { type Coords, getCurrentCoords } from '../../location/location';
@@ -19,7 +18,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { type TabParamList, useRootNav } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
-import type { MapArea, MapPin, Place } from '../../types';
+import type { MapArea, MapPin } from '../../types';
+import { PlaceSearchResults } from '../../components/PlaceSearchResults';
 import { copy } from '../../copy';
 
 type MapFilter = 'all' | 'stars' | 'planned';
@@ -29,6 +29,7 @@ export function MapScreen({
   route,
 }: BottomTabScreenProps<TabParamList, 'Map'>): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const nav = useRootNav();
   const today = useAsync(getToday);
   const [here, setHere] = useState<Coords | null>(null);
   const [filter, setFilter] = useState<MapFilter>('all');
@@ -107,10 +108,13 @@ export function MapScreen({
           />
         </View>
         {query.trim() ? (
-          <SearchResults
+          <PlaceSearchResults
             places={results.data ?? []}
             loading={results.loading}
-            onPick={() => setQuery('')}
+            onPick={place => {
+              setQuery('');
+              nav.navigate('Prepare', { placeId: place.id });
+            }}
           />
         ) : null}
         <View style={base.row}>
@@ -138,43 +142,6 @@ export function MapScreen({
           <AreaCard area={area} onClose={() => setArea(null)} />
         ) : null}
       </View>
-    </View>
-  );
-}
-
-export function SearchResults({
-  places,
-  loading,
-  onPick,
-}: {
-  places: Place[];
-  loading: boolean;
-  onPick: () => void;
-}): React.JSX.Element {
-  const nav = useRootNav();
-  return (
-    <View style={styles.results}>
-      {!loading && places.length === 0 ? (
-        <Text style={base.caption}>{copy.mapScreen.noPlaces}</Text>
-      ) : null}
-      {places.map(place => (
-        <Pressable
-          key={place.id}
-          accessibilityRole="button"
-          style={styles.result}
-          onPress={() => {
-            onPick();
-            nav.navigate('Prepare', { placeId: place.id });
-          }}
-        >
-          <Jp {...place.name} bold />
-          {[place.category, place.area].some(Boolean) ? (
-            <Text style={base.caption}>
-              {[place.category, place.area].filter(Boolean).join(' · ')}
-            </Text>
-          ) : null}
-        </Pressable>
-      ))}
     </View>
   );
 }
@@ -271,16 +238,5 @@ const styles = StyleSheet.create({
     ...base.text,
     flex: 1,
     paddingVertical: 0,
-  },
-  results: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: space.sm,
-    gap: space.xs,
-  },
-  result: {
-    padding: space.sm,
-    borderRadius: radii.md,
-    backgroundColor: colors.bg,
   },
 });

@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { createVisit, deleteVisit } from '../../api/places';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { createVisit, deleteVisit, searchPlaces } from '../../api/places';
+import { Icon } from '../../components/Icon';
+import { PlaceSearchResults } from '../../components/PlaceSearchResults';
 import { BottomSheet } from '../../components/layout';
 import { Button, Chip } from '../../components/ui';
 import { copy } from '../../copy';
 import { base } from '../../styles/base';
-import { colors, space } from '../../styles/tokens';
+import { colors, radii, sizes, space } from '../../styles/tokens';
+import { useAsync } from '../../hooks/useAsync';
 import type { Visit } from '../../types';
 import { formatVisitTime } from '../../utils/format';
 import {
@@ -17,41 +20,58 @@ import {
   TIME_SLOTS,
 } from './planTimes';
 
+/** The place a visit is planned for. */
+export interface PlanPlace {
+  id: string;
+  name: string;
+}
+
 /**
- * Plan a visit to one place: pick a day and a time of day.
- * With an existing plan, shows it with Change and Remove.
+ * Plan a visit: pick a day and a time of day. Without a `place`, it starts with a
+ * place search. If the place already has a plan, shows it with Change and Remove.
  */
 export function PlanVisitSheet({
   visible,
   onClose,
-  placeId,
-  placeName,
-  existing,
+  place,
+  visits,
   onSaved,
 }: {
   visible: boolean;
   onClose: () => void;
-  placeId: string;
-  placeName: string;
-  /** The place's upcoming plan, if it has one. */
-  existing: Visit | null;
+  /** The place to plan for; omit to let the user search for one. */
+  place?: PlanPlace;
+  /** The user's upcoming plans, to find one for the chosen place. */
+  visits: Visit[];
   /** Called after a plan is added, changed or removed. */
   onSaved: () => void;
 }): React.JSX.Element | null {
   const [now] = useState(() => new Date());
+  const [chosen, setChosen] = useState<PlanPlace | null>(place ?? null);
+  const [query, setQuery] = useState('');
+  const results = useAsync(() => searchPlaces(query), query);
   const [changing, setChanging] = useState(false);
   const [pick, setPick] = useState(() => defaultPick(now));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Start fresh each time the sheet opens.
+  // Start fresh each time the sheet opens. (Callers often pass a new `place`
+  // object on every render, so this depends on its id and name, not the object.)
+  const placeId = place?.id;
+  const placeName = place?.name;
   useEffect(() => {
     if (visible) {
+      setChosen(placeId && placeName ? { id: placeId, name: placeName } : null);
+      setQuery('');
       setChanging(false);
       setPick(defaultPick(new Date()));
       setError(null);
     }
-  }, [visible]);
+  }, [visible, placeId, placeName]);
+
+  const existing = chosen
+    ? visits.find(v => v.place.id === chosen.id) ?? null
+    : null;
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -69,10 +89,10 @@ export function PlanVisitSheet({
 
   // Changing a plan adds the new one before removing the old, so a failed
   // save never loses the plan the user already had.
-  const save = () =>
+  const save = (target: PlanPlace) =>
     run(async () => {
       await createVisit(
-        placeId,
+        target.id,
         planTime(now, pick.offset, pick.slotId).toISOString(),
       );
       if (existing) {
@@ -82,10 +102,48 @@ export function PlanVisitSheet({
 
   const showPicker = !existing || changing;
 
+  if (!chosen) {
+    return (
+      <BottomSheet visible={visible} onClose={onClose}>
+        <View style={base.stack}>
+          <Text style={base.heading}>{copy.plans.planVisit}</Text>
+          <View style={styles.searchBox}>
+            <Icon name="search" color={colors.textMuted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={copy.plans.searchPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              style={styles.searchInput}
+              autoFocus
+              accessibilityLabel={copy.plans.searchA11y}
+            />
+          </View>
+          {query.trim() ? (
+            <PlaceSearchResults
+              places={results.data ?? []}
+              loading={results.loading}
+              onPick={p => setChosen({ id: p.id, name: p.name.text })}
+            />
+          ) : null}
+        </View>
+      </BottomSheet>
+    );
+  }
+
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <View style={base.stack}>
-        <Text style={base.heading}>{copy.plans.sheetTitle(placeName)}</Text>
+        <Text style={base.heading}>{copy.plans.sheetTitle(chosen.name)}</Text>
+        {place ? null : (
+          <Text
+            accessibilityRole="button"
+            style={styles.link}
+            onPress={() => setChosen(null)}
+          >
+            {copy.plans.otherPlace}
+          </Text>
+        )}
 
         {showPicker ? (
           <>
@@ -131,7 +189,7 @@ export function PlanVisitSheet({
               label={existing ? copy.plans.saveChange : copy.plans.addToPlans}
               icon="calendar"
               disabled={busy}
-              onPress={save}
+              onPress={() => save(chosen)}
             />
           </>
         ) : (
@@ -165,6 +223,26 @@ export function PlanVisitSheet({
 }
 
 const styles = StyleSheet.create({
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    backgroundColor: colors.bg,
+    borderRadius: radii.pill,
+    borderWidth: sizes.hairline,
+    borderColor: colors.border,
+    paddingHorizontal: space.lg,
+    minHeight: sizes.touch,
+  },
+  searchInput: {
+    ...base.text,
+    flex: 1,
+    paddingVertical: 0,
+  },
+  link: {
+    ...base.caption,
+    color: colors.accent,
+  },
   dayRow: {
     gap: space.sm,
   },
