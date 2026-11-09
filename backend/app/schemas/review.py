@@ -9,20 +9,9 @@ from app.schemas.flashcard import (
     JpOption,
     QuestionType,
 )
-from app.schemas.place import ReviewCardResponse, Visit
+from app.schemas.place import Visit
+from app.schemas.review_card import ReviewCardResponse
 from app.schemas.review_types import Rating, ReviewStage
-
-
-class ReviewCardResponse(BaseModel):
-    """Small review card on the Today screen."""
-
-    due_count: int
-    minutes: int
-    areas: list[str]
-    sample: list[FlashcardResponse]
-    more_count: int
-    # When nothing is due: when the next Tango will be.
-    next_due_at: datetime | None = None
 
 
 class Collection(BaseModel):

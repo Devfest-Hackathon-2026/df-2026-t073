@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.flashcard import FlashcardResponse
+from app.schemas.review_card import ReviewCardResponse
 
 
 class JpName(BaseModel):
@@ -82,16 +83,6 @@ class WordOfDay(BaseModel):
     romaji: str
     meaning: str
     reason: WordReason
-
-
-class ReviewCardResponse(BaseModel):
-    """Small review card on the Today screen."""
-
-    due_count: int
-    minutes: int
-    areas: list[str] = []
-    sample: list[FlashcardResponse] = []
-    more_count: int = 0
 
 
 class TodayResponse(BaseModel):
