@@ -12,6 +12,7 @@ from app.schemas.flashcard import (
     JpOption,
     RelatedVocabItem,
 )
+from app.services.gemini import request_json
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,7 @@ async def generate_flashcard_content(
     language: str = "English",
 ) -> GeneratedFlashcardContent:
     """Generate structured Japanese vocabulary flashcard content via Gemini Structured Outputs."""
-    api_key = _require_gemini_key()
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent"
-    )
+    _require_gemini_key()
 
     context_hint = (
         f" (detected from photo {item_type}: '{source_label}')"
@@ -106,23 +103,10 @@ async def generate_flashcard_content(
     }
 
     try:
-        resp = await http_client.post(
-            url,
-            headers={"x-goog-api-key": api_key},
-            json=body,
-        )
-        resp.raise_for_status()
-        candidates = resp.json().get("candidates") or []
-        if not candidates:
-            raise ValueError("Gemini returned no candidates.")
-        raw_json = candidates[0]["content"]["parts"][0]["text"]
-        return GeneratedFlashcardContent.model_validate_json(raw_json)
-    except httpx.HTTPStatusError as exc:
-        logger.exception("Gemini API returned HTTP %s", exc.response.status_code)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to generate flashcard from Gemini API.",
-        ) from exc
+        raw = await request_json(http=http_client, body=body)
+        return GeneratedFlashcardContent.model_validate(raw)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Failed to generate flashcard for word=%s", target_word)
         raise HTTPException(
@@ -139,11 +123,7 @@ async def generate_related_vocabulary(
     language: str = "English",
 ) -> list[RelatedVocabItem]:
     """Generate 4 contextually related Japanese vocabulary words to extend the lesson."""
-    api_key = _require_gemini_key()
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent"
-    )
+    _require_gemini_key()
 
     prompt = (
         f"Given the Japanese vocabulary word '{kanji}' ({meaning}), suggest 4 closely related "
@@ -173,17 +153,10 @@ async def generate_related_vocabulary(
     }
 
     try:
-        resp = await http_client.post(
-            url,
-            headers={"x-goog-api-key": api_key},
-            json=body,
-        )
-        resp.raise_for_status()
-        candidates = resp.json().get("candidates") or []
-        if not candidates:
-            return []
-        raw_items = json.loads(candidates[0]["content"]["parts"][0]["text"])
+        raw_items = await request_json(http=http_client, body=body)
         return [RelatedVocabItem.model_validate(item) for item in raw_items]
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Failed to generate related vocabulary for %s", kanji)
         raise HTTPException(
@@ -206,10 +179,6 @@ async def generate_distractors(
     if not cards or not settings.GEMINI_API_KEY:
         return {}
 
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent"
-    )
     items = [
         {"flashcard_id": c.flashcard_id, "japanese": c.kanji, "reading": c.reading, "meaning": c.meaning}
         for c in cards
@@ -268,16 +237,7 @@ async def generate_distractors(
     }
 
     try:
-        resp = await http_client.post(
-            url,
-            headers={"x-goog-api-key": settings.GEMINI_API_KEY},
-            json=body,
-        )
-        resp.raise_for_status()
-        candidates = resp.json().get("candidates") or []
-        if not candidates:
-            return {}
-        raw = json.loads(candidates[0]["content"]["parts"][0]["text"])
+        raw = await request_json(http=http_client, body=body)
     except Exception:
         logger.exception("Gemini distractor generation failed; using fallbacks")
         return {}

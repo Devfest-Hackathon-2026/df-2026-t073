@@ -77,6 +77,7 @@ def _prompt(place: Place, reviews: list[str], language: str) -> str:
 
 async def _content(db: AsyncClient, http: httpx.AsyncClient, place: Place, language: str) -> BriefingContent:
     ref = _cache_ref(db, place.id, language)
+    cached: BriefingContent | None = None
     try:
         snap = await ref.get()
         if snap.exists:
@@ -87,9 +88,15 @@ async def _content(db: AsyncClient, http: httpx.AsyncClient, place: Place, langu
     except (GoogleAPICallError, GoogleAuthError):
         logger.exception("Briefing cache read failed for %s", place.id)
 
-    raw = await generate_json(
-        http=http, prompt=_prompt(place, await _reviews(http, place), language), schema=BRIEFING_SCHEMA
-    )
+    try:
+        raw = await generate_json(
+            http=http, prompt=_prompt(place, await _reviews(http, place), language), schema=BRIEFING_SCHEMA
+        )
+    except Exception:
+        if cached is not None:
+            logger.warning("Using stale briefing for %s after regeneration failed", place.id)
+            return cached
+        raise
     content = parse_briefing(raw).model_copy(update={"generated_at": datetime.now(timezone.utc)})
     try:
         await ref.set(content.model_dump(mode="python"))

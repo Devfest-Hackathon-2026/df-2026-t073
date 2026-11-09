@@ -94,4 +94,24 @@ async def charge(*, db: AsyncClient, uid: str, kind: str, now: datetime | None =
         logger.warning("Usage counter unavailable; allowing %s for %s", kind, uid)
         return
     if is_over(count, limit):
+        try:
+            await ref.set({kind: Increment(-1)}, merge=True)
+        except (GoogleAPICallError, GoogleAuthError):
+            logger.warning("Could not restore over-limit usage counter for %s", uid)
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail=limit_message(kind))
+
+
+async def refund(*, db: AsyncClient, uid: str, kind: str, now: datetime | None = None) -> None:
+    """Undo a charge when the protected operation fails."""
+    if limit_for(kind) <= 0:
+        return
+    ref = (
+        db.collection(USERS_COLLECTION)
+        .document(uid)
+        .collection(USAGE_SUBCOLLECTION)
+        .document(usage_key(now or datetime.now(timezone.utc)))
+    )
+    try:
+        await ref.set({kind: Increment(-1)}, merge=True)
+    except (GoogleAPICallError, GoogleAuthError):
+        logger.warning("Could not refund failed %s usage for %s", kind, uid)

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     # 3.8-flash timed out (90 s+) in testing; 3.5-flash answers in ~9 s.
     GEMINI_MODEL: str = "gemini-3.5-flash"
+    # Gemini calls retry transient failures (HTTP 429, 500, 503, 504 and network
+    # timeouts) with a short backoff. The budget is the longest a request may spend
+    # on Gemini including retries; keep it under the app's 45 s request timeout.
+    GEMINI_MAX_ATTEMPTS: int = 3
+    GEMINI_RETRY_BUDGET_S: float = 38.0
     # Server-side key for Places API (New). Separate from the Android Maps key.
     GOOGLE_PLACES_API_KEY: str | None = None
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024  # 10 MiB

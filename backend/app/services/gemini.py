@@ -1,8 +1,12 @@
 """Shared Gemini call: structured JSON output, optionally with inline audio/images."""
 
+import asyncio
 import base64
 import json
 import logging
+import random
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -11,6 +15,22 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+RETRYABLE_STATUS_CODES = {429, 500, 503, 504}
+
+
+def _retry_after(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        try:
+            when = parsedate_to_datetime(value)
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError, OverflowError):
+            return None
 
 
 async def generate_json(
@@ -23,7 +43,7 @@ async def generate_json(
 ) -> Any:
     """Ask Gemini for JSON matching `schema`. `inline` adds (bytes, mime_type) parts.
 
-    Raises 503 when no key is configured and 502 when Gemini fails, so callers
+    Raises 503 when no key is configured or Gemini is temporarily unavailable, so callers
     can show a clear error instead of half-filled data.
     """
     if not settings.GEMINI_API_KEY:
@@ -41,20 +61,70 @@ async def generate_json(
             "responseSchema": schema,
         },
     }
+    return await request_json(http=http, body=body)
+
+
+async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
+    """Send a prepared structured-output request with the shared retry policy."""
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="GEMINI_API_KEY is not configured.")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
-    try:
-        resp = await http.post(url, headers={"x-goog-api-key": settings.GEMINI_API_KEY}, json=body)
-        resp.raise_for_status()
-        candidates = resp.json().get("candidates") or []
-        if not candidates:
-            raise ValueError("Gemini returned no candidates.")
-        return json.loads(candidates[0]["content"]["parts"][0]["text"])
-    except httpx.HTTPStatusError as exc:
-        logger.error("Gemini returned HTTP %s: %s", exc.response.status_code, exc.response.text[:300])
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Gemini request failed.") from exc
-    except Exception as exc:
-        logger.exception("Gemini call failed")
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Gemini.") from exc
+    attempts = max(1, settings.GEMINI_MAX_ATTEMPTS)
+    retry_budget = max(0.0, settings.GEMINI_RETRY_BUDGET_S)
+    started = asyncio.get_running_loop().time()
+    for attempt in range(attempts):
+        try:
+            resp = await http.post(url, headers={"x-goog-api-key": settings.GEMINI_API_KEY}, json=body)
+            if resp.status_code in RETRYABLE_STATUS_CODES:
+                logger.warning("Gemini transient HTTP %s (attempt %s/%s)", resp.status_code, attempt + 1, attempts)
+                if attempt + 1 < attempts:
+                    wait = _retry_after(resp.headers.get("Retry-After"))
+                    delay = wait if wait is not None else min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
+                    if asyncio.get_running_loop().time() - started + delay < retry_budget:
+                        await asyncio.sleep(delay)
+                        continue
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Gemini is temporarily busy.",
+                    headers={"Retry-After": resp.headers.get("Retry-After", "5")},
+                )
+            resp.raise_for_status()
+            candidates = resp.json().get("candidates") or []
+            if not candidates:
+                raise ValueError("Gemini returned no candidates.")
+            return json.loads(candidates[0]["content"]["parts"][0]["text"])
+        except HTTPException:
+            raise
+        except httpx.HTTPStatusError as exc:
+            logger.error("Gemini returned HTTP %s: %s", exc.response.status_code, exc.response.text[:300])
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Gemini request failed.") from exc
+        except httpx.TimeoutException as exc:
+            logger.warning("Gemini timed out (attempt %s/%s)", attempt + 1, attempts)
+            if attempt + 1 < attempts:
+                delay = min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
+                if asyncio.get_running_loop().time() - started + delay < retry_budget:
+                    await asyncio.sleep(delay)
+                    continue
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gemini is temporarily unavailable.",
+                headers={"Retry-After": "5"},
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.warning("Gemini network error (attempt %s/%s): %s", attempt + 1, attempts, exc)
+            if attempt + 1 < attempts:
+                delay = min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
+                if asyncio.get_running_loop().time() - started + delay < retry_budget:
+                    await asyncio.sleep(delay)
+                    continue
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gemini is temporarily unavailable.",
+                headers={"Retry-After": "5"},
+            ) from exc
+        except Exception as exc:
+            logger.exception("Gemini call failed")
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Gemini.") from exc
 
 
 def jp_schema() -> dict[str, Any]:
