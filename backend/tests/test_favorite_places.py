@@ -21,6 +21,7 @@ def place(place_id: str, name: str = "麺屋たいき") -> Place:
 class _Doc:
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data
+        self.exists = bool(data)
 
     def to_dict(self) -> dict[str, Any]:
         return self._data
@@ -31,6 +32,7 @@ class FakeDb:
 
     def __init__(self) -> None:
         self.docs: dict[str, dict[str, Any]] = {}
+        self.usage_docs: dict[str, int] = {}
         self._path: list[str] = []
 
     def collection(self, name: str) -> "FakeDb":
@@ -47,8 +49,31 @@ class FakeDb:
     def limit(self, _: int) -> "FakeDb":
         return self
 
-    async def set(self, data: dict[str, Any]) -> None:
-        self.docs[self._path[-1]] = data
+    async def get(self) -> _Doc:
+        if "usage" in self._path:
+            data = dict(self.usage_docs)
+        else:
+            doc_id = self._path[-1] if self._path else ""
+            data = self.docs.get(doc_id, {})
+        self._path = []
+        return _Doc(data)
+
+    async def set(
+        self,
+        data: dict[str, Any],
+        *args: Any,
+        merge: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        doc_id = self._path[-1]
+        if "usage" in self._path:
+            for k in data:
+                self.usage_docs[k] = self.usage_docs.get(k, 0) + 1
+        else:
+            if merge and doc_id in self.docs:
+                self.docs[doc_id].update(data)
+            else:
+                self.docs[doc_id] = data
         self._path = []
 
     async def delete(self) -> None:
