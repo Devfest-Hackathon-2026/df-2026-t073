@@ -35,6 +35,7 @@ import {
   Sparkles,
   Trash2,
   Tag,
+  Ticket,
   Triangle,
   Trophy,
   Type,
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { colors, fontSizes } from '../styles/tokens';
+import { TangoCard } from './TangoCard';
 
 // Every icon in the app, by what it means here (Lucide underneath).
 const ICONS = {
@@ -64,6 +66,8 @@ const ICONS = {
   map: Map,
   camera: Camera,
   review: Layers,
+  /** The Plans tab (map off): outings you've planned. */
+  plansTab: Ticket,
   me: User,
   lock: Lock,
   people: Users,
@@ -92,7 +96,8 @@ const ICONS = {
   /** A place's category, e.g. "Ramen". */
   category: Tag,
   /** A count of Tango. */
-  tango: Layers,
+  /** Tango, everywhere: a word card with a pin (custom, not Lucide). */
+  tango: TangoCard,
   calendar: CalendarDays,
   forbidden: Ban,
 } as const;

@@ -74,10 +74,11 @@ const strength = {
 };
 
 const tabs = {
-  today: 'Today',
+  today: 'Home',
   map: 'Map',
+  plans: 'Plans',
   capture: 'Capture',
-  review: 'Review',
+  review: 'Tango',
   me: 'Me',
   openCamera: 'Open camera',
 };
@@ -274,8 +275,8 @@ const meSections = {
 
 const review = {
   loadingLines: ['Counting what is due…', 'Sorting your collections…'],
-  title: 'Review',
-  titleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
+  title: 'Tango',
+  titleJp: { text: '単語', reading: 'たんご', romaji: 'tango' },
   quickReview: 'Quick review',
   collections: 'Collections',
   recentTango: 'Recent Tango',

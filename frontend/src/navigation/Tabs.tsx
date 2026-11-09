@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MeScreen } from '../screens/me/MeScreen';
 import { MapScreen } from '../screens/map/MapScreen';
+import { PlansScreen } from '../screens/plans/PlansScreen';
 import { ReviewScreen } from '../screens/review/ReviewScreen';
 import { TodayScreen } from '../screens/today/TodayScreen';
 import { base } from '../styles/base';
@@ -29,8 +30,9 @@ const TAB_META: Record<keyof TabParamList, { label: string; icon: IconName }> =
   {
     Today: { label: copy.tabs.today, icon: 'home' },
     Map: { label: copy.tabs.map, icon: 'map' },
+    PlansTab: { label: copy.tabs.plans, icon: 'plansTab' },
     CaptureTab: { label: copy.tabs.capture, icon: 'camera' },
-    Review: { label: copy.tabs.review, icon: 'review' },
+    Review: { label: copy.tabs.review, icon: 'tango' },
     Me: { label: copy.tabs.me, icon: 'me' },
   };
 
@@ -38,9 +40,12 @@ function EmptyScreen(): null {
   return null;
 }
 
+function PlansTab(): React.JSX.Element {
+  return <PlansScreen asTab />;
+}
+
 function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const { settings } = useSettings();
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
@@ -49,25 +54,6 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
         const focused = state.index === index;
 
         if (name === 'CaptureTab') {
-          if (!settings.mapFeatures) {
-            return (
-              <React.Fragment key={route.key}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={copy.tabs.openCamera}
-                  onPress={() => navigation.getParent()?.navigate('Capture')}
-                  style={styles.item}
-                >
-                  <Icon
-                    name={meta.icon}
-                    size={fontSizes.xl}
-                    color={colors.textMuted}
-                  />
-                  <Text style={styles.label}>{meta.label}</Text>
-                </Pressable>
-              </React.Fragment>
-            );
-          }
           return (
             <View key={route.key} style={styles.item}>
               <Pressable
@@ -130,9 +116,12 @@ export function Tabs(): React.JSX.Element {
   return (
     <Tab.Navigator tabBar={renderTabBar} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Today" component={TodayScreen} />
+      {/* Plans fills the Map slot when the map is off, so the camera stays centered. */}
       {settings.mapFeatures ? (
         <Tab.Screen name="Map" component={MapScreen} />
-      ) : null}
+      ) : (
+        <Tab.Screen name="PlansTab" component={PlansTab} />
+      )}
       <Tab.Screen name="CaptureTab" component={EmptyScreen} />
       <Tab.Screen name="Review" component={ReviewScreen} />
       <Tab.Screen name="Me" component={MeScreen} />

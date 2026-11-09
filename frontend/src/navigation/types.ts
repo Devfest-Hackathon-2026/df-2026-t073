@@ -15,6 +15,8 @@ export type TabParamList = {
   CaptureTab: undefined;
   Review: undefined;
   Me: undefined;
+  /** Takes the Map tab's place when the map is off. */
+  PlansTab: undefined;
 };
 
 export type MeSectionId =

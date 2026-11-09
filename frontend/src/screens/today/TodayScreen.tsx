@@ -330,6 +330,12 @@ function PlansRow({
   onPlan: () => void;
 }): React.JSX.Element {
   const nav = useRootNav();
+  const { settings } = useSettings();
+  // With the map off, Plans is a tab: switch to it rather than stacking a copy.
+  const openPlans = () =>
+    settings.mapFeatures
+      ? nav.navigate('Plans')
+      : nav.navigate('Tabs', { screen: 'PlansTab' });
   return (
     <View style={styles.plansRow}>
       <View style={base.grow}>
@@ -343,7 +349,7 @@ function PlansRow({
         <Button
           label={copy.today.allPlans}
           variant="secondary"
-          onPress={() => nav.navigate('Plans')}
+          onPress={openPlans}
         />
       ) : null}
     </View>
