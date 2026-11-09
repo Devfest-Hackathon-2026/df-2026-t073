@@ -246,7 +246,7 @@ function HomeAreaCard({
   );
 }
 
-// ---------- Japanese display ----------
+// ---------- Display settings ----------
 
 export function DisplaySection(): React.JSX.Element {
   const { settings, update } = useSettings();
@@ -288,7 +288,7 @@ export function DisplaySection(): React.JSX.Element {
   );
 }
 
-// ---------- Practice ----------
+// ---------- Conversation practice settings ----------
 
 export function PracticeSection(): React.JSX.Element {
   const { settings, update } = useSettings();
@@ -321,13 +321,12 @@ export function PracticeSection(): React.JSX.Element {
   );
 }
 
-// ---------- Languages ----------
+// ---------- Native language ----------
 
 export function LanguagesSection(): React.JSX.Element {
   const { settings, update } = useSettings();
   return (
     <Card>
-      <Text style={base.label}>{copy.settings.languageLabel}</Text>
       {LANGUAGES.map(lang => {
         const selected = settings.explanationsLanguage === lang.value;
         return (
@@ -346,11 +345,12 @@ export function LanguagesSection(): React.JSX.Element {
           </Pressable>
         );
       })}
+      <Text style={base.caption}>{copy.settings.languageFooter}</Text>
     </Card>
   );
 }
 
-// ---------- Privacy & location ----------
+// ---------- Map and location settings ----------
 
 const LOCATION_USES = [
   {

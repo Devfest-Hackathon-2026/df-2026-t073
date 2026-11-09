@@ -213,10 +213,10 @@ const tangoRow = {
 
 const meSections = {
   profile: 'Profile',
-  display: 'Japanese display',
-  practice: 'Practice',
-  languages: 'Languages',
-  privacy: 'Privacy & location',
+  display: 'Display settings',
+  practice: 'Conversation practice settings',
+  languages: 'Native language',
+  privacy: 'Map and location settings',
   developer: 'Developer',
 };
 
@@ -696,7 +696,8 @@ const settings = {
   easy: 'Easy',
   keigo: 'Keigo',
   englishAfterLine: 'English after each role-play line',
-  languageLabel: 'Meanings, hints and feedback in',
+  /** Under the language list. */
+  languageFooter: 'Meanings, hints and feedback are shown in this language.',
   mapAndLocation: 'Map and location',
   mapOn: 'On',
   mapOff: 'Off: no map, and Tankengo never reads your location',

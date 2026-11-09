@@ -80,7 +80,7 @@ export function SettingsProvider({
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
-  // One switch for every use of location (see Me › Privacy & location).
+  // One switch for every use of location (see Me › Map and location settings).
   useEffect(() => {
     setLocationEnabled(settings.mapFeatures);
   }, [settings.mapFeatures]);

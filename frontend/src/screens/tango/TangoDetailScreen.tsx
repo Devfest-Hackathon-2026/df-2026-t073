@@ -206,7 +206,7 @@ export function TangoDetailScreen({
 
             <Card>
               <View style={styles.hero}>
-                <Jp {...t} size="jumbo" bold />
+                <Jp {...t} size="jumbo" bold center />
                 {t.romaji ? <Text style={base.caption}>{t.romaji}</Text> : null}
                 <Text style={styles.meaning}>{t.meaning}</Text>
               </View>

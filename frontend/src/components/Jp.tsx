@@ -31,6 +31,8 @@ export interface JpProps extends JpText {
   tone?: Tone;
   /** Force kanji (signs and menus always show the real kanji). */
   alwaysKanji?: boolean;
+  /** Center the word (and its furigana) in its row, e.g. in a centered hero. */
+  center?: boolean;
 }
 
 const DOT_COUNT = 80;
@@ -50,6 +52,7 @@ export function Jp({
   bold = false,
   tone = 'default',
   alwaysKanji = false,
+  center = false,
 }: JpProps): React.JSX.Element {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
@@ -70,10 +73,17 @@ export function Jp({
     sizeStyles[size],
     bold && styles.bold,
     toneStyles[tone],
+    center && styles.textCenter,
   ];
 
   const body = (
-    <View style={[styles.column, peek && styles.columnPeek]}>
+    <View
+      style={[
+        styles.column,
+        peek && styles.columnPeek,
+        center && styles.columnCenter,
+      ]}
+    >
       {showFurigana ? (
         <Text style={[styles.furigana, toneStyles[tone]]}>{reading}</Text>
       ) : null}
@@ -183,6 +193,12 @@ const styles = StyleSheet.create({
   furigana: {
     ...base.text,
     fontSize: fontSizes.xs,
+    textAlign: 'center',
+  },
+  columnCenter: {
+    alignSelf: 'center',
+  },
+  textCenter: {
     textAlign: 'center',
   },
   columnPeek: {
