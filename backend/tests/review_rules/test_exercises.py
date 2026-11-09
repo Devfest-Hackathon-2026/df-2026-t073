@@ -104,10 +104,7 @@ class TestShortLabels:
         ex = build_exercise(card("a", places=()), Distractors(), 0, "rs")
         assert ex.place_hint == ""
 
-    @pytest.mark.parametrize(
-        ("strength", "label"),
-        [(0, "4 to Stamp"), (3, "1 to Stamp"), (4, "Stamp earned")],
-    )
-    def test_next_step_counts_down_to_a_stamp(self, strength: int, label: str) -> None:
+    @pytest.mark.parametrize(("strength", "steps"), [(0, 4), (3, 1), (4, 0)])
+    def test_steps_count_down_to_a_stamp(self, strength: int, steps: int) -> None:
         ex = build_exercise(card("a", strength=strength), Distractors(), 0, "rs")
-        assert ex.next_step == label
+        assert ex.steps_to_stamp == steps

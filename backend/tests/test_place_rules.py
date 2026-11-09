@@ -91,7 +91,7 @@ class TestBuildMap:
         assert by_label["Koenji"].count == 2 and by_label["Koenji"].stars == 1
         assert by_label["Nakano"].count == 1
         koenji = next(a for a in areas if a.id == "koenji")
-        assert koenji.label == "Around Koenji" and koenji.plan_place_id == "p1"
+        assert koenji.name == "Koenji" and koenji.plan_place_id == "p1"
 
     def test_home_area_and_unlocated_sightings_are_left_out(self) -> None:
         home = HomeArea(label="Home", lat=KOENJI[0], lng=KOENJI[1], radius_m=300)

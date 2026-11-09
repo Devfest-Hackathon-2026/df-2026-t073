@@ -127,7 +127,7 @@ def build_map(
         areas.append(
             MapArea(
                 id=area_id,
-                label=f"Around {area}",
+                name=area,
                 tango_count=len(area_cards),
                 place_count=len(places_in[area]),
                 sample=area_cards[:AREA_SAMPLE_SIZE],

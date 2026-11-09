@@ -27,15 +27,9 @@ def exercise_types_summary(cards: list[FlashcardResponse]) -> list[ExerciseType]
         bucket = "mcq" if stage in ("mcq_photo", "mcq") else stage
         counts[bucket] += 1
     return [
-        ExerciseType(
-            id="flashcard", label="Flashcard", enabled=True, count=counts["flashcard"]
-        ),
-        ExerciseType(
-            id="mcq", label="Multiple choice", enabled=True, count=counts["mcq"]
-        ),
-        ExerciseType(
-            id="fill", label="Fill in the blank", enabled=True, count=counts["fill"]
-        ),
+        ExerciseType(id="flashcard", enabled=True, count=counts["flashcard"]),
+        ExerciseType(id="mcq", enabled=True, count=counts["mcq"]),
+        ExerciseType(id="fill", enabled=True, count=counts["fill"]),
     ]
 
 
@@ -58,18 +52,11 @@ def biggest_win(answers: list[SessionAnswer]) -> BiggestWin | None:
             a.strength_after,
         ),
     )
-    if best.strength_after >= MAX_STRENGTH:
-        title, detail = "is now a star", "Full strength. It's a star on your map now."
-    else:
-        left = MAX_STRENGTH - best.strength_after
-        title = "is getting stronger"
-        detail = f"Strength {best.strength_after} of {MAX_STRENGTH}. {left} more to make it a star."
     return BiggestWin(
         flashcard_id=best.flashcard_id,
         tango=JpOption(text=best.text, reading=best.reading, romaji=best.romaji),
         meaning=best.meaning,
-        title=title,
-        detail=detail,
+        strength_after=best.strength_after,
     )
 
 

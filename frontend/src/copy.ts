@@ -10,6 +10,18 @@
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
+/** Word-of-the-day topic names, by the backend's topic id. */
+const TOPIC_NAMES: Record<string, string> = {
+  food: 'food',
+  shopping: 'shopping',
+  transport: 'train and bus',
+  signs: 'sign',
+  lodging: 'hotel and bath',
+  sightseeing: 'sightseeing',
+  health: 'help',
+  greetings: 'everyday',
+};
+
 const common = {
   close: 'Close',
   back: 'Back',
@@ -56,6 +68,10 @@ const map = {
     `${label || 'Pin'} ${count || ''}`,
   /** Placeholder map's mastered count: 花 is from 花丸 (hanamaru). */
   placeholderStars: (n: number) => `花${n}`,
+  /** Title of a neighbourhood card. */
+  around: (area: string) => `Around ${area}`,
+  /** Label on the pin for the next planned visit. */
+  upNext: 'Up next',
 };
 
 const jp = {
@@ -212,6 +228,9 @@ const review = {
   allTango: (total?: number) =>
     `All Tango${total !== undefined ? ` · ${total}` : ''}`,
   nothingCaught: 'Nothing caught yet',
+  /** Names of the built-in collections. */
+  favourites: 'Favourites',
+  placeCue: 'Place cue',
 };
 
 const mapScreen = {
@@ -443,6 +462,14 @@ const today = {
   yourPlans: 'Your plans',
   nothingPlanned: 'Nothing planned yet',
   wordOfDay: 'Word of the day',
+  /** Why this word of the day was picked. */
+  wordReason: {
+    visit: (place: string) => `For your visit to ${place}`,
+    /** `topicId` is the backend's topic, e.g. "food". */
+    topic: (topicId: string) =>
+      `You've been catching ${TOPIC_NAMES[topicId] ?? topicId} words`,
+    everyday: 'An everyday word for your level',
+  },
   reviewTitle: 'Review',
   reviewTitleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
   reviewSummary: (due: number, minutes: number) =>
@@ -518,6 +545,8 @@ const reviewSession = {
     "This one didn't count: you practiced this Tango elsewhere since starting.",
   levelUp: 'Level up!',
   backAStep: 'Back a step',
+  /** Shown after a right answer: how far the Tango is from a Stamp. */
+  stepsToStamp: (n: number) => (n > 0 ? `${n} to Stamp` : 'Stamp earned'),
 };
 
 const sessionResults = {
@@ -525,6 +554,14 @@ const sessionResults = {
   summary: (reviewed: number, minutes: number) =>
     `${reviewed} Tango reviewed · ${minutes} min`,
   biggestWin: 'Biggest win today',
+  winTitle: (stampEarned: boolean) =>
+    stampEarned ? 'is now a star' : 'is getting stronger',
+  winDetail: (strengthAfter: number) =>
+    strengthAfter >= 4
+      ? "Full strength. It's a star on your map now."
+      : `Strength ${strengthAfter} of 4. ${
+          4 - strengthAfter
+        } more to make it a star.`,
   practiced: 'Tango practiced',
   tangoCount: (n: number) => `${n} Tango`,
   nextOn: (day: string) => `on ${day}.`,

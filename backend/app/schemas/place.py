@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -51,10 +52,11 @@ class MapPin(BaseModel):
 
 
 class MapArea(BaseModel):
-    """Card shown when a pin is tapped ("Around Koenji")."""
+    """Card shown when a pin is tapped (the app titles it "Around Koenji")."""
 
     id: str
-    label: str
+    # The area's name, e.g. "Koenji".
+    name: str
     tango_count: int
     place_count: int
     sample: list[FlashcardResponse]
@@ -62,13 +64,22 @@ class MapArea(BaseModel):
     plan_place_id: str | None = None
 
 
+class WordReason(BaseModel):
+    """Why the word of the day was picked; the app words it."""
+
+    kind: Literal["visit", "topic", "everyday"]
+    # kind "visit": the place being visited next.
+    place_name: str | None = None
+    # kind "topic": the topic id the user has been catching, e.g. "food".
+    topic: str | None = None
+
+
 class WordOfDay(BaseModel):
     text: str
     reading: str
     romaji: str
     meaning: str
-    # Why this word, e.g. "For your visit to 麺屋たいき".
-    reason: str
+    reason: WordReason
 
 
 class TodayResponse(BaseModel):

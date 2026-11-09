@@ -1,3 +1,4 @@
+from app.schemas.place import WordReason
 from app.services.everyday_words import WORDS
 from app.services.word_of_day import interest_weights, pick_word, topic_for_category
 
@@ -48,7 +49,21 @@ def test_next_visit_steers_the_topic_and_reason():
     ]
     food = [p for p in picks if p and TOPICS[p.text] == "food"]
     assert len(food) > len(picks) / 2
-    assert all(p.reason == "For your visit to 麺屋たいき" for p in food)
+    assert all(p.reason == WordReason(kind="visit", place_name="麺屋たいき") for p in food)
+
+
+
+def test_other_reasons_are_data_too():
+    caught = interest_weights(
+        next_visit_category=None, other_visit_categories=[], caught_categories=["Ramen restaurant"] * 5
+    )
+    picks = [
+        pick_word(reading_level="most", weights=caught, owned=set(), seed=f"u1:2026-04-{d:02d}")
+        for d in range(1, 29)
+    ]
+    kinds = {p.reason.kind for p in picks if p}
+    assert "topic" in kinds and kinds <= {"topic", "everyday"}
+    assert all(p.reason.topic == p.topic for p in picks if p and p.reason.kind == "topic")
 
 
 def test_nothing_left_to_learn():

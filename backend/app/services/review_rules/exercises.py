@@ -126,10 +126,9 @@ def _photo_layer(
     )
 
 
-def _next_step_text(card: FlashcardResponse) -> str:
-    """A short label, e.g. "2 to Stamp" (a Stamp is a Tango at full strength)."""
-    steps_left = MAX_STRENGTH - card.strength
-    return f"{steps_left} to Stamp" if steps_left > 0 else "Stamp earned"
+def _steps_to_stamp(card: FlashcardResponse) -> int:
+    """Steps until the Tango is a Stamp (full strength)."""
+    return max(0, MAX_STRENGTH - card.strength)
 
 
 def _stage_transitions(
@@ -158,7 +157,7 @@ class _Context:
     photo: PhotoLayer | None
     example: Example | None
     place_hint: str
-    next_step: str
+    steps_to_stamp: int
     promoted_to: ReviewStage | None
     demoted_to: ReviewStage | None
     jp_prompt: JpOption
@@ -211,7 +210,7 @@ def _flashcard_exercise(ctx: _Context) -> FlashcardExercise:
             example=ctx.example,
         ),
         place_hint=ctx.place_hint,
-        next_step=ctx.next_step,
+        steps_to_stamp=ctx.steps_to_stamp,
         promoted_to=ctx.promoted_to,
         demoted_to=ctx.demoted_to,
     )
@@ -233,7 +232,7 @@ def _mcq_exercise(ctx: _Context) -> McqExercise:
         answer_index=answer,
         place_hint=ctx.place_hint,
         example=ctx.example,
-        next_step=ctx.next_step,
+        steps_to_stamp=ctx.steps_to_stamp,
         promoted_to=ctx.promoted_to,
         demoted_to=ctx.demoted_to,
     )
@@ -265,7 +264,7 @@ def _fill_exercise(ctx: _Context) -> FillBlankExercise:
         answer_display=_answer_display(card, ctx.question_type),
         place_hint=ctx.place_hint,
         example=ctx.example,
-        next_step=ctx.next_step,
+        steps_to_stamp=ctx.steps_to_stamp,
         promoted_to=ctx.promoted_to,
         demoted_to=ctx.demoted_to,
     )
@@ -304,7 +303,7 @@ def build_exercise(
         photo=_photo_layer(card, stage, area),
         example=_pick_example(card),
         place_hint=area,
-        next_step=_next_step_text(card),
+        steps_to_stamp=_steps_to_stamp(card),
         promoted_to=promoted_to,
         demoted_to=demoted_to,
         jp_prompt=JpOption(text=card.kanji, reading=card.reading, romaji=card.romaji),

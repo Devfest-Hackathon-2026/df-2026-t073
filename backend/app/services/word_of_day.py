@@ -10,6 +10,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 
+from app.schemas.place import WordReason
 from app.services import dictionary
 from app.services.everyday_words import CATEGORY_TOPICS, WORDS
 
@@ -21,23 +22,11 @@ OTHER_VISIT_BOOST = 2.0
 CAUGHT_BOOST = 1.0
 MAX_CAUGHT_BOOST = 4.0
 
-TOPIC_NAMES = {
-    "food": "food",
-    "shopping": "shopping",
-    "transport": "train and bus",
-    "signs": "sign",
-    "lodging": "hotel and bath",
-    "sightseeing": "sightseeing",
-    "health": "help",
-    "greetings": "everyday",
-}
-
-
 @dataclass(frozen=True)
 class Pick:
     text: str
     topic: str
-    reason: str
+    reason: WordReason
 
 
 def topic_for_category(category: str) -> str | None:
@@ -98,11 +87,11 @@ def pick_word(
             break
     next_topic = topic_for_category(next_visit_category) if next_visit_category else None
     if next_visit_name and topic == next_topic:
-        reason = f"For your visit to {next_visit_name}"
+        reason = WordReason(kind="visit", place_name=next_visit_name)
     elif weights.get(topic, 1.0) > 1.0:
-        reason = f"You've been catching {TOPIC_NAMES.get(topic, topic)} words"
+        reason = WordReason(kind="topic", topic=topic)
     else:
-        reason = "An everyday word for your level"
+        reason = WordReason(kind="everyday")
     return Pick(text=text, topic=topic, reason=reason)
 
 

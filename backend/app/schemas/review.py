@@ -24,6 +24,8 @@ class ReviewCardResponse(BaseModel):
 
 class Collection(BaseModel):
     id: str
+    # A place or list name; "" for built-in collections (favourites, place cue),
+    # which the app names.
     label: str
     count: int
     is_place: bool
@@ -34,8 +36,8 @@ class Collection(BaseModel):
 
 
 class ExerciseType(BaseModel):
+    # "flashcard" | "mcq" | "fill"; the app names them.
     id: str
-    label: str
     enabled: bool
     count: int = 0
 
@@ -93,7 +95,8 @@ class FlashcardExercise(BaseModel):
     back: FlashcardBack
     # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str
-    next_step: str
+    # Steps until the Tango is a Stamp (full strength); 0 when it already is.
+    steps_to_stamp: int
     promoted_to: ReviewStage | None = None
     demoted_to: ReviewStage | None = None
 
@@ -118,7 +121,8 @@ class McqExercise(BaseModel):
     # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str
     example: Example | None = None
-    next_step: str
+    # Steps until the Tango is a Stamp (full strength); 0 when it already is.
+    steps_to_stamp: int
     promoted_to: ReviewStage | None = None
     demoted_to: ReviewStage | None = None
 
@@ -144,7 +148,8 @@ class FillBlankExercise(BaseModel):
     # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str = ""
     example: Example | None = None
-    next_step: str = ""
+    # Steps until the Tango is a Stamp (full strength); 0 when it already is.
+    steps_to_stamp: int = 0
     promoted_to: ReviewStage | None = None
     demoted_to: ReviewStage | None = None
 
@@ -260,8 +265,8 @@ class BiggestWin(BaseModel):
     flashcard_id: str
     tango: JpOption
     meaning: str
-    title: str
-    detail: str
+    # Strength after the answer (0-4); 4 means it just became a Stamp.
+    strength_after: int
 
 
 class SessionResultResponse(BaseModel):

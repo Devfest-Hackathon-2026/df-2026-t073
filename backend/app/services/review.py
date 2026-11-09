@@ -11,7 +11,6 @@ from app.schemas.flashcard import FlashcardResponse
 from app.schemas.review import (
     AnswerVerdict,
     Collection,
-    ExerciseType,
     ReviewCardResponse,
     ReviewSessionRecord,
     ReviewSessionResponse,
@@ -39,13 +38,6 @@ from app.services.places import areas_for
 # Enough for a hackathon-sized collection; all review screens look at the whole set.
 MAX_CARDS = 200
 SAMPLE_SIZE = 4
-
-EXERCISE_TYPES = [
-    ExerciseType(id="flashcard", label="Flashcard", enabled=True, count=0),
-    ExerciseType(id="mcq", label="Multiple choice", enabled=True, count=0),
-    ExerciseType(id="fill", label="Fill in the blank", enabled=True, count=0),
-]
-
 
 async def _all_cards(db: AsyncClient, uid: str) -> list[FlashcardResponse]:
     return await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
@@ -90,7 +82,7 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
             0,
             Collection(
                 id=FAVORITES_COLLECTION,
-                label="Favourites",
+                label="",
                 count=len(favorites),
                 is_place=False,
                 is_place_cue=False,
@@ -113,7 +105,7 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
         collections.append(
             Collection(
                 id=PLACE_CUE_COLLECTION,
-                label="Place cue",
+                label="",
                 count=len(place_cue),
                 is_place=False,
                 is_place_cue=True,

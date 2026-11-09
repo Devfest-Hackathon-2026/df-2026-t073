@@ -5,6 +5,7 @@ import type { Coords } from '../location/location';
 import type { JpText, MapArea, Place, TodaySummary, Visit } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
 import { flashcardToTango, type FlashcardResponse } from './tango';
+import { copy } from '../copy';
 
 const MAP_AREAS: MapArea[] = [
   {
@@ -82,7 +83,7 @@ interface TodayResponse {
   }[];
   areas: {
     id: string;
-    label: string;
+    name: string;
     tango_count: number;
     place_count: number;
     sample: FlashcardResponse[];
@@ -95,8 +96,27 @@ interface TodayResponse {
     reading: string;
     romaji: string;
     meaning: string;
-    reason: string;
+    reason: {
+      kind: 'visit' | 'topic' | 'everyday';
+      place_name: string | null;
+      topic: string | null;
+    };
   } | null;
+}
+
+/** Why this word of the day was picked, in words. */
+function wordReason(reason: {
+  kind: 'visit' | 'topic' | 'everyday';
+  place_name: string | null;
+  topic: string | null;
+}): string {
+  if (reason.kind === 'visit' && reason.place_name) {
+    return copy.today.wordReason.visit(reason.place_name);
+  }
+  if (reason.kind === 'topic' && reason.topic) {
+    return copy.today.wordReason.topic(reason.topic);
+  }
+  return copy.today.wordReason.everyday;
 }
 
 function toJp(n: JpNameResponse): JpText {
@@ -156,7 +176,7 @@ export const getToday = pick(
       upNext: r.up_next ? toVisit(r.up_next) : null,
       pins: r.pins.map(p => ({
         id: p.id,
-        label: p.label,
+        label: p.kind === 'next' ? copy.map.upNext : p.label,
         count: p.count,
         x: 0.5,
         y: 0.5,
@@ -168,7 +188,7 @@ export const getToday = pick(
       })),
       areas: r.areas.map(a => ({
         id: a.id,
-        label: a.label,
+        label: copy.map.around(a.name),
         tangoCount: a.tango_count,
         placeCount: a.place_count,
         sample: a.sample.map(flashcardToTango),
@@ -176,7 +196,9 @@ export const getToday = pick(
         planPlaceId: a.plan_place_id,
       })),
       starterTango: r.starter_tango.map(toJp),
-      wordOfDay: r.word_of_day ?? null,
+      wordOfDay: r.word_of_day
+        ? { ...r.word_of_day, reason: wordReason(r.word_of_day.reason) }
+        : null,
     };
   },
 );

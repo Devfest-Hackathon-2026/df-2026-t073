@@ -18,6 +18,7 @@ import { ALL_TANGO } from '../mocks/tango';
 import { API_V1, mockDelay, pick, request } from './client';
 import { listLists } from './lists';
 import { flashcardToTango, type FlashcardResponse } from './tango';
+import { copy } from '../copy';
 
 // ---- Backend shapes (app/schemas/review.py) ----
 
@@ -60,7 +61,7 @@ interface ReviewSummaryResponse {
     is_favorites?: boolean;
     is_list?: boolean;
   }[];
-  exercise_types: { id: string; label: string; enabled: boolean; count?: number }[];
+  exercise_types: { id: 'flashcard' | 'mcq' | 'fill'; enabled: boolean; count?: number }[];
   total_tango: number;
 }
 
@@ -81,7 +82,7 @@ type ExerciseResponse =
         example: ExampleResponse | null;
       };
       place_hint: string;
-      next_step: string;
+      steps_to_stamp: number;
       promoted_to?: ReviewStage | null;
       demoted_to?: ReviewStage | null;
     }
@@ -103,7 +104,7 @@ type ExerciseResponse =
       answer_index: number;
       place_hint: string;
       example: ExampleResponse | null;
-      next_step: string;
+      steps_to_stamp: number;
       promoted_to?: ReviewStage | null;
       demoted_to?: ReviewStage | null;
     }
@@ -126,7 +127,7 @@ type ExerciseResponse =
       answer_display: string;
       place_hint: string;
       example: ExampleResponse | null;
-      next_step: string;
+      steps_to_stamp: number;
       promoted_to?: ReviewStage | null;
       demoted_to?: ReviewStage | null;
     };
@@ -143,8 +144,7 @@ interface SessionResultResponse {
     flashcard_id: string;
     tango: JpOptionResponse;
     meaning: string;
-    title: string;
-    detail: string;
+    strength_after: number;
   } | null;
   by_area: { area: string; count: number }[];
   next: null;
@@ -221,7 +221,7 @@ function toExercise(e: ExerciseResponse): Exercise {
         example: toExample(e.back.example),
       },
       placeHint: e.place_hint,
-      nextStep: e.next_step,
+      nextStep: copy.reviewSession.stepsToStamp(e.steps_to_stamp),
       promotedTo: e.promoted_to ?? null,
       demotedTo: e.demoted_to ?? null,
     };
@@ -241,7 +241,7 @@ function toExercise(e: ExerciseResponse): Exercise {
       answerIndex: e.answer_index,
       placeHint: e.place_hint,
       example: toExample(e.example),
-      nextStep: e.next_step,
+      nextStep: copy.reviewSession.stepsToStamp(e.steps_to_stamp),
       promotedTo: e.promoted_to ?? null,
       demotedTo: e.demoted_to ?? null,
     };
@@ -261,7 +261,7 @@ function toExercise(e: ExerciseResponse): Exercise {
     answerDisplay: e.answer_display,
     placeHint: e.place_hint,
     example: toExample(e.example),
-    nextStep: e.next_step,
+    nextStep: copy.reviewSession.stepsToStamp(e.steps_to_stamp),
     promotedTo: e.promoted_to ?? null,
     demotedTo: e.demoted_to ?? null,
   };
@@ -326,14 +326,21 @@ export const getReviewSummary = pick(
       placeCueCount: r.place_cue_count,
       collections: r.collections.map(c => ({
         id: c.id,
-        label: c.label,
+        label: c.is_favorites
+          ? copy.review.favourites
+          : c.is_place_cue
+          ? copy.review.placeCue
+          : c.label,
         count: c.count,
         isPlace: c.is_place,
         isPlaceCue: c.is_place_cue,
         isFavorites: c.is_favorites ?? false,
         isList: c.is_list ?? false,
       })),
-      exerciseTypes: r.exercise_types,
+      exerciseTypes: r.exercise_types.map(t => ({
+        ...t,
+        label: copy.reviewLabels.stages[t.id],
+      })),
       totalTango: r.total_tango,
     };
   },
@@ -401,8 +408,8 @@ export const getSessionResult = pick(
       biggestWin: r.biggest_win
         ? {
             tango: toJp(r.biggest_win.tango, r.biggest_win.meaning),
-            title: r.biggest_win.title,
-            detail: r.biggest_win.detail,
+            title: copy.sessionResults.winTitle(r.biggest_win.strength_after >= 4),
+            detail: copy.sessionResults.winDetail(r.biggest_win.strength_after),
           }
         : null,
       byArea: r.by_area,

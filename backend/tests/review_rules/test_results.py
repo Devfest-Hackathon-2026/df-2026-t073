@@ -29,7 +29,7 @@ class TestResults:
     def test_reaching_a_star_is_the_biggest_win(self) -> None:
         win = biggest_win([answer("a", 0, 2), answer("b", 3, 4)])
         assert win is not None and win.flashcard_id == "b"
-        assert win.title == "is now a star"
+        assert win.strength_after == 4
 
     def test_no_win_when_nothing_improved(self) -> None:
         assert biggest_win([answer("a", 2, 1, correct=False)]) is None

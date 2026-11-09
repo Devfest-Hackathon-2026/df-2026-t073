@@ -99,7 +99,7 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
         pins.append(
             MapPin(
                 id="pin-next",
-                label="Up next",
+                label=up_next.place.name.text,
                 count=0,
                 lat=up_next.place.lat,
                 lng=up_next.place.lng,
