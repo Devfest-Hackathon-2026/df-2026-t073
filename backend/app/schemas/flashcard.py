@@ -154,7 +154,7 @@ class FlashcardResponse(GeneratedFlashcardContent):
     related_vocab: list[RelatedVocabItem] = Field(default_factory=list)
     review_stats: ReviewStats
     created_at: datetime
-    # 0-4; 4 is a star on the map.
+    # 0-4; 4 is a Stamp (mastered).
     strength: int = Field(default=0, ge=0, le=4)
     sightings: list[Sighting] = Field(default_factory=list)
     history: list[HistoryEvent] = Field(default_factory=list)

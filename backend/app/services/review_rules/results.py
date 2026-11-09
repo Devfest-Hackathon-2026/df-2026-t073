@@ -40,7 +40,7 @@ def areas_summary(cards: list[FlashcardResponse]) -> list[AreaCount]:
 
 
 def biggest_win(answers: list[SessionAnswer]) -> BiggestWin | None:
-    """The correct answer that moved a card the most (reaching a star beats everything)."""
+    """The correct answer that moved a card the most (earning a Stamp beats everything)."""
     correct = [a for a in answers if a.correct and a.strength_after > a.strength_before]
     if not correct:
         return None

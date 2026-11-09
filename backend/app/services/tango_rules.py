@@ -42,7 +42,7 @@ def apply_sighting(strength: int) -> int:
 
 
 def is_mastered(strength: int) -> bool:
-    """A Tango becomes a star on the map at full strength."""
+    """A Tango becomes a Stamp (mastered) at full strength."""
     return strength >= MAX_STRENGTH
 
 

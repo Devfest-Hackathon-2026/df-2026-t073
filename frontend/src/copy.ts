@@ -49,7 +49,7 @@ const common = {
 const strength = {
   a11y: (n: number) => `Strength ${n} of 4`,
   /** Label per strength 0-4. */
-  levels: ['New', 'Warming up', 'Warming up', 'Almost there', 'Hanamaru'],
+  levels: ['New', 'Warming up', 'Warming up', 'Almost there', 'Stamp'],
 };
 
 const tabs = {
@@ -245,7 +245,7 @@ const mapScreen = {
   searchPlaceholder: 'どこへ行く？',
   searchA11y: 'Search places to visit',
   filterAll: 'All Tango',
-  filterStamps: 'Hanamaru',
+  filterStamps: 'Stamp',
   filterPlanned: 'Planned',
   noPlaces: 'No places found.',
   closeAreaCard: 'Close area card',
@@ -256,12 +256,12 @@ const mapScreen = {
 };
 
 const me = {
-  loadingLines: ['Tallying your Tango…', 'Counting your hanamaru…'],
+  loadingLines: ['Tallying your Tango…', 'Counting your Stamps…'],
   title: 'Me',
   mapOn: 'Map on',
   mapOff: 'Map off',
   statTango: 'Tango',
-  statStamps: 'Hanamaru',
+  statStamps: 'Stamps',
   statPlaces: 'Places',
   statDue: 'Due today',
   logOut: 'Log out of this device',
@@ -343,7 +343,7 @@ const tangoDetail = {
   favorite: 'Favourite',
   addToList: 'Add to a list',
   deleteTango: 'Delete Tango',
-  toStamp: (steps: number) => `${steps} to hanamaru`,
+  toStamp: (steps: number) => stepsToStamp(steps),
   phrases: 'Phrases',
   writingPhrases: 'Writing example phrases…',
   noPhrases: 'No example phrases yet',
