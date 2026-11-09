@@ -10,7 +10,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  type Edge,
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { base } from '../styles/base';
 import {
   colors,
@@ -166,7 +171,8 @@ export function BottomSheet({
   children: React.ReactNode;
 }): React.JSX.Element | null {
   // A real modal window: works from any screen (scrolling ones included)
-  // and stays above the keyboard.
+  // and stays above the keyboard. A Modal is its own native window, so it gets
+  // its own SafeAreaProvider to measure the insets of that window.
   return (
     <Modal
       visible={visible}
@@ -175,26 +181,44 @@ export function BottomSheet({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.sheetRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Pressable
-          style={styles.sheetScrim}
-          onPress={onClose}
-          accessibilityLabel={copy.common.close}
-        />
-        <View style={styles.sheet}>
-          <View style={styles.sheetHandle} />
-          <ScrollView
-            contentContainerStyle={base.stack}
-            keyboardShouldPersistTaps="handled"
-          >
-            {children}
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+      <SafeAreaProvider>
+        <SheetBody onClose={onClose}>{children}</SheetBody>
+      </SafeAreaProvider>
     </Modal>
+  );
+}
+
+function SheetBody({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  // The sheet reaches the bottom edge, so keep its content clear of the system
+  // bars (gesture bar or navigation buttons). The sheet's own background still
+  // fills the area behind them.
+  const insets = useSafeAreaInsets();
+  return (
+    <KeyboardAvoidingView
+      style={styles.sheetRoot}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <Pressable
+        style={styles.sheetScrim}
+        onPress={onClose}
+        accessibilityLabel={copy.common.close}
+      />
+      <View style={[styles.sheet, { paddingBottom: space.lg + insets.bottom }]}>
+        <View style={styles.sheetHandle} />
+        <ScrollView
+          contentContainerStyle={base.stack}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
