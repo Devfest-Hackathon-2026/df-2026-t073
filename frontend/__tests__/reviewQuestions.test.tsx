@@ -273,26 +273,20 @@ describe('SESSION mock coverage', () => {
     });
     expect(allTexts()).toContain('How well did you know it?');
 
-    // Rate "Good" -> shows Feedback with Level up banner
+    // Rate "Good" -> no feedback screen: straight to ex-2 with a toast
     await ReactTestRenderer.act(async () => {
       pressByText('Good');
     });
-    expect(allTexts()).toContain('Correct!');
-    expect(allTexts()).toContain('Level up → Photo MCQ');
-
-    // Advance through ex-2 (flashcard_object)
-    await ReactTestRenderer.act(async () => {
-      pressByText('Continue');
-    });
+    expect(allTexts()).not.toContain('Correct!');
+    expect(allTexts()).toContain('Level up for');
     expect(allTexts()).toContain('Flashcard · Object');
+
+    // ex-2 (flashcard_object): rating moves straight on as well
     await ReactTestRenderer.act(async () => {
       pressByText('Flip card');
     });
     await ReactTestRenderer.act(async () => {
       pressByText('Easy');
-    });
-    await ReactTestRenderer.act(async () => {
-      pressByText('Continue');
     });
 
     // 2. Now on ex-3 (mcq_text_translate at stage mcq_photo)

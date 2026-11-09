@@ -17,7 +17,7 @@ import {
 } from '../../api/review';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
-import { Screen } from '../../components/layout';
+import { Screen, Toast } from '../../components/layout';
 import {
   Button,
   Card,
@@ -64,6 +64,8 @@ const SESSION_LINES = [
 
 /** Until the real size is known: the upload size is 4:3. */
 const PHOTO_ASPECT = 4 / 3;
+/** How long the flashcard result toast stays up. */
+const TOAST_MS = 2500;
 
 interface Outcome {
   exerciseId: string;
@@ -119,8 +121,17 @@ function Session({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [showPlace, setShowPlace] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [toast, setToast] = useState<FlashcardToast | null>(null);
   const inFlightSubmitsRef = useRef<Promise<unknown>[]>([]);
   const exercise = exercises[index];
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+    const timer = setTimeout(() => setToast(null), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   if (!exercise) {
     return (
@@ -131,25 +142,47 @@ function Session({
     );
   }
 
+  const submit = (answer: SessionAnswerInput) => {
+    const p = submitAnswer(sessionId, exercise.id, answer).catch(() => {
+      // Not fatal for the session; the answer just won't count.
+      return null;
+    });
+    inFlightSubmitsRef.current.push(p);
+    return p;
+  };
+
   // Feedback shows right away from the exercise's own answer; the server's verdict
   // replaces it if they differ, while that exercise is still on screen.
   const recordOutcome = (correct: boolean, answer: SessionAnswerInput) => {
     const exerciseId = exercise.id;
     setOutcome({ exerciseId, correct, stale: false });
-    const p = submitAnswer(sessionId, exerciseId, answer)
-      .then(verdict => {
-        if (verdict) {
-          setOutcome(current =>
-            current?.exerciseId === verdict.exerciseId
-              ? { ...current, correct: verdict.correct, stale: verdict.stale }
-              : current,
-          );
-        }
-      })
-      .catch(() => {
-        // Not fatal for the session; the answer just won't count.
-      });
-    inFlightSubmitsRef.current.push(p);
+    submit(answer).then(verdict => {
+      if (verdict) {
+        setOutcome(current =>
+          current?.exerciseId === verdict.exerciseId
+            ? { ...current, correct: verdict.correct, stale: verdict.stale }
+            : current,
+        );
+      }
+    });
+  };
+
+  // Rating a flashcard already says how it went: no feedback screen, just a toast.
+  const rateFlashcard = (
+    card: FlashcardExercise,
+    rating: 'again' | 'good' | 'easy',
+  ) => {
+    setToast(flashcardToast(card, rating));
+    submit({ kind: 'flip', rating }).then(verdict => {
+      if (verdict?.stale) {
+        setToast(current =>
+          current?.exerciseId === verdict.exerciseId
+            ? { ...current, text: "Didn't count: practiced elsewhere" }
+            : current,
+        );
+      }
+    });
+    next();
   };
 
   const next = async () => {
@@ -199,9 +232,7 @@ function Session({
               index={index}
               total={exercises.length}
               showPlace={showPlace}
-              onRate={rating =>
-                recordOutcome(rating !== 'again', { kind: 'flip', rating })
-              }
+              onRate={rating => rateFlashcard(exercise, rating)}
               onShowPlace={() => setShowPlace(true)}
             />
           ) : exercise.type === 'mcq' ? (
@@ -256,8 +287,55 @@ function Session({
           />
         </View>
       ) : null}
+      {toast ? (
+        <View style={styles.toastSlot} pointerEvents="none">
+          <Toast
+            message={
+              <View style={base.row}>
+                <Icon
+                  name={toast.icon}
+                  color={
+                    toast.icon === 'done' ? colors.positive : colors.caution
+                  }
+                />
+                <Text style={[base.text, base.grow]}>{toast.text}</Text>
+              </View>
+            }
+          />
+        </View>
+      ) : null}
     </View>
   );
+}
+
+interface FlashcardToast {
+  exerciseId: string;
+  icon: 'done' | 'triangle';
+  text: string;
+}
+
+/** What the toast says after rating a flashcard (no stage names, just the direction). */
+export function flashcardToast(
+  card: FlashcardExercise,
+  rating: 'again' | 'good' | 'easy',
+): FlashcardToast {
+  const word = card.back.text;
+  if (rating === 'again') {
+    return {
+      exerciseId: card.id,
+      icon: 'triangle',
+      text: card.demotedTo
+        ? `Back a step for ${word}`
+        : `${word} will come back soon`,
+    };
+  }
+  return {
+    exerciseId: card.id,
+    icon: 'done',
+    text: card.promotedTo
+      ? `Level up for ${word}!`
+      : `${word} is getting stronger`,
+  };
 }
 
 /** Shared capture photo renderer with highlight box. Renders nothing when photo is null. */
@@ -993,6 +1071,12 @@ function Results({
 }
 
 const styles = StyleSheet.create({
+  toastSlot: {
+    position: 'absolute',
+    left: space.lg,
+    right: space.lg,
+    bottom: space.lg,
+  },
   header: {
     paddingHorizontal: space.lg,
     paddingTop: space.sm,

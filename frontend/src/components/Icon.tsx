@@ -32,6 +32,7 @@ import {
   Shield,
   Sparkles,
   Trash2,
+  Triangle,
   Trophy,
   Type,
   User,
@@ -81,6 +82,8 @@ const ICONS = {
   time: Clock,
   seen: Eye,
   award: Trophy,
+  // △: a softer "not quite" mark than a cross, as on Japanese answer sheets.
+  triangle: Triangle,
   calendar: CalendarDays,
   forbidden: Ban,
 } as const;

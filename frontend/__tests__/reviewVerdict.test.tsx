@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import { submitAnswer } from '../src/api/review';
+import { getReviewSession, submitAnswer } from '../src/api/review';
 import { SESSION } from '../src/mocks/review';
 import type { RootScreenProps } from '../src/navigation/types';
 import { ReviewSessionScreen } from '../src/screens/review/ReviewSessionScreen';
@@ -141,5 +141,61 @@ describe('session answers and the server verdict', () => {
     expect(submitMock).toHaveBeenLastCalledWith('rs_test', 'ex-7', {
       kind: 'reveal',
     });
+  });
+});
+
+describe('flashcards skip the feedback screen', () => {
+  const sessionMock = getReviewSession as jest.MockedFunction<
+    typeof getReviewSession
+  >;
+
+  beforeEach(() => {
+    submitMock.mockReset();
+    submitMock.mockResolvedValue(null);
+  });
+
+  async function rateFirstFlashcard(rating: 'Good' | 'Again') {
+    const tree = await renderSession();
+    await press(tree, 'Flip card');
+    await press(tree, rating);
+    return tree;
+  }
+
+  test('rating goes straight to the next question and sends a flip', async () => {
+    sessionMock.mockResolvedValueOnce({
+      sessionId: 'rs_test',
+      exercises: [SESSION[0], SESSION[2]],
+    });
+    const tree = await rateFirstFlashcard('Good');
+    expect(submitMock).toHaveBeenCalledWith('rs_test', 'ex-1', {
+      kind: 'flip',
+      rating: 'good',
+    });
+    expect(allTexts(tree)).not.toContain('Correct!');
+    expect(allTexts(tree)).not.toContain('Continue');
+    expect(allTexts(tree)).toContain('Level up for');
+  });
+
+  test('a stale verdict changes the toast', async () => {
+    sessionMock.mockResolvedValueOnce({
+      sessionId: 'rs_test',
+      exercises: [SESSION[0], SESSION[2]],
+    });
+    submitMock.mockResolvedValue({
+      exerciseId: 'ex-1',
+      correct: true,
+      stale: true,
+    });
+    const tree = await rateFirstFlashcard('Good');
+    expect(allTexts(tree)).toContain("Didn't count: practiced elsewhere");
+  });
+
+  test('rating the last question finishes the session', async () => {
+    sessionMock.mockResolvedValueOnce({
+      sessionId: 'rs_test',
+      exercises: [SESSION[0]],
+    });
+    const tree = await rateFirstFlashcard('Again');
+    expect(allTexts(tree)).toContain('Excellent work!');
   });
 });
