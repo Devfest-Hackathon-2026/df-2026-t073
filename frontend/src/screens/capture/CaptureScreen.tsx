@@ -367,7 +367,11 @@ export function CaptureScreen({
     if (phase !== 'live' || mode !== 'text' || size.width === 0) {
       return;
     }
-    const items: Detection[] = read.lines.map(line => {
+    // Repeated text would give two overlay items the same key; keep the first.
+    const unique = read.lines.filter(
+      (line, i) => read.lines.findIndex(other => other.text === line.text) === i,
+    );
+    const items: Detection[] = unique.map(line => {
       const tangoId = owned.current.get(line.text);
       return {
         item_id: `live:${line.text}`,

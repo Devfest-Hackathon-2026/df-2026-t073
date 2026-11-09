@@ -71,6 +71,10 @@ export function useLiveText(
         const height = sideways ? frame.width : frame.height;
         const result = textRecognition(frame);
         const lines: LiveLine[] = [];
+        // ML Kit can return the same line twice in one frame (e.g. a banner
+        // split across blocks). Keep the first copy: React keys and the
+        // caught/owned maps are keyed by text.
+        const seen = new Set<string>();
         for (const block of result.blocks) {
           for (const line of block.lines) {
             const text = line.text.replace(/\s+/g, '');
@@ -86,9 +90,10 @@ export function useLiveText(
                 break;
               }
             }
-            if (!japanese || text.length > MAX_CHARS) {
+            if (!japanese || text.length > MAX_CHARS || seen.has(text)) {
               continue;
             }
+            seen.add(text);
             lines.push({
               text,
               x: line.bounds.left / width,
