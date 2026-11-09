@@ -384,9 +384,6 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   );
 }
 
-<<<<<<< Updated upstream
-function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
-=======
 function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
   const nav = useRootNav();
   return (
@@ -434,7 +431,6 @@ function FirstOutingCard({
   summary: TodaySummary;
   onDismiss: () => void;
 }): React.JSX.Element {
->>>>>>> Stashed changes
   const nav = useRootNav();
   return (
     <Card>
