@@ -2,7 +2,8 @@ import React from 'react';
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { getReviewSession, submitAnswer } from '../src/api/review';
-import { SESSION } from '../src/mocks/review';
+import { SESSION, SESSION_RESULT } from '../src/mocks/review';
+import { formatVisitTime } from '../src/utils/format';
 import type { RootScreenProps } from '../src/navigation/types';
 import { ReviewSessionScreen } from '../src/screens/review/ReviewSessionScreen';
 import { SettingsProvider } from '../src/state/SettingsContext';
@@ -188,6 +189,20 @@ describe('flashcards skip the feedback screen', () => {
     });
     const tree = await rateFirstFlashcard('Good');
     expect(allTexts(tree)).toContain("Didn't count: practiced elsewhere");
+  });
+
+  test('the results show the MVP and the next plan in one line', async () => {
+    sessionMock.mockResolvedValueOnce({
+      sessionId: 'rs_test',
+      exercises: [SESSION[0]],
+    });
+    const tree = await rateFirstFlashcard('Good');
+    const next = SESSION_RESULT.next!;
+    expect(allTexts(tree)).toContain("Today's MVP");
+    expect(allTexts(tree)).toContain(
+      `Next: ${next.place.name.text} (${next.place.name.meaning}) · ${formatVisitTime(next.when)}`,
+    );
+    expect(allTexts(tree)).not.toContain('Thursday');
   });
 
   test('rating the last question finishes the session', async () => {

@@ -64,16 +64,41 @@ test('the biggest win is worded from the strength after the answer', async () =>
   });
   respond(result(4));
   const stamp = await getSessionResult('rs');
-  expect(stamp.biggestWin?.title).toBe('is now a star');
-  expect(stamp.biggestWin?.detail).toBe(
-    "Full strength. It's a star on your map now.",
-  );
+  expect(stamp.biggestWin?.title).toBe('earned a Stamp');
+  expect(stamp.biggestWin?.detail).toBe('Stamp earned');
   respond(result(3));
   const stronger = await getSessionResult('rs');
   expect(stronger.biggestWin?.title).toBe('is getting stronger');
-  expect(stronger.biggestWin?.detail).toBe(
-    'Strength 3 of 4. 1 more to make it a star.',
-  );
+  expect(stronger.biggestWin?.detail).toBe('1 to Stamp');
+});
+
+test('the next planned visit comes from the server, with its real time', async () => {
+  respond({
+    reviewed: 1,
+    minutes: 1,
+    biggest_win: null,
+    by_area: [],
+    next: {
+      visit_id: 'v1',
+      place: {
+        id: 'nakano-ward-office',
+        name: { text: '中野区役所', meaning: 'Nakano Ward Office' },
+        category: 'Ward office',
+        area: 'Nakano',
+        lat: 35.7,
+        lng: 139.66,
+        address: '',
+      },
+      when: '2026-11-12T10:00:00+09:00',
+      tango_count: 6,
+    },
+  });
+  const r = await getSessionResult('rs');
+  expect(r.next?.place.id).toBe('nakano-ward-office');
+  expect(r.next?.when).toBe('2026-11-12T10:00:00+09:00');
+
+  respond({ reviewed: 0, minutes: 0, biggest_win: null, by_area: [], next: null });
+  expect((await getSessionResult('rs')).next).toBeNull();
 });
 
 test('built-in collections and exercise types are named by the app', async () => {

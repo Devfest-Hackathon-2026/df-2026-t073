@@ -34,6 +34,7 @@ from app.services.firestore import (
 )
 from app.services.flashcard_generator import generate_distractors
 from app.services.places import areas_for
+from app.services.visits import list_upcoming_visits
 
 # Enough for a hackathon-sized collection; all review screens look at the whole set.
 MAX_CARDS = 200
@@ -215,9 +216,11 @@ async def answer_question(
 
 async def get_session_result(*, db: AsyncClient, uid: str, session_id: str) -> SessionResultResponse:
     record = await get_review_session(db=db, uid=uid, session_id=session_id)
+    upcoming = await list_upcoming_visits(db=db, uid=uid)
     return SessionResultResponse(
         reviewed=len({a.flashcard_id for a in record.answers}),
         minutes=session_minutes(record.started_at, record.answers),
         biggest_win=biggest_win(record.answers),
         by_area=answered_by_area(record.answers),
+        next=upcoming[0] if upcoming else None,
     )

@@ -17,6 +17,7 @@ import type {
 import { ALL_TANGO } from '../mocks/tango';
 import { API_V1, mockDelay, pick, request } from './client';
 import { listLists } from './lists';
+import { toVisit, type VisitResponse } from './places';
 import { flashcardToTango, type FlashcardResponse } from './tango';
 import { copy } from '../copy';
 
@@ -147,7 +148,7 @@ interface SessionResultResponse {
     strength_after: number;
   } | null;
   by_area: { area: string; count: number }[];
-  next: null;
+  next: VisitResponse | null;
 }
 
 /** One answer to a session question; the server grades it against the question as asked. */
@@ -413,7 +414,7 @@ export const getSessionResult = pick(
           }
         : null,
       byArea: r.by_area,
-      next: null,
+      next: r.next ? toVisit(r.next) : null,
     };
   },
 );

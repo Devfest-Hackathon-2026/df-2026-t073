@@ -22,6 +22,11 @@ const TOPIC_NAMES: Record<string, string> = {
   greetings: 'everyday',
 };
 
+/** How far a Tango is from a Stamp (full strength), e.g. "2 to Stamp". */
+function stepsToStamp(n: number): string {
+  return n > 0 ? `${n} to Stamp` : 'Stamp earned';
+}
+
 const common = {
   close: 'Close',
   back: 'Back',
@@ -546,25 +551,23 @@ const reviewSession = {
   levelUp: 'Level up!',
   backAStep: 'Back a step',
   /** Shown after a right answer: how far the Tango is from a Stamp. */
-  stepsToStamp: (n: number) => (n > 0 ? `${n} to Stamp` : 'Stamp earned'),
+  stepsToStamp,
 };
 
 const sessionResults = {
   excellent: 'Excellent work!',
   summary: (reviewed: number, minutes: number) =>
     `${reviewed} Tango reviewed · ${minutes} min`,
-  biggestWin: 'Biggest win today',
+  biggestWin: "Today's MVP",
   winTitle: (stampEarned: boolean) =>
-    stampEarned ? 'is now a star' : 'is getting stronger',
-  winDetail: (strengthAfter: number) =>
-    strengthAfter >= 4
-      ? "Full strength. It's a star on your map now."
-      : `Strength ${strengthAfter} of 4. ${
-          4 - strengthAfter
-        } more to make it a star.`,
+    stampEarned ? 'earned a Stamp' : 'is getting stronger',
+  /** e.g. "1 to Stamp" or "Stamp earned". */
+  winDetail: (strengthAfter: number) => stepsToStamp(4 - strengthAfter),
   practiced: 'Tango practiced',
   tangoCount: (n: number) => `${n} Tango`,
-  nextOn: (day: string) => `on ${day}.`,
+  /** The next planned visit, in one line. */
+  next: (place: string, meaning: string | undefined, when: string) =>
+    `Next: ${place}${meaning ? ` (${meaning})` : ''} · ${when}`,
   backToToday: 'Back to Today',
   prepareNext: 'Prepare next',
 };

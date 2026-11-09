@@ -5,6 +5,7 @@ import type {
   ReviewSummary,
   SessionResult,
 } from '../types';
+import { VISITS } from './places';
 import { ALL_TANGO, TANGO } from './tango';
 
 export const REVIEW_CARD: ReviewCard = {
@@ -283,18 +284,13 @@ export const SESSION_RESULT: SessionResult = {
   minutes: 5,
   biggestWin: {
     tango: { text: '替え玉', reading: 'かえだま', romaji: 'kaedama', meaning: 'noodle refill' },
-    title: 'finally stuck',
-    detail: "Remembered for the first time after the place cue. It's now a star on your map.",
+    title: 'earned a Stamp',
+    detail: 'Stamp earned',
   },
   byArea: [
     { area: 'Koenji', count: 8 },
     { area: 'Nakano', count: 4 },
     { area: 'Asagaya', count: 2 },
   ],
-  next: {
-    label: 'Next, you will prepare for',
-    placeId: 'nakano-ward-office',
-    placeName: { text: '中野区役所', reading: 'なかのくやくしょ', romaji: 'nakano kuyakusho', meaning: 'Nakano Ward Office' },
-    day: 'Thursday',
-  },
+  next: VISITS[1],
 };

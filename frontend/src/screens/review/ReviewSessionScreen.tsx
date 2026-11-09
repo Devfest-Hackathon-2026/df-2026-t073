@@ -33,6 +33,7 @@ import {
 } from '../../features/review/answerCheck';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
+import { formatVisitTime } from '../../utils/format';
 import type {
   RootNavigation,
   RootScreenProps,
@@ -1015,15 +1016,13 @@ function Results({
 
             {r.next ? (
               <Card variant="soft">
-                <View style={base.row}>
-                  <IconLabel icon="calendar" style={base.text}>
-                    {r.next.label}
-                  </IconLabel>
-                  <Jp {...r.next.placeName} bold />
-                  <Text style={base.text}>
-                    {copy.sessionResults.nextOn(r.next.day)}
-                  </Text>
-                </View>
+                <IconLabel icon="calendar" style={base.text}>
+                  {copy.sessionResults.next(
+                    r.next.place.name.text,
+                    r.next.place.name.meaning,
+                    formatVisitTime(r.next.when),
+                  )}
+                </IconLabel>
               </Card>
             ) : null}
           </ScrollView>
@@ -1043,7 +1042,7 @@ function Results({
                 style={base.grow}
                 onPress={() =>
                   r.next &&
-                  navigation.replace('Prepare', { placeId: r.next.placeId })
+                  navigation.replace('Prepare', { placeId: r.next.place.id })
                 }
               />
             ) : null}

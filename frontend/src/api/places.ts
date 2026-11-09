@@ -61,7 +61,7 @@ export interface PlaceResponse {
   address: string;
 }
 
-interface VisitResponse {
+export interface VisitResponse {
   visit_id: string;
   place: PlaceResponse;
   when: string;
@@ -140,7 +140,7 @@ export function toPlace(p: PlaceResponse): Place {
   };
 }
 
-function toVisit(v: VisitResponse): Visit {
+export function toVisit(v: VisitResponse): Visit {
   return {
     id: v.visit_id,
     place: toPlace(v.place),

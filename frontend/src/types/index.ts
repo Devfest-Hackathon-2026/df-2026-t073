@@ -400,13 +400,8 @@ export interface SessionResult {
   /** Null when no answer moved a Tango up. */
   biggestWin: { tango: JpText; title: string; detail: string } | null;
   byArea: { area: string; count: number }[];
-  /** Next planned visit; null until visits exist on the backend. */
-  next: {
-    label: string;
-    placeId: string;
-    placeName: JpText;
-    day: string;
-  } | null;
+  /** The next planned visit, or null when nothing is planned. */
+  next: Visit | null;
 }
 
 export interface HomeArea {

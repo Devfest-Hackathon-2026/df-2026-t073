@@ -9,6 +9,7 @@ from app.schemas.flashcard import (
     JpOption,
     QuestionType,
 )
+from app.schemas.place import Visit
 from app.schemas.review_types import Rating, ReviewStage
 
 
@@ -274,5 +275,5 @@ class SessionResultResponse(BaseModel):
     minutes: int
     biggest_win: BiggestWin | None = None
     by_area: list[AreaCount]
-    # Next planned visit; filled in once visits exist (P4).
-    next: None = None
+    # The user's next planned visit, if any (shown as "Next: … · Thu 12:00").
+    next: Visit | None = None
