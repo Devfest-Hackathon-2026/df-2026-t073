@@ -4,9 +4,9 @@ export interface HealthResponse {
   status: string;
 }
 
-/** GET /healthz (exists in the backend). Always hits the network, even with mocks on. */
+/** GET /readyz (exists on Cloud Run and confirms Firestore is ready). */
 export function checkBackendHealth(): Promise<HealthResponse> {
-  return request<HealthResponse>('/healthz');
+  return request<HealthResponse>('/readyz');
 }
 
 /** Shape of GET /api/v1/me (exists in the backend). */

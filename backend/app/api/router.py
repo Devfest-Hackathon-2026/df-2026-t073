@@ -18,6 +18,7 @@ _READY_TIMEOUT_SECONDS = 3.0
 _last_ready_at: float | None = None
 
 
+@api_router.get("/health", tags=["health"])
 @api_router.get("/healthz", tags=["health"])
 async def health_check() -> dict[str, str]:
     """Liveness probe for Cloud Run."""
