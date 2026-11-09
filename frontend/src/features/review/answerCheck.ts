@@ -1,5 +1,4 @@
-import type { QuestionType, ReviewStage } from '../../types';
-import { copy } from '../../copy';
+import type { QuestionType } from '../../types';
 
 const KANJI_OR_LATIN_RE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff々a-zA-Z]/;
 const LATIN_RE = /[a-zA-Z]/;
@@ -72,9 +71,4 @@ export function checkFillAnswer(
   );
 }
 
-// The type annotations make sure every stage and question type has a label.
-export const STAGE_LABEL: Record<ReviewStage, string> = copy.reviewLabels.stages;
-
-export const QUESTION_TYPE_LABEL: Record<QuestionType, string> =
-  copy.reviewLabels.questionTypes;
 

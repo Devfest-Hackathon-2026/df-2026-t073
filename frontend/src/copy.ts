@@ -5,7 +5,7 @@
  * e.g. `copy.common.play('食券')` -> "Play 食券".
  *
  * Not in here: mock data (src/mocks), route names, ids and storage keys, and
- * developer-only errors.
+ * errors only developers see (e.g. a hook used outside its provider).
  */
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -24,7 +24,7 @@ const TOPIC_NAMES: Record<string, string> = {
 
 /** How far a Tango is from a Stamp (full strength), e.g. "2 to Stamp". */
 function stepsToStamp(n: number): string {
-  return n > 0 ? `${n} to Stamp` : 'Stamp earned';
+  return n > 0 ? `${n} to Stamp` : 'Hana Stamp earned';
 }
 
 const common = {
@@ -274,7 +274,7 @@ const mapScreen = {
   searchPlaceholder: 'どこへ行く？',
   searchA11y: 'Search places to visit',
   filterAll: 'All Tango',
-  filterStamps: 'Stamp',
+  filterStamps: 'Hana Stamp',
   filterPlanned: 'Planned',
   filterFavorites: 'Favourites',
   noPlaces: 'No places found.',
@@ -294,7 +294,7 @@ const me = {
   mapOn: 'Map on',
   mapOff: 'Map off',
   statTango: 'Tango',
-  statStamps: 'Stamps',
+  statStamps: 'Hana Stamps',
   statPlaces: 'Places',
   statDue: 'Due today',
   logOut: 'Log out of this device',
@@ -592,7 +592,7 @@ const sessionResults = {
     `${reviewed} Tango reviewed · ${minutes} min`,
   biggestWin: "Today's MVP",
   winTitle: (stampEarned: boolean) =>
-    stampEarned ? 'earned a Stamp' : 'is getting stronger',
+    stampEarned ? 'earned a Hana Stamp' : 'is getting stronger',
   /** e.g. "1 to Stamp" or "Stamp earned". */
   winDetail: (strengthAfter: number) => stepsToStamp(4 - strengthAfter),
   practiced: 'Tango practiced',
@@ -748,6 +748,53 @@ const settings = {
     "Saved locations stay in your account. You can turn the map and location off at any time; catches made while it's off have no place.",
 };
 
+/** Me > Developer (test account only). */
+const developer = {
+  notChecked: 'Not checked',
+  checking: 'Checking…',
+  online: (status: number | string) => `Online (${status})`,
+  unreachable: (error: string) => `Unreachable (${error})`,
+  accepted: (uid: string) => `Accepted (uid ${uid}…)`,
+  rejected: (error: string) => `Rejected (${error})`,
+  /** Stands in for an error with no message. */
+  error: 'error',
+  signingInTest: 'Signing in / creating test account…',
+  signedInAs: (email: string | undefined, uid: string | undefined) =>
+    `Signed in as ${email} (uid: ${uid}…)`,
+  failed: (error: string) => `Failed: ${error}`,
+  signedOut: 'Signed out.',
+  signOutError: (error: string) => `Sign out error: ${error}`,
+  backendConnection: 'Backend Connection',
+  data: (source: string, baseUrl: string) => `Data: ${source} · ${baseUrl}`,
+  mockData: (live: string[]) =>
+    `mock data${live.length ? `, live: ${live.join(', ')}` : ''}`,
+  backend: 'backend',
+  health: (status: string) => `Backend health: ${status}`,
+  checkHealth: 'Check backend health',
+  signInCheck: (status: string) => `Backend sign-in check: ${status}`,
+  checkSignIn: 'Check sign-in with backend',
+  userAccount: 'User Account',
+  status: (label: string) => `Status: ${label}`,
+  email: (email: string) => ` · Email: ${email}`,
+  anonymous: ' · (Anonymous user)',
+  uid: (uid: string) => ` · UID: ${uid}…`,
+  authError: (error: string) => ` · ${error}`,
+  authStatus: {
+    not_configured: 'off (Firebase values not set in .env)',
+    signing_in: 'signing in…',
+    signed_in: 'signed in',
+    signed_out: 'signed out',
+    error: 'failed',
+  },
+  testCredentials: 'Test user credentials',
+  testEmail: 'Test email',
+  testPassword: 'Test password',
+  pleaseWait: 'Please wait…',
+  signInTest: 'Sign in as test user',
+  signOut: 'Sign out',
+  restartOnboarding: 'Restart onboarding',
+};
+
 export const copy = {
   common,
   strength,
@@ -778,4 +825,5 @@ export const copy = {
   sessionResults,
   capture,
   settings,
+  developer,
 };

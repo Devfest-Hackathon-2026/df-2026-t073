@@ -29,8 +29,8 @@ import {
 import {
   checkFillAnswer,
   hasNonKanaForReading,
-  QUESTION_TYPE_LABEL,
 } from '../../features/review/answerCheck';
+import { QUESTION_TYPE_LABEL } from '../../features/review/labels';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import { formatVisitTime } from '../../utils/format';

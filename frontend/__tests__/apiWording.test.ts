@@ -45,7 +45,7 @@ test('steps to a Stamp become the next-step label', async () => {
   const s = await getReviewSession();
   expect(s.exercises.map(e => e.nextStep)).toEqual([
     '2 to Stamp',
-    'Stamp earned',
+    'Hana Stamp earned',
   ]);
 });
 
@@ -64,8 +64,8 @@ test('the biggest win is worded from the strength after the answer', async () =>
   });
   respond(result(4));
   const stamp = await getSessionResult('rs');
-  expect(stamp.biggestWin?.title).toBe('earned a Stamp');
-  expect(stamp.biggestWin?.detail).toBe('Stamp earned');
+  expect(stamp.biggestWin?.title).toBe('earned a Hana Stamp');
+  expect(stamp.biggestWin?.detail).toBe('Hana Stamp earned');
   respond(result(3));
   const stronger = await getSessionResult('rs');
   expect(stronger.biggestWin?.title).toBe('is getting stronger');

@@ -252,7 +252,7 @@ export const SESSION: Exercise[] = [
     acceptedAnswers: ['替え玉', 'かえだま'],
     answerDisplay: '替え玉 (かえだま)',
     placeHint: '麺屋 たいき, Koenji',
-    nextStep: 'Stamp earned',
+    nextStep: 'Hana Stamp earned',
     promotedTo: null,
     demotedTo: null,
   },
@@ -273,7 +273,7 @@ export const SESSION: Exercise[] = [
     acceptedAnswers: ['駐輪禁止', 'ちゅうりんきんし'],
     answerDisplay: '駐輪禁止 (ちゅうりんきんし)',
     placeHint: 'Koenji Station',
-    nextStep: 'Stamp earned',
+    nextStep: 'Hana Stamp earned',
     promotedTo: null,
     demotedTo: null,
   },
@@ -284,8 +284,8 @@ export const SESSION_RESULT: SessionResult = {
   minutes: 5,
   biggestWin: {
     tango: { text: '替え玉', reading: 'かえだま', romaji: 'kaedama', meaning: 'noodle refill' },
-    title: 'earned a Stamp',
-    detail: 'Stamp earned',
+    title: 'earned a Hana Stamp',
+    detail: 'Hana Stamp earned',
   },
   byArea: [
     { area: 'Koenji', count: 8 },

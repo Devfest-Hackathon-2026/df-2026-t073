@@ -20,7 +20,7 @@ import {
   StrengthBar,
   strengthLabel,
 } from '../../components/ui';
-import { STAGE_LABEL } from '../../features/review/answerCheck';
+import { STAGE_LABEL } from '../../features/review/labels';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';

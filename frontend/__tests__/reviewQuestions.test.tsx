@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, TextInput } from 'react-native';
+import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import {
   checkFillAnswer,

@@ -16,6 +16,7 @@ function response(
     meaning: 'meal ticket',
     part_of_speech: 'Noun',
     kind: 'word',
+    capture_format: 'text',
     use_cases: [],
     related_vocab: [],
     review_stats: {

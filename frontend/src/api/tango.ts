@@ -1,4 +1,4 @@
-import { QUESTION_TYPE_LABEL } from '../features/review/answerCheck';
+import { QUESTION_TYPE_LABEL } from '../features/review/labels';
 import { todaysCatch } from '../mocks/capture';
 import { ALL_TANGO, TANGO } from '../mocks/tango';
 import type {
@@ -48,7 +48,7 @@ export interface FlashcardResponse {
   meaning: string;
   part_of_speech: string;
   kind: TangoKind;
-  capture_format?: CaptureFormat;
+  capture_format: CaptureFormat;
   use_cases: {
     japanese: string;
     reading: string;
@@ -146,8 +146,8 @@ function toEvent(
 /** Backend "flashcard" -> frontend "Tango". History is shown newest first. */
 export function flashcardToTango(card: FlashcardResponse): Tango {
   const strength = Math.max(0, Math.min(4, card.strength ?? 0)) as Strength;
-  const captureFormat: CaptureFormat =
-    card.capture_format ?? (card.kind === 'object' ? 'object' : 'text');
+  // The server always fills capture_format (from the kind, for older cards).
+  const captureFormat = card.capture_format;
   // The server always sends the stage (inferred for older cards, normalized for the photo).
   const stage = card.review_stats.stage;
   const history = card.history ?? [];

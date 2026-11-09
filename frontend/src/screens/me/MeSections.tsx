@@ -41,13 +41,7 @@ export const LANGUAGES = [
   { value: 'Spanish', native: 'Español' },
 ];
 
-const AUTH_LABEL: Record<AuthStatus, string> = {
-  not_configured: 'off (Firebase values not set in .env)',
-  signing_in: 'signing in…',
-  signed_in: 'signed in',
-  signed_out: 'signed out',
-  error: 'failed',
-};
+const AUTH_LABEL: Record<AuthStatus, string> = copy.developer.authStatus;
 
 const PREVIEW = copy.settings.preview;
 
@@ -408,8 +402,8 @@ export function PrivacySection(): React.JSX.Element {
 export function DeveloperSection(): React.JSX.Element {
   const { update } = useSettings();
   const auth = useAuth();
-  const [health, setHealth] = useState('Not checked');
-  const [backendAuth, setBackendAuth] = useState('Not checked');
+  const [health, setHealth] = useState<string>(copy.developer.notChecked);
+  const [backendAuth, setBackendAuth] = useState<string>(copy.developer.notChecked);
   const [testEmail, setTestEmail] = useState(
     TEST_USER_EMAIL || 'test@tankengo.com',
   );
@@ -420,37 +414,39 @@ export function DeveloperSection(): React.JSX.Element {
   const [authMsg, setAuthMsg] = useState<string | null>(null);
 
   const ping = async () => {
-    setHealth('Checking…');
+    setHealth(copy.developer.checking);
     try {
       const res = await checkBackendHealth();
-      setHealth(`Online (${res.status})`);
+      setHealth(copy.developer.online(res.status));
     } catch (err) {
       setHealth(
-        `Unreachable (${err instanceof Error ? err.message : 'error'})`,
+        copy.developer.unreachable(err instanceof Error ? err.message : copy.developer.error),
       );
     }
   };
 
   const checkAuth = async () => {
-    setBackendAuth('Checking…');
+    setBackendAuth(copy.developer.checking);
     try {
       const me = await checkBackendAuth();
-      setBackendAuth(`Accepted (uid ${me.uid.slice(0, 8)}…)`);
+      setBackendAuth(copy.developer.accepted(me.uid.slice(0, 8)));
     } catch (err) {
       setBackendAuth(
-        `Rejected (${err instanceof Error ? err.message : 'error'})`,
+        copy.developer.rejected(err instanceof Error ? err.message : copy.developer.error),
       );
     }
   };
 
   const handleTestSignIn = async () => {
     setAuthBusy(true);
-    setAuthMsg('Signing in / creating test account…');
+    setAuthMsg(copy.developer.signingInTest);
     try {
       const u = await auth.signInWithTest(testEmail, testPassword);
-      setAuthMsg(`Signed in as ${u?.email} (uid: ${u?.uid.slice(0, 8)}…)`);
+      setAuthMsg(copy.developer.signedInAs(u?.email ?? undefined, u?.uid.slice(0, 8)));
     } catch (err) {
-      setAuthMsg(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+      setAuthMsg(
+        copy.developer.failed(err instanceof Error ? err.message : String(err)),
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -460,10 +456,10 @@ export function DeveloperSection(): React.JSX.Element {
     setAuthBusy(true);
     try {
       await auth.signOut();
-      setAuthMsg('Signed out.');
+      setAuthMsg(copy.developer.signedOut);
     } catch (err) {
       setAuthMsg(
-        `Sign out error: ${err instanceof Error ? err.message : String(err)}`,
+        copy.developer.signOutError(err instanceof Error ? err.message : String(err)),
       );
     } finally {
       setAuthBusy(false);
@@ -473,48 +469,45 @@ export function DeveloperSection(): React.JSX.Element {
   return (
     <View style={base.stack}>
       <Card>
-        <Text style={base.label}>Backend Connection</Text>
+        <Text style={base.label}>{copy.developer.backendConnection}</Text>
         <Text style={base.caption}>
-          Data:{' '}
-          {USE_MOCKS
-            ? `mock data${
-                LIVE_APIS.size ? `, live: ${[...LIVE_APIS].join(', ')}` : ''
-              }`
-            : 'backend'}{' '}
-          · {API_BASE_URL}
+          {copy.developer.data(
+            USE_MOCKS ? copy.developer.mockData([...LIVE_APIS]) : copy.developer.backend,
+            API_BASE_URL,
+          )}
         </Text>
-        <Text style={base.caption}>Backend health: {health}</Text>
+        <Text style={base.caption}>{copy.developer.health(health)}</Text>
         <Button
-          label="Check backend health"
+          label={copy.developer.checkHealth}
           variant="secondary"
           onPress={ping}
         />
-        <Text style={base.caption}>Backend sign-in check: {backendAuth}</Text>
+        <Text style={base.caption}>{copy.developer.signInCheck(backendAuth)}</Text>
         <Button
-          label="Check sign-in with backend"
+          label={copy.developer.checkSignIn}
           variant="secondary"
           onPress={checkAuth}
         />
       </Card>
 
       <Card>
-        <Text style={base.label}>User Account</Text>
+        <Text style={base.label}>{copy.developer.userAccount}</Text>
         <Text style={base.caption}>
-          Status: {AUTH_LABEL[auth.status]}
+          {copy.developer.status(AUTH_LABEL[auth.status])}
           {auth.user?.email
-            ? ` · Email: ${auth.user.email}`
+            ? copy.developer.email(auth.user.email)
             : auth.user?.isAnonymous
-            ? ' · (Anonymous user)'
+            ? copy.developer.anonymous
             : ''}
-          {auth.user ? ` · UID: ${auth.user.uid.slice(0, 8)}…` : ''}
-          {auth.error ? ` · ${auth.error}` : ''}
+          {auth.user ? copy.developer.uid(auth.user.uid.slice(0, 8)) : ''}
+          {auth.error ? copy.developer.authError(auth.error) : ''}
         </Text>
 
-        <Text style={styles.subLabel}>Test user credentials</Text>
+        <Text style={styles.subLabel}>{copy.developer.testCredentials}</Text>
         <TextInput
           value={testEmail}
           onChangeText={setTestEmail}
-          placeholder="Test email"
+          placeholder={copy.developer.testEmail}
           autoCapitalize="none"
           keyboardType="email-address"
           style={styles.input}
@@ -522,7 +515,7 @@ export function DeveloperSection(): React.JSX.Element {
         <TextInput
           value={testPassword}
           onChangeText={setTestPassword}
-          placeholder="Test password"
+          placeholder={copy.developer.testPassword}
           secureTextEntry
           autoCapitalize="none"
           style={styles.input}
@@ -531,7 +524,7 @@ export function DeveloperSection(): React.JSX.Element {
         {authMsg ? <Text style={styles.authNotice}>{authMsg}</Text> : null}
 
         <Button
-          label={authBusy ? 'Please wait…' : 'Sign in as test user'}
+          label={authBusy ? copy.developer.pleaseWait : copy.developer.signInTest}
           variant="secondary"
           disabled={authBusy}
           onPress={handleTestSignIn}
@@ -539,7 +532,7 @@ export function DeveloperSection(): React.JSX.Element {
 
         {auth.user ? (
           <Button
-            label="Sign out"
+            label={copy.developer.signOut}
             variant="ghost"
             disabled={authBusy}
             onPress={handleSignOut}
@@ -549,7 +542,7 @@ export function DeveloperSection(): React.JSX.Element {
 
       <Card>
         <Button
-          label="Restart onboarding"
+          label={copy.developer.restartOnboarding}
           variant="ghost"
           onPress={() => update({ onboarded: false, dayOne: false })}
         />
