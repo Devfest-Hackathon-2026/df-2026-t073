@@ -93,9 +93,7 @@ const map = {
   placeholder: 'Map placeholder',
   placeholderPin: (label: string, count: number | string) =>
     `${label || 'Pin'} ${count || ''}`,
-  /** Placeholder map's mastered count: 花 is from 花丸 (hanamaru). */
-  placeholderStars: (n: number) => `花${n}`,
-  /** Title of a neighbourhood card. */
+  /** Title of a neighborhood card. */
   around: (area: string) => `Around ${area}`,
   /** Label on the pin for the next planned visit. */
   upNext: 'Up next',
@@ -239,10 +237,31 @@ const rehearseResults = {
 const allTango = {
   loadingLines: ['Laying out your Tango…'],
   title: 'All Tango',
-  titleJp: { text: '単語', reading: 'たんご', romaji: 'tango' },
-  searchPlaceholder: 'Search',
+  searchPlaceholder: 'Search words, meanings or places',
   searchA11y: 'Search Tango or places',
   noMatches: 'No matches',
+  filters: {
+    all: 'All',
+    favorites: 'Favorites',
+    learning: 'Learning',
+    stamped: 'Stamp',
+  },
+  sortBy: 'Sort by',
+  sorts: {
+    newest: 'Newest',
+    oldest: 'Oldest',
+    weakest: 'Weakest first',
+    strongest: 'Strongest first',
+    az: 'A–Z',
+  },
+  sortA11y: (label: string) => `Sort: ${label}`,
+  place: 'Place',
+  anyPlace: 'Any place',
+  list: 'List',
+  anyList: 'Any list',
+  prevPage: 'Previous page',
+  nextPage: 'Next page',
+  pageA11y: (n: number) => `Page ${n}`,
 };
 
 const lists = {
@@ -264,8 +283,7 @@ const lists = {
 };
 
 /** Tango rows in lists: the first place it was seen. */
-const tangoRow = {
-};
+const tangoRow = {};
 
 const meSections = {
   profile: 'Profile',
@@ -279,15 +297,21 @@ const meSections = {
 const review = {
   loadingLines: ['Counting what is due…', 'Sorting your collections…'],
   title: 'Tango',
-  titleJp: { text: '単語', reading: 'たんご', romaji: 'tango' },
   quickReview: 'Quick review',
   collections: 'Collections',
-  recentTango: 'Recent Tango',
-  allTango: 'All Tango',
   nothingCaught: 'Nothing caught yet',
   /** Names of the built-in collections. */
-  favourites: 'Favourites',
+  favorites: 'Favorites',
   placeCue: 'Place cue',
+  /** Collection sheet. */
+  practice: 'Practice',
+  editList: 'Edit list',
+  collectionEmpty: 'No Tango here yet',
+  /** The Review card when nothing is due. */
+  caughtUp: 'All caught up',
+  caughtUpBody: 'Tango show up here again when they are due.',
+  placeCueAbout:
+    'Tango due for review, each asked with the place you saw it as a hint.',
 };
 
 const mapScreen = {
@@ -299,12 +323,12 @@ const mapScreen = {
   filterAll: 'All Tango',
   filterStamps: 'Hana Stamp',
   filterPlanned: 'Planned',
-  filterFavorites: 'Favourites',
+  filterFavorites: 'Favorites',
   noPlaces: 'No places found.',
   closeAreaCard: 'Close area card',
   /** Heart on a place (Prepare, search results). */
-  favoritePlace: (name: string) => `Favourite ${name}`,
-  unfavoritePlace: (name: string) => `Remove ${name} from favourites`,
+  favoritePlace: (name: string) => `Favorite ${name}`,
+  unfavoritePlace: (name: string) => `Remove ${name} from favorites`,
   reviewThese: 'Review these',
   planVisit: 'Plan a visit',
 };
@@ -379,6 +403,11 @@ const rehearse = {
   you: 'You',
   spoken: 'Spoken',
   yourTurn: 'Your turn',
+  /** Before the English of the reply staff expect; any close reply is fine. */
+  sayNext: 'Try saying something like:',
+  /** How many of the learner's replies are still to come. */
+  repliesLeft: (n: number) =>
+    n === 0 ? 'All done' : n === 1 ? 'Last reply' : `${n} replies left`,
   hint: 'Hint',
   needHint: 'Need a hint?',
   seeResults: 'See results',
@@ -396,8 +425,8 @@ const tangoDetail = {
   couldNotDeleteTitle: 'Could not delete',
   couldNotDeleteBody: 'Failed to delete this Tango. Please try again.',
   couldNotExpand: 'Could not generate related vocabulary. Please try again.',
-  removeFavorite: 'Remove from favourites',
-  favorite: 'Favourite',
+  removeFavorite: 'Remove from favorites',
+  favorite: 'Favorite',
   addToList: 'Add to a list',
   deleteTango: 'Delete Tango',
   toStamp: (steps: number) => stepsToStamp(steps),
@@ -471,7 +500,7 @@ const login = {
   networkFailed:
     'Network request failed. Please check your internet connection.',
   missingFields: 'Please enter both email and password.',
-  badge: '単語をキャッチする',
+  badge: 'Tangoをキャッチする',
   welcomeBack: 'Welcome back',
   createAccountTitle: 'Create an account',
   signInBody: 'Sign in to access your saved words, places, and study progress.',
@@ -494,17 +523,20 @@ const login = {
 };
 
 const today = {
+  title: 'Home',
   loadingLines: [
     "Gathering today's words…",
     "Checking what's due…",
     'Choosing your word of the day…',
   ],
   greeting: {
-    text: 'こんにちは、',
-    reading: 'こんにちは、',
-    romaji: 'konnichiwa,',
-    meaning: 'Hello,',
+    text: 'こんにちは',
+    reading: 'こんにちは',
+    romaji: 'konnichiwa',
+    meaning: 'Hello',
   },
+  /** After the greeting, outside its underline. */
+  greetingComma: { text: '、', reading: '、', romaji: ',' },
   nameSan: (name: string) => ({
     text: `${name}さん`,
     romaji: `${name}-san`,
@@ -513,9 +545,9 @@ const today = {
   statTango: 'Tango',
   statToReview: 'to review',
   statAreas: (n: number) => (n === 1 ? 'area' : 'areas'),
-  neighbourhoods: 'Your neighbourhoods',
-  neighbourhoodsJp: { text: '近所', reading: 'きんじょ', romaji: 'kinjo' },
-  /** Separates the sample words on a neighbourhood card. */
+  neighborhoods: 'Your neighborhoods',
+  neighborhoodsJp: { text: '近所', reading: 'きんじょ', romaji: 'kinjo' },
+  /** Separates the sample words on a neighborhood card. */
   sampleSeparator: '・',
   openMap: 'Open your Tango map',
   tangoMap: 'Your Tango map',
@@ -613,9 +645,8 @@ const reviewSession = {
 const sessionResults = {
   excellent: 'Excellent work!',
   reviewed: (n: number) => `${n} Tango reviewed`,
-  biggestWin: "Today's MVP",
-  winTitle: (stampEarned: boolean) =>
-    stampEarned ? 'earned a Hana Stamp' : 'is getting stronger',
+  /** Heading over the Tango that grew most this session. */
+  biggestWin: 'Most improved Tango',
   /** e.g. "1 to Stamp" or "Stamp earned". */
   winDetail: (strengthAfter: number) => stepsToStamp(4 - strengthAfter),
   practiced: 'Tango practiced',
@@ -742,8 +773,14 @@ const settings = {
       meaning: 'meal ticket',
     },
     /** Section titles: Japanese from "Some" / from "A lot" of Japanese in the app. */
-    titleSome: { en: 'Prepare', jp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' } },
-    titleLot: { en: 'Review', jp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' } },
+    titleSome: {
+      en: 'Prepare',
+      jp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' },
+    },
+    titleLot: {
+      en: 'Review',
+      jp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
+    },
     staffLine: {
       text: 'いらっしゃいませ。食券をお願いします。',
       reading: 'いらっしゃいませ。しょっけんをおねがいします。',
@@ -752,7 +789,11 @@ const settings = {
     staffEnglish: 'Welcome. Your meal ticket, please.',
     playStaff: 'Play the staff line',
     phrases: {
-      easy: { text: '食券ください。', reading: 'しょっけんください。', romaji: 'shokken kudasai.' },
+      easy: {
+        text: '食券ください。',
+        reading: 'しょっけんください。',
+        romaji: 'shokken kudasai.',
+      },
       keigo: {
         text: '食券をお願いいたします。',
         reading: 'しょっけんをおねがいいたします。',
@@ -780,7 +821,7 @@ const settings = {
   locationUses: {
     pins: 'Pins each Tango to the place you caught it, so reviews can remind you where you saw it.',
     search:
-      'Finds places near you when you search, and centres the map on you.',
+      'Finds places near you when you search, and centers the map on you.',
     home: 'Your home area is never pinned or shown on the map.',
     sharing:
       "Your locations aren't shared with other learners. Shared tips carry only the tip and the place.",

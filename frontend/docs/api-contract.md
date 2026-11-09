@@ -201,7 +201,7 @@ interface CatchEntry { tango: Tango; placeName: string; status: 'new' | 'reviewe
 | GET | `/api/v1/review/session?collection=` | `collection`: `place:<name>`, `area:<id>`, `place-cue`, `favorites`, `list:<list_id>`, or omitted (= everything due) | `ReviewSessionResponse` |
 | GET | `/api/v1/review/session/{session_id}/result` | – | `SessionResultResponse` |
 
-**Favourites and lists** (new):
+**Favorites and lists** (new):
 
 | Method | Path | Request | Response |
 |---|---|---|---|
@@ -215,7 +215,7 @@ interface CatchEntry { tango: Tango; placeName: string; status: 'new' | 'reviewe
 interface TangoList { list_id: string; name: string; tango_ids: string[]; created_at: string }
 ```
 - Lists live at `users/{uid}/lists/{list_id}`; `tango_ids` are flashcard ids in the order added (no duplicates; deleting a list keeps the Tango).
-- `review/summary` collections now also include `Favourites` (`is_favorites`, only if any) first and one entry per list (`is_list`, id `list:<list_id>`, count = Tango still owned).
+- `review/summary` collections now also include `Favorites` (`is_favorites`, only if any) first and one entry per list (`is_list`, id `list:<list_id>`, count = Tango still owned).
 
 Answers go to `POST /api/v1/flashcards/{id}/review` with `FlashcardReviewRequest: { rating?: 'again' | 'good' | 'easy', correct?: boolean, answer?: string, question_type?: QuestionType, session_id?: string }`. The backend derives the rating from `question_type` + `correct` (fill-in correct → `easy` +2, MCQ correct → `good` +1, flashcard → user's rating, any miss → `again` -1) and grades typed `answer` strings for fill-in-the-blank exercises.
 

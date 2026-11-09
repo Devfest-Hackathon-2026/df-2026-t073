@@ -27,7 +27,6 @@ export const linking: LinkingOptions<RootStackParamList> = {
       TangoDetail: 'tango/:id',
       ReviewSession: 'review/session',
       Plans: 'plans',
-      AllTango: 'tango',
       TangoList: 'lists/:listId',
       MeSection: 'me/:section',
     },

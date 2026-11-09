@@ -36,7 +36,7 @@ LABELS = {
 
 
 def usage_key(now: datetime) -> str:
-    """The day a call counts towards (midnight in Japan)."""
+    """The day a call counts toward (midnight in Japan)."""
     return now.astimezone(JST).date().isoformat()
 
 

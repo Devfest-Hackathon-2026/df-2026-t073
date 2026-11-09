@@ -5,7 +5,7 @@ Downloads the latest release (about 12 MB), keeps only what a Tango card
 needs, and writes a small SQLite file the backend reads at catch time.
 
 JMdict is the property of the Electronic Dictionary Research and Development
-Group (EDRDG), used under its licence (CC BY-SA 4.0):
+Group (EDRDG), used under its license (CC BY-SA 4.0):
 https://www.edrdg.org/edrdg/licence.html
 """
 

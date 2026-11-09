@@ -26,9 +26,9 @@ import { copy } from '../copy';
 const MARKER_SETTLE_MS = 600;
 const FIT_MS = 300;
 const CENTER = { x: 0.5, y: 0.5 };
-// Labelled stamps stand just above their spot, so the blue "you are here" dot
+// Labeled stamps stand just above their spot, so the blue "you are here" dot
 // (drawn on top of markers) stays visible underneath.
-const LABELLED_ANCHOR = { x: 0.5, y: 1 };
+const LABELED_ANCHOR = { x: 0.5, y: 1 };
 /** Breathing room around the outermost pins, in pixels. */
 const FIT_EDGE = { top: 80, right: 80, bottom: 80, left: 80 };
 /** Zoom used when there is a single pin (the neighborhood around it). */
@@ -178,7 +178,7 @@ export function TangoMap({
         customMapStyle={TANGO_MAP_STYLE}
         showsUserLocation={showUser}
         showsMyLocationButton={false}
-        // Paper instead of Google's grey while tiles load.
+        // Paper instead of Google's gray while tiles load.
         loadingEnabled
         loadingBackgroundColor={washiColors.paper}
         loadingIndicatorColor={colors.accent}
@@ -201,9 +201,9 @@ export function TangoMap({
             coordinate={{ latitude: pin.lat, longitude: pin.lng }}
             onPress={onPinPress ? () => onPinPress(pin) : undefined}
             tracksViewChanges={tracking}
-            // Labelled pins: keep the badge (not the badge+label block) on the spot.
+            // Labeled pins: keep the badge (not the badge+label block) on the spot.
             anchor={
-              pin.kind === 'tango' && pin.label ? LABELLED_ANCHOR : CENTER
+              pin.kind === 'tango' && pin.label ? LABELED_ANCHOR : CENTER
             }
           >
             <PinBadge pin={pin} showStars={showStars} />

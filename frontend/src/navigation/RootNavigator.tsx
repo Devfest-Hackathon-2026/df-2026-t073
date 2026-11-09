@@ -11,7 +11,6 @@ import { PlansScreen } from '../screens/plans/PlansScreen';
 import { PrepareScreen } from '../screens/prepare/PrepareScreen';
 import { RehearseResultsScreen } from '../screens/rehearse/RehearseResultsScreen';
 import { RehearseScreen } from '../screens/rehearse/RehearseScreen';
-import { AllTangoScreen } from '../screens/review/AllTangoScreen';
 import { ReviewSessionScreen } from '../screens/review/ReviewSessionScreen';
 import { TangoListScreen } from '../screens/review/TangoListScreen';
 import { TangoDetailScreen } from '../screens/tango/TangoDetailScreen';
@@ -62,7 +61,6 @@ export function RootNavigator(): React.JSX.Element {
           <Stack.Screen name="TangoDetail" component={TangoDetailScreen} />
           <Stack.Screen name="ReviewSession" component={ReviewSessionScreen} />
           <Stack.Screen name="Plans" component={PlansScreen} />
-          <Stack.Screen name="AllTango" component={AllTangoScreen} />
           <Stack.Screen name="TangoList" component={TangoListScreen} />
           <Stack.Screen name="MeSection" component={MeSectionScreen} />
         </>

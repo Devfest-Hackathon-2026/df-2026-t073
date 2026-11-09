@@ -64,11 +64,9 @@ test('the biggest win is worded from the strength after the answer', async () =>
   });
   respond(result(4));
   const stamp = await getSessionResult('rs');
-  expect(stamp.biggestWin?.title).toBe('earned a Hana Stamp');
   expect(stamp.biggestWin?.detail).toBe('Hana Stamp earned');
   respond(result(3));
   const stronger = await getSessionResult('rs');
-  expect(stronger.biggestWin?.title).toBe('is getting stronger');
   expect(stronger.biggestWin?.detail).toBe('1 to Stamp');
 });
 
@@ -145,7 +143,7 @@ test('built-in collections and exercise types are named by the app', async () =>
   });
   const summary = await getReviewSummary();
   expect(summary.collections.map(c => c.label)).toEqual([
-    'Favourites',
+    'Favorites',
     'Place cue',
     'Koenji',
   ]);
@@ -221,7 +219,7 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   );
 });
 
-test('favourite pins keep the place they open', async () => {
+test('favorite pins keep the place they open', async () => {
   respond({
     user_name: 'Ari',
     up_next: null,

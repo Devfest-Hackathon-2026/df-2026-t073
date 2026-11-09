@@ -243,9 +243,9 @@ export const getPlace = pick(
     ),
 );
 
-// ---- Favourite places ----
+// ---- Favorite places ----
 
-/** Mock mode: favourites live in memory for the session. */
+/** Mock mode: favorites live in memory for the session. */
 const MOCK_FAVORITES = new Set<string>();
 
 function mockFavoritePins(): TodaySummary['pins'] {
@@ -265,7 +265,7 @@ function mockFavoritePins(): TodaySummary['pins'] {
     }));
 }
 
-/** GET /me/favorite-places: the user's favourite places, newest first. */
+/** GET /me/favorite-places: the user's favorite places, newest first. */
 export const listFavoritePlaces = pick(
   'places',
   () =>

@@ -5,7 +5,7 @@ import { colors } from '../../styles/tokens';
 import type { Place } from '../../types';
 import type { FavoritePlaces } from './useFavoritePlaces';
 
-/** Heart button that favourites a place. */
+/** Heart button that favorites a place. */
 export function FavoriteHeart({
   placeId,
   name,

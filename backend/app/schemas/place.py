@@ -49,7 +49,7 @@ class MapPin(BaseModel):
     kind: str  # 'tango' | 'next' | 'favorite'
     area_id: str | None = None
     stars: int = 0
-    # Favourite pins: the place they open.
+    # Favorite pins: the place they open.
     place_id: str | None = None
 
 

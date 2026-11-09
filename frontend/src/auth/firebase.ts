@@ -9,6 +9,7 @@ import { type FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import {
   type Auth,
   createUserWithEmailAndPassword,
+  getAuth,
   getReactNativePersistence,
   GoogleAuthProvider,
   initializeAuth,
@@ -42,11 +43,16 @@ function getAuthInstance(): Auth | null {
     return null;
   }
   if (!auth) {
-    const app: FirebaseApp = getApps()[0] ?? initializeApp(FIREBASE_CONFIG);
-    // Keeps the session across app restarts, so the account stays the same.
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
+    const existing = getApps()[0];
+    const app: FirebaseApp = existing ?? initializeApp(FIREBASE_CONFIG);
+    // Fast Refresh can re-run this file while Firebase keeps its auth: reuse
+    // it (setting it up twice throws and blanks the app).
+    auth = existing
+      ? getAuth(app)
+      : // Keeps the session across app restarts, so the account stays the same.
+        initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage),
+        });
   }
   return auth;
 }

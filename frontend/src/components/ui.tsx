@@ -26,14 +26,19 @@ import {
 } from '../styles/tokens';
 import type { AppJapanese, JpText, Strength } from '../types';
 import { Hanamaru } from './Hanamaru';
-import { HanaSeal } from './shapes';
 import { Icon, type IconName } from './Icon';
 import { Jp } from './Jp';
 import { copy } from '../copy';
 
 // ---------- Button ----------
 
-type ButtonVariant = 'primary' | 'secondary' | 'dark' | 'light' | 'ghost';
+type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'dark'
+  | 'ink'
+  | 'light'
+  | 'ghost';
 
 export function Button({
   label,
@@ -85,18 +90,11 @@ export function Button({
  * (eyebrows like "Gemini suggests", place lines, statuses).
  */
 /** A small round number, e.g. how many Tango a collection has. */
-export function CountBadge({
-  count,
-  selected = false,
-}: {
-  count: number;
-  selected?: boolean;
-}): React.JSX.Element {
+/** A count in a small red pill, e.g. on collection chips and "All Tango". */
+export function CountBadge({ count }: { count: number }): React.JSX.Element {
   return (
-    <View style={[styles.countBadge, selected && styles.countBadgeSelected]}>
-      <Text style={[styles.countText, selected && styles.countTextSelected]}>
-        {count}
-      </Text>
+    <View style={styles.countBadge}>
+      <Text style={styles.countText}>{count}</Text>
     </View>
   );
 }
@@ -178,6 +176,7 @@ const buttonStyles = StyleSheet.create({
     borderColor: colors.border,
   },
   dark: { backgroundColor: colors.dark },
+  ink: { backgroundColor: colors.ink },
   light: { backgroundColor: colors.surface },
   ghost: { backgroundColor: colors.bg },
 });
@@ -186,6 +185,7 @@ const buttonTextStyles = StyleSheet.create({
   primary: { color: colors.textInverse },
   secondary: { color: colors.text },
   dark: { color: colors.textInverse },
+  ink: { color: colors.textInverse },
   light: { color: colors.accent },
   ghost: { color: colors.accent },
 });
@@ -204,7 +204,7 @@ export function IconButton({
   label: string;
   onPress?: () => void;
   dark?: boolean;
-  /** Solid icon, e.g. a favourited heart. */
+  /** Solid icon, e.g. a favorited heart. */
   filled?: boolean;
   color?: string;
 }): React.JSX.Element {
@@ -291,7 +291,7 @@ export function Chip({
         </Text>
       ) : null}
       {count !== undefined ? (
-        <CountBadge count={count} selected={selected} />
+        <CountBadge count={count} />
       ) : null}
     </>
   );
@@ -506,7 +506,10 @@ export function StrengthBar({
           ]}
         />
       ))}
-      <HanaSeal color={strength === 4 ? colors.hanamaru : colors.border} />
+      <Hanamaru
+        size={sizes.seal}
+        color={strength === 4 ? colors.hanamaru : colors.border}
+      />
     </View>
   );
 }
@@ -645,18 +648,12 @@ const styles = StyleSheet.create({
     minWidth: space.lg,
     paddingHorizontal: space.xs,
     borderRadius: radii.pill,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-  },
-  countBadgeSelected: {
     backgroundColor: colors.accent,
+    alignItems: 'center',
   },
   countText: {
     ...base.caption,
     fontWeight: fontWeights.bold,
-    color: colors.text,
-  },
-  countTextSelected: {
     color: colors.textInverse,
   },
   iconLabel: {

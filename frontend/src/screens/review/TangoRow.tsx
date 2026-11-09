@@ -3,10 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Hanamaru } from '../../components/Hanamaru';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
-import {
-  Facts,
-  StrengthBar,
-} from '../../components/ui';
+import { Facts, StrengthBar } from '../../components/ui';
 import { base } from '../../styles/base';
 import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
 import type { Tango } from '../../types';
@@ -17,9 +14,12 @@ export function TangoRow({
   tango,
   onPress,
   action,
+  hidePlace = false,
 }: {
   tango: Tango;
   onPress: () => void;
+  /** Leave out the place, e.g. when every row is from the same one. */
+  hidePlace?: boolean;
   /** e.g. a remove button on a list screen. */
   action?: React.ReactNode;
 }): React.JSX.Element {
@@ -32,7 +32,7 @@ export function TangoRow({
     >
       <View style={base.grow}>
         <View style={base.row}>
-          <Jp {...tango} bold size="lg" />
+          <Jp {...tango} bold size="lg" oneLine />
           {tango.known ? <Hanamaru size={fontSizes.md} /> : null}
           {tango.favorite ? (
             <Icon
@@ -46,7 +46,11 @@ export function TangoRow({
         <Text style={base.caption} numberOfLines={1}>
           {tango.meaning}
         </Text>
-        <Facts items={[{ icon: 'pin', text: tango.sightings[0]?.placeName }]} />
+        {hidePlace ? null : (
+          <Facts
+            items={[{ icon: 'pin', text: tango.sightings[0]?.placeName }]}
+          />
+        )}
       </View>
       <View style={styles.strength}>
         <StrengthBar strength={tango.strength} />

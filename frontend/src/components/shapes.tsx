@@ -1,10 +1,9 @@
-// Shapes that give the app its own look: card stacks, tickets, red pen marks
-// and the hanko seal.
+// Shapes that give the app its own look: card stacks, tickets, red pen marks.
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { base } from '../styles/base';
-import { colors, fonts, radii, sizes, space } from '../styles/tokens';
+import { colors, radii, sizes, space } from '../styles/tokens';
 
 // ---------- Card stack ----------
 
@@ -107,43 +106,6 @@ export function RedPenUnderline({
         </Svg>
       </View>
     </View>
-  );
-}
-
-// ---------- Hanko seal ----------
-
-/** The Hana Stamp as a hanko seal: 花 in a red square. */
-export function HanaSeal({
-  size = sizes.seal,
-  color = colors.hanamaru,
-}: {
-  size?: number;
-  color?: string;
-}): React.JSX.Element {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 32 32">
-      <Rect
-        x={2}
-        y={2}
-        width={28}
-        height={28}
-        rx={6}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.4}
-      />
-      <SvgText
-        x={16}
-        y={22.5}
-        textAnchor="middle"
-        fontFamily={fonts.body}
-        fontWeight="700"
-        fontSize={17}
-        fill={color}
-      >
-        花
-      </SvgText>
-    </Svg>
   );
 }
 

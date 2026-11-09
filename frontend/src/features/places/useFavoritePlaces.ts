@@ -7,11 +7,11 @@ import {
 
 export interface FavoritePlaces {
   isFavorite: (placeId: string) => boolean;
-  /** Flips a place's favourite state; shows it right away, undoes it on failure. */
+  /** Flips a place's favorite state; shows it right away, undoes it on failure. */
   toggle: (placeId: string) => void;
 }
 
-/** The user's favourite places, for heart buttons. */
+/** The user's favorite places, for heart buttons. */
 export function useFavoritePlaces(): FavoritePlaces {
   const [ids, setIds] = useState<Set<string>>(new Set());
 

@@ -1,4 +1,5 @@
 import {
+  ArrowUpDown,
   Ban,
   BookOpen,
   CalendarDays,
@@ -62,6 +63,7 @@ const ICONS = {
   mic: Mic,
   hint: Lightbulb,
   search: Search,
+  sort: ArrowUpDown,
   home: House,
   map: Map,
   camera: Camera,
@@ -114,7 +116,7 @@ export function Icon({
   name: IconName;
   size?: number;
   color?: string;
-  /** Solid shape (e.g. a favourited heart). */
+  /** Solid shape (e.g. a favorited heart). */
   filled?: boolean;
   strokeWidth?: number;
 }): React.JSX.Element {

@@ -27,7 +27,7 @@ Tankengo is a camera-first vocabulary app built around place. You catch words fr
 - **Catch.** Point the camera at Japanese text and it is read on the phone (ML Kit). Or take a photo and the backend reads it (Cloud Vision). Each catch becomes a **Tango** (word, phrase, object or menu item) pinned to the place where you found it.
 - **Tango.** Reading, romaji, meaning, easy and keigo example phrases, where you saw it, and a history. Strength grows from 0 to 4; at 4 it becomes a hanamaru star on your map.
 - **Map and Today.** Your Tango as stamps on a Google map, your next planned visit, and a word of the day picked for your reading level and the places you plan to visit.
-- **Review.** Multiple choice, plus **fill the gap** on your own photo with the caught word covered. Questions are cued by the place you saw the word. Favourites and your own lists are reviewable collections.
+- **Review.** Multiple choice, plus **fill the gap** on your own photo with the caught word covered. Questions are cued by the place you saw the word. Favorites and your own lists are reviewable collections.
 - **Prepare.** A briefing for a place: what to expect (from Google Maps reviews, written by Gemini), Tango for the visit, and anonymous tips.
 - **Rehearse.** A spoken role-play with the staff at that place. The staff voice is text-to-speech, your reply is transcribed by Speech-to-Text and rated by Gemini, or you can pick a reply instead.
 - **Privacy.** Sign in with Google or email, no public profile, and a home area you choose that is never pinned on the map.

@@ -248,7 +248,7 @@ async def update_flashcard(
     current_user: CurrentUser,
     db: Db,
 ) -> FlashcardResponse:
-    """Mark or unmark a Tango as a favourite."""
+    """Mark or unmark a Tango as a favorite."""
     uid = current_user["uid"]
     if payload.favorite is None:
         return await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)

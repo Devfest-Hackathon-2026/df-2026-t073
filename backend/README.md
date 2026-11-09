@@ -23,7 +23,7 @@ backend/
 │   │   ├── router.py          # /healthz, /readyz, GET /api/v1/me; mounts the routers below
 │   │   └── endpoints/
 │   │       ├── captures.py    # photo upload and recognition
-│   │       ├── flashcards.py  # catching Tango, reviews, sightings, favourites
+│   │       ├── flashcards.py  # catching Tango, reviews, sightings, favorites
 │   │       ├── review.py      # review card, summary, sessions, results
 │   │       ├── me.py          # profile (name, reading level, home area, stats)
 │   │       ├── places.py      # place search, visits, Today screen
@@ -50,7 +50,7 @@ backend/
 │       ├── storage.py         # Cloud Storage uploads
 │       ├── dictionary.py      # JMdict lookups (local SQLite)
 │       ├── word_of_day.py / everyday_words.py # word of the day
-│       ├── lists.py           # lists and favourites
+│       ├── lists.py           # lists and favorites
 │       └── usage.py           # per-user daily limits
 ├── scripts/
 │   ├── build_jmdict.py        # builds data/jmdict.sqlite

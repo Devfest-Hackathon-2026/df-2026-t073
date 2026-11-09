@@ -26,7 +26,7 @@ async def update_my_profile(
 
 @router.get("/favorite-places", response_model=list[Place])
 async def list_my_favorite_places(current_user: CurrentUser, db: Db) -> list[Place]:
-    """Favourite places, newest first (also shown as pins on the Map)."""
+    """Favorite places, newest first (also shown as pins on the Map)."""
     return await favorite_places.list_favorite_places(db=db, uid=current_user["uid"])
 
 
@@ -34,7 +34,7 @@ async def list_my_favorite_places(current_user: CurrentUser, db: Db) -> list[Pla
 async def add_my_favorite_place(
     place_id: str, current_user: CurrentUser, db: Db, http_client: HttpClient
 ) -> Place:
-    """Favourite a place. Doing it twice is fine."""
+    """Favorite a place. Doing it twice is fine."""
     return await favorite_places.add_favorite_place(
         db=db, http=http_client, uid=current_user["uid"], place_id=place_id
     )
@@ -42,6 +42,6 @@ async def add_my_favorite_place(
 
 @router.delete("/favorite-places/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_my_favorite_place(place_id: str, current_user: CurrentUser, db: Db) -> Response:
-    """Un-favourite a place. Doing it for a place that isn't a favourite is fine."""
+    """Un-favorite a place. Doing it for a place that isn't a favorite is fine."""
     await favorite_places.remove_favorite_place(db=db, uid=current_user["uid"], place_id=place_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

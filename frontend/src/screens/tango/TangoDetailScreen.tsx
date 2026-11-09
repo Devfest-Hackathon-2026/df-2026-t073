@@ -129,7 +129,7 @@ export function TangoDetailScreen({
     return () => clearTimeout(timer);
   }, [waitingForPhrases, reload, data]);
 
-  // Favourite flips at once; the save follows (and rolls back on failure).
+  // Favorite flips at once; the save follows (and rolls back on failure).
   const [favorite, setFavoriteState] = useState<boolean | null>(null);
   const isFavorite = favorite ?? data?.favorite ?? false;
   const toggleFavorite = async () => {
@@ -209,7 +209,7 @@ export function TangoDetailScreen({
 
             <Card>
               <View style={styles.hero}>
-                <Jp {...t} size="jumbo" bold center />
+                <Jp {...t} size="jumbo" bold center shrink />
                 {t.romaji ? <Text style={base.caption}>{t.romaji}</Text> : null}
                 <Text style={styles.meaning}>{t.meaning}</Text>
               </View>
@@ -302,7 +302,9 @@ export function TangoDetailScreen({
                       {sentence.jp.meaning ? (
                         <Text style={base.caption}>{sentence.jp.meaning}</Text>
                       ) : null}
-                      <Facts items={[{ icon: 'pin', text: sentence.placeName }]} />
+                      <Facts
+                        items={[{ icon: 'pin', text: sentence.placeName }]}
+                      />
                     </View>
                     <IconButton
                       icon="play"

@@ -17,7 +17,7 @@ export const WASHI_MAP_STYLE: MapStyleElement[] = [
     elementType: 'geometry',
     stylers: [{ visibility: 'on' }, { color: w.park }],
   },
-  // Built-up land: at street zoom Google draws it grey whatever fill is set,
+  // Built-up land: at street zoom Google draws it gray whatever fill is set,
   // so hide it and let the paper show through (roads and parks stay).
   {
     featureType: 'landscape',

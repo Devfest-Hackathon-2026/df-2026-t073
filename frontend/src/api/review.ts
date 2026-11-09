@@ -13,6 +13,7 @@ import type {
   ReviewStage,
   ReviewSummary,
   SessionResult,
+  Strength,
 } from '../types';
 import { ALL_TANGO } from '../mocks/tango';
 import { API_V1, mockDelay, pick, request } from './client';
@@ -62,7 +63,11 @@ interface ReviewSummaryResponse {
     is_favorites?: boolean;
     is_list?: boolean;
   }[];
-  exercise_types: { id: 'flashcard' | 'mcq' | 'fill'; enabled: boolean; count?: number }[];
+  exercise_types: {
+    id: 'flashcard' | 'mcq' | 'fill';
+    enabled: boolean;
+    count?: number;
+  }[];
   total_tango: number;
 }
 
@@ -182,7 +187,9 @@ function toJp(option: JpOptionResponse, meaning?: string): JpText {
   };
 }
 
-function toExample(ex: ExampleResponse | null | undefined): (JpText & { en: string }) | undefined {
+function toExample(
+  ex: ExampleResponse | null | undefined,
+): (JpText & { en: string }) | undefined {
   if (!ex) {
     return undefined;
   }
@@ -193,7 +200,9 @@ function toExample(ex: ExampleResponse | null | undefined): (JpText & { en: stri
   };
 }
 
-function toPhoto(photo: PhotoLayerResponse | null | undefined): PhotoLayer | null {
+function toPhoto(
+  photo: PhotoLayerResponse | null | undefined,
+): PhotoLayer | null {
   if (!photo) {
     return null;
   }
@@ -238,7 +247,9 @@ function toExercise(e: ExerciseResponse): Exercise {
       promptKind: e.prompt_kind,
       prompt: toJp(e.prompt),
       meaningPrompt: e.meaning_prompt,
-      options: e.options.map(opt => (typeof opt === 'string' ? opt : toJp(opt))),
+      options: e.options.map(opt =>
+        typeof opt === 'string' ? opt : toJp(opt),
+      ),
       answerIndex: e.answer_index,
       placeHint: e.place_hint,
       example: toExample(e.example),
@@ -288,7 +299,7 @@ export const getReviewCard = pick(
 
 export const getReviewSummary = pick(
   'review',
-  // Mock: the sample summary plus Favourites and lists made this session.
+  // Mock: the sample summary plus Favorites and lists made this session.
   async () => {
     const lists = await listLists();
     const favorites = ALL_TANGO.filter(t => t.favorite).length;
@@ -299,7 +310,7 @@ export const getReviewSummary = pick(
           ? [
               {
                 id: 'favorites',
-                label: 'Favourites',
+                label: 'Favorites',
                 count: favorites,
                 isPlace: false,
                 isPlaceCue: false,
@@ -328,7 +339,7 @@ export const getReviewSummary = pick(
       collections: r.collections.map(c => ({
         id: c.id,
         label: c.is_favorites
-          ? copy.review.favourites
+          ? copy.review.favorites
           : c.is_place_cue
           ? copy.review.placeCue
           : c.label,
@@ -409,8 +420,11 @@ export const getSessionResult = pick(
       biggestWin: r.biggest_win
         ? {
             tango: toJp(r.biggest_win.tango, r.biggest_win.meaning),
-            title: copy.sessionResults.winTitle(r.biggest_win.strength_after >= 4),
             detail: copy.sessionResults.winDetail(r.biggest_win.strength_after),
+            strength: Math.max(
+              0,
+              Math.min(4, Math.round(r.biggest_win.strength_after)),
+            ) as Strength,
           }
         : null,
       byArea: r.by_area,

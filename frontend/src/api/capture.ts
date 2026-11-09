@@ -259,7 +259,7 @@ export const getTodaysCatch = pick(
   'capture',
   () => mockDelay<CatchEntry[]>(todaysCatch),
   // Built from GET /api/v1/flashcards: cards with a sighting today (device time),
-  // labelled with today's latest place.
+  // labeled with today's latest place.
   async () => {
     const cards = await request<FlashcardResponse[]>(`${API_V1}/flashcards`, {
       query: { limit: 100 },

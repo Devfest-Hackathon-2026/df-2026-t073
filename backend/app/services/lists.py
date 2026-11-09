@@ -1,4 +1,4 @@
-"""User-made review lists (users/{uid}/lists) and the favourite flag on cards."""
+"""User-made review lists (users/{uid}/lists) and the favorite flag on cards."""
 
 import logging
 import uuid

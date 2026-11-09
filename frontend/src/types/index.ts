@@ -96,7 +96,7 @@ export interface Tango {
   savedSentences?: SavedSentence[];
   /** One-line explanation shown on detail cards. */
   explanation?: string;
-  /** Marked by the user; reviewable as "Favourites". */
+  /** Marked by the user; reviewable as "Favorites". */
   favorite?: boolean;
   /** Current review stage (flashcard -> mcq_photo -> mcq -> fill), set by the server. */
   stage: ReviewStage;
@@ -123,7 +123,7 @@ export interface MapPin {
   kind: 'tango' | 'next' | 'me' | 'favorite';
   /** Area this pin belongs to (opens the area card on the full map). */
   areaId?: string;
-  /** Favourite pins: the place they open. */
+  /** Favorite pins: the place they open. */
   placeId?: string;
   /** Mastered Tango here; shown with the "Stars" map filter. */
   stars?: number;
@@ -329,7 +329,12 @@ export interface ReviewSummary {
   minutes: number;
   placeCueCount: number;
   collections: Collection[];
-  exerciseTypes: { id: string; label: string; enabled: boolean; count?: number }[];
+  exerciseTypes: {
+    id: string;
+    label: string;
+    enabled: boolean;
+    count?: number;
+  }[];
   totalTango: number;
 }
 
@@ -410,10 +415,7 @@ export interface FillBlankExercise {
   demotedTo?: ReviewStage | null;
 }
 
-export type Exercise =
-  | FlashcardExercise
-  | McqExercise
-  | FillBlankExercise;
+export type Exercise = FlashcardExercise | McqExercise | FillBlankExercise;
 
 export interface ReviewSession {
   /** Null for mock sessions. Answers are recorded against it. */
@@ -425,7 +427,12 @@ export interface SessionResult {
   reviewed: number;
   minutes: number;
   /** Null when no answer moved a Tango up. */
-  biggestWin: { tango: JpText; title: string; detail: string } | null;
+  biggestWin: {
+    tango: JpText;
+    detail: string;
+    /** Strength after this session, for the progress bar to a Stamp. */
+    strength: Strength;
+  } | null;
   byArea: { area: string; count: number }[];
   /** The next planned visit, or null when nothing is planned. */
   next: Visit | null;

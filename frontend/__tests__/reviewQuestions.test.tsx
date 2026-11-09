@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
+import { Jp } from '../src/components/Jp';
 import { copy } from '../src/copy';
 import {
   checkFillAnswer,
@@ -260,9 +261,11 @@ describe('SESSION mock coverage', () => {
       const btn = tree.root.findAll(
         n =>
           typeof n.props.onPress === 'function' &&
-          n
-            .findAllByType(Text)
-            .some(t => [t.props.children].flat().join('') === label),
+          // Japanese with furigana is drawn in pieces, so match the word too.
+          (n.findAllByType(Jp).some(j => j.props.text === label) ||
+            n
+              .findAllByType(Text)
+              .some(t => [t.props.children].flat().join('') === label)),
       )[0];
       expect(btn).toBeDefined();
       btn!.props.onPress();

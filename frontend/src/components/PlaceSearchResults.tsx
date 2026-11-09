@@ -17,7 +17,7 @@ export function PlaceSearchResults({
   places: Place[];
   loading: boolean;
   onPick: (place: Place) => void;
-  /** Shown at the end of each row, e.g. a favourite heart. */
+  /** Shown at the end of each row, e.g. a favorite heart. */
   renderTrailing?: (place: Place) => React.ReactNode;
 }): React.JSX.Element {
   return (

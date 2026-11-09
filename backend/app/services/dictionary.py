@@ -3,7 +3,7 @@
 The database is built by scripts/build_jmdict.py. Without it, lookups return
 None and catching falls back to Gemini.
 
-JMdict is the property of the EDRDG, used under its licence (CC BY-SA 4.0).
+JMdict is the property of the EDRDG, used under its license (CC BY-SA 4.0).
 """
 
 import json

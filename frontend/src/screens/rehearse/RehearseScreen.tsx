@@ -30,6 +30,7 @@ import {
   IconButton,
   IconLabel,
   Loadable,
+  ProgressBar,
   SegmentedControl,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
@@ -128,6 +129,9 @@ function Conversation({
   const scrollRef = useRef<ScrollViewInstance>(null);
 
   const next = turns[shown] as RehearsalTurn | undefined;
+  // The learner's replies: how many there are and how many are still to come.
+  const replies = turns.filter(t => t.speaker === 'user');
+  const repliesLeft = replies.filter(t => !answers[t.id]).length;
   const userTurnNow = next?.speaker === 'user';
   const finished = shown >= turns.length;
   const lastShown = turns[shown - 1];
@@ -237,6 +241,16 @@ function Conversation({
 
   return (
     <>
+      <View style={styles.progress}>
+        <View style={base.grow}>
+          <ProgressBar
+            value={(replies.length - repliesLeft) / Math.max(1, replies.length)}
+          />
+        </View>
+        <Text style={base.caption}>
+          {copy.rehearse.repliesLeft(repliesLeft)}
+        </Text>
+      </View>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.chat}
@@ -305,7 +319,12 @@ function Conversation({
 
         {userTurnNow && next ? (
           <View style={styles.userBlock}>
-            <Text style={base.caption}>{copy.rehearse.yourTurn}</Text>
+            {/* What to say next, in English: a guide, not a test. */}
+            <View style={styles.goal}>
+              <Text style={styles.eyebrow}>{copy.rehearse.yourTurn}</Text>
+              <Text style={base.caption}>{copy.rehearse.sayNext}</Text>
+              <Text style={styles.goalText}>“{next.en}”</Text>
+            </View>
             {hintOpen && next.hint ? (
               <View style={styles.hint}>
                 <IconLabel icon="hint" style={styles.eyebrow}>
@@ -405,6 +424,24 @@ const styles = StyleSheet.create({
   eyebrow: {
     ...base.label,
     color: colors.accent,
+  },
+  progress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
+  },
+  goal: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: space.md,
+    gap: space.xxs,
+  },
+  goalText: {
+    ...base.text,
+    fontWeight: fontWeights.bold,
   },
   chat: {
     paddingHorizontal: space.lg,

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -80,8 +81,23 @@ def run(coro: Any) -> Any:
     return asyncio.run(coro)
 
 
+class _TickingClock:
+    """Each call is a second later, so saves in one test never tie."""
+
+    def __init__(self) -> None:
+        self._now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def now(self, tz: Any = None) -> datetime:
+        self._now += timedelta(seconds=1)
+        return self._now
+
+
 class TestService:
-    def test_add_list_remove(self, db: FakeDb) -> None:
+    def test_add_list_remove(
+        self, db: FakeDb, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Two saves in the same instant would tie on added_at.
+        monkeypatch.setattr(favorite_places, "datetime", _TickingClock())
         run(
             favorite_places.add_favorite_place(
                 db=fake(db), http=fake(None), uid=UID, place_id="a"
@@ -107,14 +123,14 @@ class TestService:
             )
         assert list(db.docs) == ["a"]
 
-    def test_removing_a_non_favourite_is_fine(self, db: FakeDb) -> None:
+    def test_removing_a_non_favorite_is_fine(self, db: FakeDb) -> None:
         run(
             favorite_places.remove_favorite_place(db=fake(db), uid=UID, place_id="nope")
         )
         assert db.docs == {}
 
 
-def test_each_favourite_is_a_pin_that_opens_its_place() -> None:
+def test_each_favorite_is_a_pin_that_opens_its_place() -> None:
     pins = favorite_places.favorite_pins([place("menya-taiki")])
     assert len(pins) == 1
     pin = pins[0]

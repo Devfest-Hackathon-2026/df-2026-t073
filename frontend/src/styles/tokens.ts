@@ -13,8 +13,8 @@ export const colors = {
   textMuted: '#6A6A66',
   textInverse: '#FFFFFF',
   dark: '#1B1B1B',
-  /** The card peeking out behind a dark card (the Review deck). */
-  deckBack: '#3A3A3C',
+  /** The card peeking out behind the ink Review card (the Review deck). */
+  deckBack: '#3B4A66',
   camera: '#202326',
   scrim: 'rgba(0, 0, 0, 0.4)',
   overlay: 'rgba(0, 0, 0, 0.65)',
@@ -71,8 +71,8 @@ export const radii = {
   sm: 8,
   md: 12,
   lg: 18,
-  /** Actions are rounded rectangles; pills are for tags and chips. */
-  button: 12,
+  /** Buttons are fully round, like pills. */
+  button: 999,
   pill: 999,
 } as const;
 
@@ -91,7 +91,7 @@ export const sizes = {
   strengthSegment: 8,
   dot: 2,
   handle: 22,
-  /** The hanko seal at the end of a strength bar. */
+  /** The hanamaru at the end of a strength bar. */
   seal: 22,
 } as const;
 

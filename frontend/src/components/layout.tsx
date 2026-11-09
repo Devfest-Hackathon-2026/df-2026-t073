@@ -26,6 +26,7 @@ import {
   space,
 } from '../styles/tokens';
 import type { MapPin } from '../types';
+import { Hanamaru } from './Hanamaru';
 import { IconButton } from './ui';
 import { copy } from '../copy';
 
@@ -130,9 +131,14 @@ export function MapPlaceholder({
           ]}
         >
           {pin.kind === 'tango' ? (
-            <Text style={styles.pinText}>
-              {showStars ? copy.map.placeholderStars(pin.stars ?? 0) : pin.count}
-            </Text>
+            showStars ? (
+              <View style={styles.pinStars}>
+                <Hanamaru size={fontSizes.xs} color={colors.textInverse} />
+                <Text style={styles.pinText}>{pin.stars ?? 0}</Text>
+              </View>
+            ) : (
+              <Text style={styles.pinText}>{pin.count}</Text>
+            )
           ) : null}
           {pin.kind === 'next' ? (
             <Text style={styles.pinText}>{pin.label}</Text>
@@ -316,6 +322,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.xs,
+  },
+  pinStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   pinText: {
     ...base.text,

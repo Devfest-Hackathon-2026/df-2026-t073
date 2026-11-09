@@ -21,10 +21,34 @@ export const REVIEW_SUMMARY: ReviewSummary = {
   minutes: 5,
   placeCueCount: 1,
   collections: [
-    { id: 'koenji', label: 'Koenji', count: 12, isPlace: true, isPlaceCue: false },
-    { id: 'clinic', label: 'Clinic visit', count: 6, isPlace: false, isPlaceCue: false },
-    { id: 'signs', label: 'Signs', count: 5, isPlace: false, isPlaceCue: false },
-    { id: 'place-cue', label: 'Place cue', count: 1, isPlace: false, isPlaceCue: true },
+    {
+      id: 'koenji',
+      label: 'Koenji',
+      count: 12,
+      isPlace: true,
+      isPlaceCue: false,
+    },
+    {
+      id: 'clinic',
+      label: 'Clinic visit',
+      count: 6,
+      isPlace: false,
+      isPlaceCue: false,
+    },
+    {
+      id: 'signs',
+      label: 'Signs',
+      count: 5,
+      isPlace: false,
+      isPlaceCue: false,
+    },
+    {
+      id: 'place-cue',
+      label: 'Place cue',
+      count: 1,
+      isPlace: false,
+      isPlaceCue: true,
+    },
   ],
   exerciseTypes: [
     { id: 'flashcard', label: 'Flashcard', enabled: true, count: 4 },
@@ -60,7 +84,11 @@ export const SESSION: Exercise[] = [
       romaji: 'shōyu',
       meaning: 'soy sauce',
       example: {
-        ...jp('醤油をお願いします。', 'しょうゆをおねがいします。', 'shōyu o onegai shimasu.'),
+        ...jp(
+          '醤油をお願いします。',
+          'しょうゆをおねがいします。',
+          'shōyu o onegai shimasu.',
+        ),
         en: 'Soy sauce, please.',
       },
     },
@@ -87,7 +115,11 @@ export const SESSION: Exercise[] = [
       romaji: 'kenbaiki',
       meaning: 'ticket machine',
       example: {
-        ...jp('券売機で買ってください。', 'けんばいきでかってください。', 'kenbaiki de katte kudasai.'),
+        ...jp(
+          '券売機で買ってください。',
+          'けんばいきでかってください。',
+          'kenbaiki de katte kudasai.',
+        ),
         en: 'Please buy a ticket at the machine.',
       },
     },
@@ -114,7 +146,11 @@ export const SESSION: Exercise[] = [
     answerIndex: 0,
     placeHint: '麺屋 たいき, Koenji',
     example: {
-      ...jp('食券をお願いします。', 'しょっけんをおねがいします。', 'shokken o onegai shimasu.'),
+      ...jp(
+        '食券をお願いします。',
+        'しょっけんをおねがいします。',
+        'shokken o onegai shimasu.',
+      ),
       en: 'Your meal ticket, please.',
     },
     nextStep: '2 to Stamp',
@@ -157,7 +193,11 @@ export const SESSION: Exercise[] = [
     answerIndex: 0,
     placeHint: '麺屋 たいき, Koenji',
     example: {
-      ...jp('替え玉、お願いします。', 'かえだま、おねがいします。', 'kaedama, onegai shimasu.'),
+      ...jp(
+        '替え玉、お願いします。',
+        'かえだま、おねがいします。',
+        'kaedama, onegai shimasu.',
+      ),
       en: 'An extra noodle refill, please.',
     },
     nextStep: '1 to Stamp',
@@ -283,9 +323,14 @@ export const SESSION_RESULT: SessionResult = {
   reviewed: 14,
   minutes: 5,
   biggestWin: {
-    tango: { text: '替え玉', reading: 'かえだま', romaji: 'kaedama', meaning: 'noodle refill' },
-    title: 'earned a Hana Stamp',
+    tango: {
+      text: '替え玉',
+      reading: 'かえだま',
+      romaji: 'kaedama',
+      meaning: 'noodle refill',
+    },
     detail: 'Hana Stamp earned',
+    strength: 4,
   },
   byArea: [
     { area: 'Koenji', count: 8 },

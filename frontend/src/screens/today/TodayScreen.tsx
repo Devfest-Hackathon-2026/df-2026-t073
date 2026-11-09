@@ -76,7 +76,7 @@ export function TodayScreen(): React.JSX.Element {
   const review = useAsync(getReviewCard);
   const stats = useAsync(getReviewSummary);
   useReloadOnFocus(today.reload, review.reload, stats.reload);
-  // Device position: the map preview centres on it.
+  // Device position: the map preview centers on it.
   const [here, setHere] = useState<Coords | null>(null);
   useEffect(() => {
     let alive = true;
@@ -95,6 +95,7 @@ export function TodayScreen(): React.JSX.Element {
       ]}
       keyboardShouldPersistTaps="handled"
     >
+      <SectionTitle en={copy.today.title} size="title" />
       <Loadable state={today} messages={TODAY_LINES}>
         {summary => (
           <Regular
@@ -117,7 +118,7 @@ export function TodayScreen(): React.JSX.Element {
   );
 }
 
-/** Tango, reviews due and neighbourhoods at a glance. */
+/** Tango, reviews due and neighborhoods at a glance. */
 function StatsRow({
   stats,
   areas,
@@ -143,7 +144,7 @@ function StatsRow({
 }
 
 /** Where your Tango come from, as collectible cards. */
-function Neighbourhoods({
+function Neighborhoods({
   areas,
   onOpen,
 }: {
@@ -153,8 +154,8 @@ function Neighbourhoods({
   return (
     <View style={base.stackSm}>
       <SectionTitle
-        en={copy.today.neighbourhoods}
-        jp={copy.today.neighbourhoodsJp}
+        en={copy.today.neighborhoods}
+        jp={copy.today.neighborhoodsJp}
       />
       <ScrollView
         horizontal
@@ -221,7 +222,11 @@ function MapCard({
 function Greeting({ name }: { name: string }): React.JSX.Element {
   return (
     <View style={base.row}>
-      <Jp {...GREETING} peek bold size="xl" />
+      {/* The comma sits outside the tappable, underlined greeting. */}
+      <View style={styles.greeting}>
+        <Jp {...GREETING} peek bold size="xl" />
+        <Jp {...copy.today.greetingComma} bold size="xl" />
+      </View>
       <NameSan name={name} />
     </View>
   );
@@ -283,7 +288,7 @@ function Regular({
         }}
       />
       {settings.mapFeatures && summary.areas.length > 0 ? (
-        <Neighbourhoods areas={summary.areas} onOpen={onOpenMap} />
+        <Neighborhoods areas={summary.areas} onOpen={onOpenMap} />
       ) : null}
       {settings.mapFeatures ? (
         <MapCard pins={summary.pins} here={here} onOpen={() => onOpenMap()} />
@@ -473,6 +478,9 @@ function FirstOutingCard({
 }
 
 const styles = StyleSheet.create({
+  greeting: {
+    flexDirection: 'row',
+  },
   root: {
     flex: 1,
     backgroundColor: colors.bg,

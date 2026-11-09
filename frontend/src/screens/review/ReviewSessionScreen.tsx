@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Image,
   Pressable,
   ScrollView,
@@ -26,6 +27,7 @@ import {
   IconLabel,
   Loadable,
   ProgressBar,
+  StrengthBar,
 } from '../../components/ui';
 import {
   checkFillAnswer,
@@ -35,10 +37,7 @@ import { QUESTION_TYPE_LABEL } from '../../features/review/labels';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
 import { formatVisitTime } from '../../utils/format';
-import type {
-  RootNavigation,
-  RootScreenProps,
-} from '../../navigation/types';
+import type { RootNavigation, RootScreenProps } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import {
@@ -65,6 +64,8 @@ const SESSION_LINES = copy.reviewSession.loadingLines;
 const PHOTO_ASPECT = 4 / 3;
 /** How long the flashcard result toast stays up. */
 const TOAST_MS = 2500;
+const TOAST_IN_MS = 220;
+const TOAST_OUT_MS = 160;
 
 interface Outcome {
   exerciseId: string;
@@ -209,7 +210,11 @@ function Session({
   return (
     <View style={base.grow}>
       <View style={[base.row, styles.header]}>
-        <IconButton icon="close" label={copy.reviewSession.endReview} onPress={onClose} />
+        <IconButton
+          icon="close"
+          label={copy.reviewSession.endReview}
+          onPress={onClose}
+        />
         <ProgressBar
           value={(index + (outcome === null ? 0 : 1)) / exercises.length}
         />
@@ -221,55 +226,59 @@ function Session({
           />
         ) : null}
       </View>
-      <ScrollView
-        contentContainerStyle={base.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        {outcome === null ? (
-          exercise.type === 'flashcard' ? (
-            <Flashcard
-              key={exercise.id}
-              exercise={exercise}
-              showPlace={showPlace}
-              onRate={rating => rateFlashcard(exercise, rating)}
-            />
-          ) : exercise.type === 'mcq' ? (
-            <Mcq
-              key={exercise.id}
-              exercise={exercise}
-              showPlace={showPlace}
-              onPick={pickedIndex =>
-                recordOutcome(pickedIndex === exercise.answerIndex, {
-                  kind: 'pick',
-                  index: pickedIndex,
-                })
-              }
-            />
+      {/* The toast floats over the top of this area, under the progress bar. */}
+      <View style={base.grow}>
+        <ScrollView
+          contentContainerStyle={base.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          {outcome === null ? (
+            exercise.type === 'flashcard' ? (
+              <Flashcard
+                key={exercise.id}
+                exercise={exercise}
+                showPlace={showPlace}
+                onRate={rating => rateFlashcard(exercise, rating)}
+              />
+            ) : exercise.type === 'mcq' ? (
+              <Mcq
+                key={exercise.id}
+                exercise={exercise}
+                showPlace={showPlace}
+                onPick={pickedIndex =>
+                  recordOutcome(pickedIndex === exercise.answerIndex, {
+                    kind: 'pick',
+                    index: pickedIndex,
+                  })
+                }
+              />
+            ) : (
+              <FillBlank
+                key={exercise.id}
+                exercise={exercise}
+                showPlace={showPlace}
+                onAnswer={(correct, typed) =>
+                  recordOutcome(
+                    correct,
+                    // Nothing typed: the learner pressed "Show answer".
+                    typed === undefined
+                      ? { kind: 'reveal' }
+                      : { kind: 'typed', text: typed },
+                  )
+                }
+              />
+            )
           ) : (
-            <FillBlank
-              key={exercise.id}
+            <Feedback
               exercise={exercise}
-              showPlace={showPlace}
-              onAnswer={(correct, typed) =>
-                recordOutcome(
-                  correct,
-                  // Nothing typed: the learner pressed "Show answer".
-                  typed === undefined
-                    ? { kind: 'reveal' }
-                    : { kind: 'typed', text: typed },
-                )
-              }
+              correct={outcome.correct}
+              revealed={outcome.revealed}
+              stale={outcome.stale}
             />
-          )
-        ) : (
-          <Feedback
-            exercise={exercise}
-            correct={outcome.correct}
-            revealed={outcome.revealed}
-            stale={outcome.stale}
-          />
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+        <ToastPop toast={toast} />
+      </View>
       {outcome !== null ? (
         <View style={styles.footer}>
           <Button
@@ -280,24 +289,73 @@ function Session({
           />
         </View>
       ) : null}
-      {toast ? (
-        <View style={styles.toastSlot} pointerEvents="none">
-          <Toast
-            message={
-              <View style={base.row}>
-                <Icon
-                  name={toast.icon}
-                  color={
-                    toast.icon === 'done' ? colors.positive : colors.caution
-                  }
-                />
-                <Text style={[base.text, base.grow]}>{toast.text}</Text>
-              </View>
-            }
-          />
-        </View>
-      ) : null}
     </View>
+  );
+}
+
+/** Fades the toast in while it slides down a little, and fades it back out. */
+function ToastPop({
+  toast,
+}: {
+  toast: FlashcardToast | null;
+}): React.JSX.Element | null {
+  // Keeps the last toast on screen while it animates out.
+  const [shown, setShown] = useState<FlashcardToast | null>(toast);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (toast) {
+      setShown(toast);
+      progress.setValue(0);
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: TOAST_IN_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: TOAST_OUT_MS,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => finished && setShown(null));
+    }
+  }, [toast, progress]);
+
+  if (!shown) {
+    return null;
+  }
+  return (
+    <Animated.View
+      style={[
+        styles.toastSlot,
+        {
+          opacity: progress,
+          transform: [
+            {
+              translateY: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-space.md, 0],
+              }),
+            },
+          ],
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <Toast
+        message={
+          <View style={base.row}>
+            <Icon
+              name={shown.icon}
+              color={shown.icon === 'done' ? colors.positive : colors.caution}
+            />
+            <Text style={[base.text, base.grow]}>{shown.text}</Text>
+          </View>
+        }
+      />
+    </Animated.View>
   );
 }
 
@@ -381,11 +439,7 @@ export function PhotoLayerView({
       ) : (
         <View style={styles.photo}>
           <View style={styles.sign}>
-            <Icon
-              name="camera"
-              size={fontSizes.xl}
-              color={colors.hanamaru}
-            />
+            <Icon name="camera" size={fontSizes.xl} color={colors.hanamaru} />
             {(photo.lines ?? []).map((line, i) =>
               line ? (
                 <Jp
@@ -476,13 +530,14 @@ function Flashcard({
                   size="jumbo"
                   bold
                   alwaysKanji
+                  center
                 />
-                <Text style={base.caption}>
+                <Text style={[base.caption, styles.center]}>
                   {copy.reviewSession.flashcardTextPrompt}
                 </Text>
               </>
             ) : (
-              <Text style={base.heading}>
+              <Text style={[base.heading, styles.center]}>
                 {copy.reviewSession.flashcardObjectPrompt}
               </Text>
             )}
@@ -492,26 +547,32 @@ function Flashcard({
         <Animated.View style={{ opacity: flipAnim }}>
           <Card>
             <View style={styles.prompt}>
-              <View style={base.row}>
+              {/* A spacer as wide as the play button keeps the word centered; the
+                  button lines up with the word, not its furigana. */}
+              <View style={[base.row, styles.wordRow]}>
+                <View style={styles.playSpacer} />
                 <Jp
                   text={exercise.back.text}
                   reading={exercise.back.reading}
                   romaji={exercise.back.romaji}
                   size="jumbo"
                   bold
+                  center
+                  alwaysKanji
+                  alwaysFurigana
                 />
-                <IconButton
-                  icon="play"
-                  label={copy.common.play(exercise.back.text)}
-                  onPress={() => playWord(exercise.back.text)}
-                />
+                <View style={styles.playButton}>
+                  <IconButton
+                    icon="play"
+                    label={copy.common.play(exercise.back.text)}
+                    onPress={() => playWord(exercise.back.text)}
+                  />
+                </View>
               </View>
-              {exercise.back.reading &&
-              exercise.back.reading !== exercise.back.text ? (
-                <Text style={base.text}>{exercise.back.reading}</Text>
-              ) : null}
               {exercise.back.romaji ? (
-                <Text style={base.caption}>{exercise.back.romaji}</Text>
+                <Text style={[base.caption, styles.center]}>
+                  {exercise.back.romaji}
+                </Text>
               ) : null}
               <Text style={styles.meaningPrompt}>{exercise.back.meaning}</Text>
             </View>
@@ -521,8 +582,11 @@ function Flashcard({
                   text={exercise.back.example.text}
                   reading={exercise.back.example.reading}
                   romaji={exercise.back.example.romaji}
+                  center
                 />
-                <Text style={base.caption}>{exercise.back.example.en}</Text>
+                <Text style={[base.caption, styles.center]}>
+                  {exercise.back.example.en}
+                </Text>
               </View>
             ) : null}
           </Card>
@@ -549,13 +613,13 @@ function Flashcard({
             />
             <Button
               label={copy.reviewSession.good}
-              variant="primary"
+              variant="ink"
               style={base.grow}
               onPress={() => onRate('good')}
             />
             <Button
               label={copy.reviewSession.easy}
-              variant="dark"
+              variant="primary"
               style={base.grow}
               onPress={() => onRate('easy')}
             />
@@ -695,12 +759,7 @@ function FillBlank({
 
       <View style={styles.prompt}>
         {exercise.questionType === 'fill_text_reading' ? (
-          <Jp
-            text={exercise.prompt.text}
-            size="jumbo"
-            bold
-            alwaysKanji
-          />
+          <Jp text={exercise.prompt.text} size="jumbo" bold alwaysKanji />
         ) : exercise.questionType === 'fill_text_translate' ? (
           <Jp {...exercise.prompt} size="jumbo" bold />
         ) : exercise.questionType === 'fill_text_reverse' ? (
@@ -852,12 +911,16 @@ function Feedback({
               {correct ? copy.reviewSession.correct : copy.reviewSession.wrong}
             </Text>
             {!correct ? (
-              <Text style={base.caption}>{copy.reviewSession.theAnswerWas(answer)}</Text>
+              <Text style={base.caption}>
+                {copy.reviewSession.theAnswerWas(answer)}
+              </Text>
             ) : null}
           </>
         )}
         {synonyms ? (
-          <Text style={base.caption}>{copy.reviewSession.alsoAccepted(synonyms)}</Text>
+          <Text style={base.caption}>
+            {copy.reviewSession.alsoAccepted(synonyms)}
+          </Text>
         ) : null}
         {stale ? (
           <Text style={base.caption} accessibilityRole="alert">
@@ -868,10 +931,7 @@ function Feedback({
 
       {stageChange ? (
         <View
-          style={[
-            styles.stageBanner,
-            !correct && styles.stageBannerDemote,
-          ]}
+          style={[styles.stageBanner, !correct && styles.stageBannerDemote]}
         >
           <Text
             style={[
@@ -879,7 +939,9 @@ function Feedback({
               !correct && styles.stageBannerTextDemote,
             ]}
           >
-            {correct ? copy.reviewSession.levelUp : copy.reviewSession.backAStep}
+            {correct
+              ? copy.reviewSession.levelUp
+              : copy.reviewSession.backAStep}
           </Text>
         </View>
       ) : null}
@@ -936,7 +998,9 @@ function Results({
     <Loadable state={result}>
       {r => (
         <View style={base.grow}>
-          <ScrollView contentContainerStyle={base.content}>
+          <ScrollView
+            contentContainerStyle={[base.content, styles.resultsContent]}
+          >
             <View style={styles.prompt}>
               <View style={styles.badge}>
                 <Icon
@@ -945,39 +1009,34 @@ function Results({
                   color={colors.positive}
                 />
               </View>
-              <Text style={styles.verdict}>{copy.sessionResults.excellent}</Text>
+              <Text style={styles.verdict}>
+                {copy.sessionResults.excellent}
+              </Text>
               <Facts
                 items={[
-                  { icon: 'tango', text: copy.sessionResults.reviewed(r.reviewed) },
+                  {
+                    icon: 'tango',
+                    text: copy.sessionResults.reviewed(r.reviewed),
+                  },
                   { icon: 'time', text: copy.common.minutes(r.minutes) },
                 ]}
               />
             </View>
 
             {r.biggestWin ? (
-              <>
-                <Text style={styles.eyebrow}>
+              // Stacked and centered, so long Tango keep to one line.
+              <View style={styles.win}>
+                <Text style={styles.winEyebrow}>
                   {copy.sessionResults.biggestWin}
                 </Text>
-                <Card>
-                  <View style={base.row}>
-                    <View style={styles.winIcon}>
-                      <Icon
-                        name="pin"
-                        size={fontSizes.xl}
-                        color={colors.accent}
-                      />
-                    </View>
-                    <View style={base.grow}>
-                      <View style={base.row}>
-                        <Jp {...r.biggestWin.tango} bold />
-                        <Text style={styles.strong}>{r.biggestWin.title}</Text>
-                      </View>
-                      <Text style={base.caption}>{r.biggestWin.detail}</Text>
-                    </View>
+                <Jp {...r.biggestWin.tango} bold size="lg" center oneLine />
+                <View style={base.row}>
+                  <View style={styles.winStrength}>
+                    <StrengthBar strength={r.biggestWin.strength} />
                   </View>
-                </Card>
-              </>
+                  <Text style={base.caption}>{r.biggestWin.detail}</Text>
+                </View>
+              </View>
             ) : null}
 
             {r.byArea.length > 0 ? (
@@ -1038,11 +1097,12 @@ function Results({
 }
 
 const styles = StyleSheet.create({
+  // Just under the progress bar, clear of the answer buttons and Continue.
   toastSlot: {
     position: 'absolute',
     left: space.lg,
     right: space.lg,
-    bottom: space.lg,
+    top: space.sm,
   },
   header: {
     paddingHorizontal: space.lg,
@@ -1055,6 +1115,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.sm,
     paddingVertical: space.lg,
+  },
+  wordRow: {
+    alignItems: 'flex-end',
+  },
+  playSpacer: {
+    width: sizes.touch,
+  },
+  // Centers the button on the word's line (about 1.3 times its size).
+  playButton: {
+    marginBottom: Math.max(0, (fontSizes.jumbo * 1.3 - sizes.touch) / 2),
   },
   meaningPrompt: {
     ...base.title,
@@ -1112,13 +1182,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.camera,
   },
+  // Outline only: the item itself stays visible, so the question is about
+  // the word, not remembering what was hidden.
   highlightBox: {
     position: 'absolute',
     borderWidth: sizes.border,
     borderStyle: 'dashed',
     borderColor: colors.accent,
     borderRadius: radii.sm,
-    backgroundColor: colors.accentSoft,
   },
   badge: {
     width: sizes.shutter,
@@ -1131,13 +1202,18 @@ const styles = StyleSheet.create({
   badgeWrong: {
     backgroundColor: colors.border,
   },
-  winIcon: {
-    width: sizes.touch,
-    height: sizes.touch,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
+  // Centered on the screen; still scrolls when taller than it.
+  resultsContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+  },
+  win: {
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  // Same width as the progress bar in Tango lists.
+  winStrength: {
+    width: sizes.mapHeight / 3,
   },
   revealedAnswer: {
     ...base.text,
@@ -1185,6 +1261,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: space.md,
     fontWeight: fontWeights.bold,
+  },
+  winEyebrow: {
+    ...base.label,
+    color: colors.accent,
   },
   eyebrow: {
     ...base.label,

@@ -288,20 +288,20 @@ describe('Prepare screen', () => {
     expect(allTexts(again)).not.toContain("It's your first time here");
   });
 
-  test('the header heart favourites the place', async () => {
+  test('the header heart favorites the place', async () => {
     const tree = await prepare('asagaya-pearl');
     const heart = () =>
       tree.root.findAll(
         n =>
           typeof n.props.accessibilityLabel === 'string' &&
-          /favourite/i.test(n.props.accessibilityLabel) &&
+          /favorite/i.test(n.props.accessibilityLabel) &&
           typeof n.props.onPress === 'function',
       )[0];
-    expect(heart().props.accessibilityLabel).toMatch(/^Favourite /);
+    expect(heart().props.accessibilityLabel).toMatch(/^Favorite /);
     await ReactTestRenderer.act(async () => {
       heart().props.onPress();
     });
-    expect(heart().props.accessibilityLabel).toMatch(/from favourites$/);
+    expect(heart().props.accessibilityLabel).toMatch(/from favorites$/);
   });
 
   test('without a plan: "Not planned" and a button that opens the sheet', async () => {

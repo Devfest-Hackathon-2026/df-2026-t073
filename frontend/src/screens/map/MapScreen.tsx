@@ -32,7 +32,7 @@ import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
 
 type MapFilter = 'all' | 'stars' | 'planned' | 'favorites';
 
-/** The Map tab: your Tango as stamps, centred on where you are. */
+/** The Map tab: your Tango as stamps, centered on where you are. */
 export function MapScreen({
   route,
 }: BottomTabScreenProps<TabParamList, 'Map'>): React.JSX.Element {
@@ -59,7 +59,7 @@ export function MapScreen({
     };
   }, []);
 
-  // Opened from a neighbourhood card: show that area's card straight away.
+  // Opened from a neighborhood card: show that area's card straight away.
   const startArea = route.params?.areaId;
   useEffect(() => {
     if (startArea && today.data) {
@@ -72,7 +72,7 @@ export function MapScreen({
     // "You are here" is the native location dot (showUser), not a pin.
     const all: MapPin[] = fromServer.filter(p => p.kind !== 'me');
     return all.filter(pin => {
-      // Favourite places only show under their own filter.
+      // Favorite places only show under their own filter.
       if (filter === 'favorites') {
         return pin.kind === 'favorite';
       }
@@ -176,7 +176,7 @@ export function MapScreen({
   );
 }
 
-/** A neighbourhood's Tango: review them or plan a visit. */
+/** A neighborhood's Tango: review them or plan a visit. */
 export function AreaCard({
   area,
   onClose,

@@ -9,7 +9,7 @@ import type {
 
 export type TabParamList = {
   Today: undefined;
-  /** Full Tango map; areaId opens that neighbourhood's card. */
+  /** Full Tango map; areaId opens that neighborhood's card. */
   Map: { areaId?: string } | undefined;
   /** Placeholder route; the center tab button opens the Capture modal instead. */
   CaptureTab: undefined;
@@ -45,7 +45,6 @@ export type RootStackParamList = {
   /** Upcoming visits (opened from Today). */
   Plans: undefined;
   /** Every Tango, searchable (opened from Review). */
-  AllTango: undefined;
   /** A user-made review list. */
   TangoList: { listId: string };
   /** One settings area from Me. */

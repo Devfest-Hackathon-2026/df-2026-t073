@@ -25,7 +25,7 @@ class ReviewCardResponse(BaseModel):
 
 class Collection(BaseModel):
     id: str
-    # A place or list name; "" for built-in collections (favourites, place cue),
+    # A place or list name; "" for built-in collections (favorites, place cue),
     # which the app names.
     label: str
     count: int

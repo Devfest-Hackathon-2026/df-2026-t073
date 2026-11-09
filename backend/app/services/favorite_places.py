@@ -1,4 +1,4 @@
-"""Favourite places: users/{uid}/favorite_places/{place_id}, a Place snapshot each."""
+"""Favorite places: users/{uid}/favorite_places/{place_id}, a Place snapshot each."""
 
 import logging
 from datetime import UTC, datetime
@@ -29,7 +29,7 @@ def _favorites(db: AsyncClient, uid: str) -> Any:
 
 
 async def list_favorite_places(*, db: AsyncClient, uid: str) -> list[Place]:
-    """The user's favourite places, newest first."""
+    """The user's favorite places, newest first."""
     query = (
         _favorites(db, uid)
         .order_by("added_at", direction=Query.DESCENDING)
@@ -40,17 +40,17 @@ async def list_favorite_places(*, db: AsyncClient, uid: str) -> list[Place]:
             Place.model_validate(doc.to_dict()["place"]) async for doc in query.stream()
         ]
     except (GoogleAPICallError, GoogleAuthError) as exc:
-        logger.exception("Failed to list favourite places for uid=%s", uid)
+        logger.exception("Failed to list favorite places for uid=%s", uid)
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to list favourite places.",
+            detail="Failed to list favorite places.",
         ) from exc
 
 
 async def add_favorite_place(
     *, db: AsyncClient, http: httpx.AsyncClient, uid: str, place_id: str
 ) -> Place:
-    """Favourite a place. Adding one twice keeps a single entry."""
+    """Favorite a place. Adding one twice keeps a single entry."""
     place = await get_place(http=http, db=db, place_id=place_id)
     try:
         await (
@@ -64,30 +64,30 @@ async def add_favorite_place(
             )
         )
     except (GoogleAPICallError, GoogleAuthError) as exc:
-        logger.exception("Failed to save favourite place %s for uid=%s", place_id, uid)
+        logger.exception("Failed to save favorite place %s for uid=%s", place_id, uid)
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to save favourite place.",
+            detail="Failed to save favorite place.",
         ) from exc
     return place
 
 
 async def remove_favorite_place(*, db: AsyncClient, uid: str, place_id: str) -> None:
-    """Un-favourite a place. Removing one that isn't a favourite does nothing."""
+    """Un-favorite a place. Removing one that isn't a favorite does nothing."""
     try:
         await _favorites(db, uid).document(place_id).delete()
     except (GoogleAPICallError, GoogleAuthError) as exc:
         logger.exception(
-            "Failed to remove favourite place %s for uid=%s", place_id, uid
+            "Failed to remove favorite place %s for uid=%s", place_id, uid
         )
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to remove favourite place.",
+            detail="Failed to remove favorite place.",
         ) from exc
 
 
 def favorite_pins(places: list[Place]) -> list[MapPin]:
-    """One map pin per favourite place."""
+    """One map pin per favorite place."""
     return [
         MapPin(
             id=f"fav-{p.id}",

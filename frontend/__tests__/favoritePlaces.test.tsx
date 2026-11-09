@@ -93,7 +93,7 @@ describe('useFavoritePlaces', () => {
     return null;
   }
 
-  test('starts from the saved favourites', async () => {
+  test('starts from the saved favorites', async () => {
     listMock.mockResolvedValue([TAIKI]);
     await render(<Probe />);
     expect(favorites.isFavorite('menya-taiki')).toBe(true);
@@ -118,7 +118,7 @@ describe('useFavoritePlaces', () => {
   });
 });
 
-describe('Map favourites', () => {
+describe('Map favorites', () => {
   // The Map keeps timers and a location lookup running; stop them after each test.
   let mounted: ReactTestRenderer.ReactTestRenderer | null = null;
   afterEach(async () => {
@@ -169,18 +169,18 @@ describe('Map favourites', () => {
     return tree;
   };
 
-  test('favourite pins show only under the Favourites filter', async () => {
+  test('favorite pins show only under the Favorites filter', async () => {
     const tree = await map();
     expect(texts(tree)).toContain('Koenji');
     expect(texts(tree)).not.toContain('麺屋たいき');
-    await press(tree, 'Favourites');
+    await press(tree, 'Favorites');
     expect(texts(tree)).toContain('麺屋たいき');
     expect(texts(tree)).not.toContain('Koenji');
   });
 
-  test('tapping a favourite pin opens Prepare for that place', async () => {
+  test('tapping a favorite pin opens Prepare for that place', async () => {
     const tree = await map();
-    await press(tree, 'Favourites');
+    await press(tree, 'Favorites');
     const marker = tree.root.findAll(
       n =>
         typeof n.props.onPress === 'function' &&

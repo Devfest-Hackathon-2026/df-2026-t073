@@ -15,11 +15,11 @@ class TestFormatAndStages:
         # Older card with no capture_format falls back to kind == 'object'.
         old_obj = card("o", kind="object")
         old_word = card("w", kind="menu_item")
-        # Explicit capture_format overrides Gemini's kind (e.g. OCR text labelled 'object').
-        ocr_labelled_obj = card("t", kind="object", capture_format="text")
+        # Explicit capture_format overrides Gemini's kind (e.g. OCR text labeled 'object').
+        ocr_labeled_obj = card("t", kind="object", capture_format="text")
         assert capture_format(old_obj) == "object"
         assert capture_format(old_word) == "text"
-        assert capture_format(ocr_labelled_obj) == "text"
+        assert capture_format(ocr_labeled_obj) == "text"
 
     def test_infer_stage_for_old_cards(self) -> None:
         assert card("s0", strength=0, image=True).review_stats.stage == "flashcard"

@@ -211,14 +211,16 @@ describe('flashcards skip the feedback screen', () => {
     expect(allTexts(tree)).toContain("Didn't count: practiced elsewhere");
   });
 
-  test('the results show the MVP and the next plan', async () => {
+  test('the results show the biggest win and the next plan', async () => {
     sessionMock.mockResolvedValueOnce({
       sessionId: 'rs_test',
       exercises: [SESSION[0]],
     });
     const tree = await rateFirstFlashcard('Good');
     const next = SESSION_RESULT.next!;
-    expect(allTexts(tree)).toContain("Today's MVP");
+    // The biggest win, under its heading.
+    expect(allTexts(tree)).toContain('Most improved Tango');
+    expect(allTexts(tree)).toContain(SESSION_RESULT.biggestWin!.detail);
     // The next plan: a label, the place, its meaning and the time, each on its own.
     expect(allTexts(tree)).toContain('Your next plan');
     expect(allTexts(tree)).toContain(next.place.name.meaning);

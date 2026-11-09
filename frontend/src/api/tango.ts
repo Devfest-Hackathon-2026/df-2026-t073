@@ -283,7 +283,7 @@ export const getTango = pick(
     ),
 );
 
-/** Marks or unmarks a Tango as a favourite. */
+/** Marks or unmarks a Tango as a favorite. */
 export const setFavorite = pick(
   'tango',
   (id: string, favorite: boolean) => {
