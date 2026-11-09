@@ -78,6 +78,58 @@ export function Button({
  * An icon in front of a line of text, in the text's own color and size
  * (eyebrows like "Gemini suggests", place lines, statuses).
  */
+/** A small round number, e.g. how many Tango a collection has. */
+export function CountBadge({
+  count,
+  selected = false,
+}: {
+  count: number;
+  selected?: boolean;
+}): React.JSX.Element {
+  return (
+    <View style={[styles.countBadge, selected && styles.countBadgeSelected]}>
+      <Text style={[styles.countText, selected && styles.countTextSelected]}>
+        {count}
+      </Text>
+    </View>
+  );
+}
+
+/** One fact in a Facts row; empty values are left out. */
+export interface Fact {
+  icon: IconName;
+  text: string | number | null | undefined;
+}
+
+/** Small facts side by side, each with an icon (e.g. category, area, Tango count). */
+export function Facts({
+  items,
+  inverse = false,
+}: {
+  items: Fact[];
+  /** Light text, for dark or accent cards. */
+  inverse?: boolean;
+}): React.JSX.Element {
+  return (
+    <View style={styles.facts}>
+      {items
+        .filter(
+          item =>
+            item.text !== null && item.text !== undefined && item.text !== '',
+        )
+        .map(item => (
+          <IconLabel
+            key={`${item.icon}-${item.text}`}
+            icon={item.icon}
+            style={[base.caption, inverse && styles.factsInverse]}
+          >
+            {item.text}
+          </IconLabel>
+        ))}
+    </View>
+  );
+}
+
 export function IconLabel({
   icon,
   children,
@@ -174,6 +226,7 @@ export function Chip({
   selected = false,
   dashed = false,
   icon,
+  count,
   onPress,
 }: {
   label?: string;
@@ -183,6 +236,8 @@ export function Chip({
   dashed?: boolean;
   /** A Lucide icon, or the hanamaru mark for mastered Tango. */
   icon?: IconName | 'hanamaru';
+  /** A number shown in a small badge after the label, e.g. a collection's size. */
+  count?: number;
   onPress?: () => void;
 }): React.JSX.Element {
   const content = (
@@ -197,6 +252,9 @@ export function Chip({
         <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
           {label}
         </Text>
+      ) : null}
+      {count !== undefined ? (
+        <CountBadge count={count} selected={selected} />
       ) : null}
     </>
   );
@@ -529,6 +587,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,
+  },
+  facts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: space.md,
+    rowGap: space.xxs,
+  },
+  factsInverse: {
+    color: colors.textInverse,
+  },
+  countBadge: {
+    minWidth: space.lg,
+    paddingHorizontal: space.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+  },
+  countBadgeSelected: {
+    backgroundColor: colors.accent,
+  },
+  countText: {
+    ...base.caption,
+    fontWeight: fontWeights.bold,
+    color: colors.text,
+  },
+  countTextSelected: {
+    color: colors.textInverse,
   },
   iconLabel: {
     flexDirection: 'row',

@@ -14,7 +14,7 @@ const GENERIC_STEPS = [
 export const BRIEFINGS: Record<string, MockBriefing> = {
   'menya-taiki': {
     place: PLACES['menya-taiki'],
-    source: 'Prepared by Gemini · grounded in Google Maps (mock)',
+    source: 'Prepared by Gemini with Google Maps (mock)',
     steps: [
       'People mention a ticket machine by the door. You buy a ticket first, then sit.',
       "Reviews say it's cash only. Bring coins or ¥1000 notes.",
@@ -48,7 +48,7 @@ export function briefingFor(placeId: string): MockBriefing {
   const place = PLACES[placeId] ?? PLACES['menya-taiki'];
   return {
     place,
-    source: 'Prepared by Gemini · grounded in Google Maps (mock)',
+    source: 'Prepared by Gemini with Google Maps (mock)',
     steps: GENERIC_STEPS,
     tango: [TANGO['tachiiri-kinshi'], TANGO.igai],
     tips: [],

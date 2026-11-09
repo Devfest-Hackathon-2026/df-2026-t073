@@ -117,7 +117,8 @@ test('saved sentences show on the Tango page and can be removed', async () => {
     />,
   );
   expect(allTexts(tree)).toContain('Your sentences');
-  expect(allTexts(tree)).toContain('Suggested · 麺屋たいき');
+  expect(allTexts(tree)).toContain('Suggested');
+  expect(allTexts(tree)).toContain('麺屋たいき');
   expect(allTexts(tree)).toContain('Firm noodles, please.');
   await press(tree, 'Remove "かためでお願いします。"');
   expect(allTexts(tree)).not.toContain('Your sentences');

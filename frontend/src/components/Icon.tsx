@@ -32,6 +32,7 @@ import {
   Shield,
   Sparkles,
   Trash2,
+  Tag,
   Triangle,
   Trophy,
   Type,
@@ -84,6 +85,10 @@ const ICONS = {
   award: Trophy,
   // △: a softer "not quite" mark than a cross, as on Japanese answer sheets.
   triangle: Triangle,
+  /** A place's category, e.g. "Ramen". */
+  category: Tag,
+  /** A count of Tango. */
+  tango: Layers,
   calendar: CalendarDays,
   forbidden: Ban,
 } as const;

@@ -133,9 +133,15 @@ export function Jp({
                 <Icon name="play" color={colors.textInverse} />
               </Pressable>
             </View>
-            <Text style={styles.peekReading}>
-              {[text, reading, romaji].filter(Boolean).join(' · ')}
-            </Text>
+            <View>
+              {[text, reading, romaji]
+                .filter((line, i, all) => line && all.indexOf(line) === i)
+                .map(line => (
+                  <Text key={line} style={styles.peekReading}>
+                    {line}
+                  </Text>
+                ))}
+            </View>
             <Pressable
               style={[styles.save, saver.busy && styles.saveDone]}
               disabled={saver.busy}

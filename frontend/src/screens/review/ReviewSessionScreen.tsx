@@ -21,6 +21,7 @@ import { Screen, Toast } from '../../components/layout';
 import {
   Button,
   Card,
+  Facts,
   IconButton,
   IconLabel,
   Loadable,
@@ -229,8 +230,6 @@ function Session({
             <Flashcard
               key={exercise.id}
               exercise={exercise}
-              index={index}
-              total={exercises.length}
               showPlace={showPlace}
               onRate={rating => rateFlashcard(exercise, rating)}
             />
@@ -238,8 +237,6 @@ function Session({
             <Mcq
               key={exercise.id}
               exercise={exercise}
-              index={index}
-              total={exercises.length}
               showPlace={showPlace}
               onPick={pickedIndex =>
                 recordOutcome(pickedIndex === exercise.answerIndex, {
@@ -252,8 +249,6 @@ function Session({
             <FillBlank
               key={exercise.id}
               exercise={exercise}
-              index={index}
-              total={exercises.length}
               showPlace={showPlace}
               onAnswer={(correct, typed) =>
                 recordOutcome(
@@ -408,9 +403,12 @@ export function PhotoLayerView({
           </View>
         </View>
       )}
-      <IconLabel icon="pin" style={base.caption}>
-        {photo.caption}
-      </IconLabel>
+      <Facts
+        items={[
+          { icon: 'photo', text: copy.reviewSession.yourPhoto },
+          { icon: 'pin', text: photo.area },
+        ]}
+      />
     </View>
   );
 }
@@ -439,14 +437,10 @@ function PlaceCue({
 
 function Flashcard({
   exercise,
-  index,
-  total,
   showPlace,
   onRate,
 }: {
   exercise: FlashcardExercise;
-  index: number;
-  total: number;
   showPlace: boolean;
   onRate: (rating: 'again' | 'good' | 'easy') => void;
 }): React.JSX.Element {
@@ -468,7 +462,7 @@ function Flashcard({
   return (
     <View style={base.stack}>
       <Text style={base.label}>
-        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+        {QUESTION_TYPE_LABEL[exercise.questionType]}
       </Text>
       <PhotoLayerView photo={exercise.photo} />
 
@@ -598,21 +592,17 @@ function mcqHeading(exercise: McqExercise): string {
 
 function Mcq({
   exercise,
-  index,
-  total,
   showPlace,
   onPick,
 }: {
   exercise: McqExercise;
-  index: number;
-  total: number;
   showPlace: boolean;
   onPick: (option: number) => void;
 }): React.JSX.Element {
   return (
     <View style={base.stack}>
       <Text style={base.label}>
-        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+        {QUESTION_TYPE_LABEL[exercise.questionType]}
       </Text>
       <PhotoLayerView photo={exercise.photo} />
 
@@ -671,14 +661,10 @@ function fillInstruction(exercise: FillBlankExercise): string {
 
 function FillBlank({
   exercise,
-  index,
-  total,
   showPlace,
   onAnswer,
 }: {
   exercise: FillBlankExercise;
-  index: number;
-  total: number;
   showPlace: boolean;
   onAnswer: (correct: boolean, typedAnswer?: string) => void;
 }): React.JSX.Element {
@@ -710,7 +696,7 @@ function FillBlank({
   return (
     <View style={base.stack}>
       <Text style={base.label}>
-        {QUESTION_TYPE_LABEL[exercise.questionType]} · {index + 1} of {total}
+        {QUESTION_TYPE_LABEL[exercise.questionType]}
       </Text>
       <PhotoLayerView photo={exercise.photo} />
 
@@ -802,7 +788,6 @@ function answerTextFor(exercise: Exercise): string {
     return copy.reviewSession.flashcardAnswer(
       exercise.back.text,
       exercise.back.reading,
-      exercise.back.meaning,
     );
   }
   if (exercise.type === 'mcq') {
@@ -908,11 +893,12 @@ function Feedback({
 
       <Card>
         <View style={base.rowBetween}>
-          <View style={base.row}>
+          <View style={base.grow}>
             <Jp {...wordJp} size="xl" bold />
-            <Text style={base.caption}>
-              {[wordJp.reading, meaning].filter(Boolean).join(' · ')}
-            </Text>
+            {wordJp.reading ? (
+              <Text style={base.caption}>{wordJp.reading}</Text>
+            ) : null}
+            {meaning ? <Text style={base.caption}>{meaning}</Text> : null}
           </View>
           <IconButton
             icon="play"
@@ -967,9 +953,12 @@ function Results({
                 />
               </View>
               <Text style={styles.verdict}>{copy.sessionResults.excellent}</Text>
-              <Text style={base.caption}>
-                {copy.sessionResults.summary(r.reviewed, r.minutes)}
-              </Text>
+              <Facts
+                items={[
+                  { icon: 'tango', text: copy.sessionResults.reviewed(r.reviewed) },
+                  { icon: 'time', text: copy.common.minutes(r.minutes) },
+                ]}
+              />
             </View>
 
             {r.biggestWin ? (
@@ -1016,13 +1005,18 @@ function Results({
 
             {r.next ? (
               <Card variant="soft">
-                <IconLabel icon="calendar" style={base.text}>
-                  {copy.sessionResults.next(
-                    r.next.place.name.text,
-                    r.next.place.name.meaning,
-                    formatVisitTime(r.next.when),
-                  )}
-                </IconLabel>
+                <Text style={styles.eyebrow}>
+                  {copy.sessionResults.nextPlan}
+                </Text>
+                <Jp {...r.next.place.name} bold size="lg" />
+                {r.next.place.name.meaning ? (
+                  <Text style={base.caption}>{r.next.place.name.meaning}</Text>
+                ) : null}
+                <Facts
+                  items={[
+                    { icon: 'calendar', text: formatVisitTime(r.next.when) },
+                  ]}
+                />
               </Card>
             ) : null}
           </ScrollView>

@@ -198,9 +198,10 @@ export function PlanVisitSheet({
           </>
         ) : (
           <>
-            <Text style={base.text}>
-              {copy.plans.planned(formatVisitTime(existing.when))}
-            </Text>
+            <View>
+              <Text style={base.label}>{copy.plans.planned}</Text>
+              <Text style={base.heading}>{formatVisitTime(existing.when)}</Text>
+            </View>
             <View style={base.row}>
               <Button
                 label={copy.plans.change}

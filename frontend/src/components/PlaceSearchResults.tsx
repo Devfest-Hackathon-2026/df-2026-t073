@@ -5,6 +5,7 @@ import { base } from '../styles/base';
 import { colors, radii, space } from '../styles/tokens';
 import type { Place } from '../types';
 import { Jp } from './Jp';
+import { Facts } from './ui';
 
 /** Place search results; the caller decides what picking one does. */
 export function PlaceSearchResults({
@@ -32,11 +33,12 @@ export function PlaceSearchResults({
             onPress={() => onPick(place)}
           >
             <Jp {...place.name} bold />
-            {[place.category, place.area].some(Boolean) ? (
-              <Text style={base.caption}>
-                {[place.category, place.area].filter(Boolean).join(' · ')}
-              </Text>
-            ) : null}
+            <Facts
+              items={[
+                { icon: 'category', text: place.category },
+                { icon: 'pin', text: place.area },
+              ]}
+            />
           </Pressable>
           {renderTrailing?.(place)}
         </View>

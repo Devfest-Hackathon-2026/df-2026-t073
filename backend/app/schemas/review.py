@@ -68,7 +68,8 @@ class PhotoLayer(BaseModel):
 
     image_url: str
     box: GapBox
-    caption: str
+    # Where the photo was taken (an area name), or "" when no place was saved.
+    area: str = ""
 
 
 class Example(BaseModel):
@@ -275,5 +276,5 @@ class SessionResultResponse(BaseModel):
     minutes: int
     biggest_win: BiggestWin | None = None
     by_area: list[AreaCount]
-    # The user's next planned visit, if any (shown as "Next: … · Thu 12:00").
+    # The user's next planned visit, if any.
     next: Visit | None = None

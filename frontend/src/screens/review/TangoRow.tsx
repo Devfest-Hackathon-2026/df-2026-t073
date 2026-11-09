@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Hanamaru } from '../../components/Hanamaru';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
-import { StrengthBar } from '../../components/ui';
+import {
+  Facts,
+  StrengthBar,
+} from '../../components/ui';
 import { base } from '../../styles/base';
 import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
 import type { Tango } from '../../types';
@@ -42,10 +45,8 @@ export function TangoRow({
         </View>
         <Text style={base.caption} numberOfLines={1}>
           {tango.meaning}
-          {tango.sightings[0]
-            ? copy.tangoRow.place(tango.sightings[0].placeName)
-            : ''}
         </Text>
+        <Facts items={[{ icon: 'pin', text: tango.sightings[0]?.placeName }]} />
       </View>
       <View style={styles.strength}>
         <StrengthBar strength={tango.strength} />

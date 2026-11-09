@@ -108,3 +108,13 @@ class TestShortLabels:
     def test_steps_count_down_to_a_stamp(self, strength: int, steps: int) -> None:
         ex = build_exercise(card("a", strength=strength), Distractors(), 0, "rs")
         assert ex.steps_to_stamp == steps
+
+
+def test_photo_layer_sends_the_area_not_a_sentence() -> None:
+    ex = build_exercise(
+        card("a", stage="flashcard", image=True, places=("Koenji",)),
+        Distractors(),
+        0,
+        "rs",
+    )
+    assert ex.photo is not None and ex.photo.area == "Koenji"

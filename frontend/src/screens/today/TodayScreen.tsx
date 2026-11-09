@@ -11,6 +11,7 @@ import {
   Button,
   Card,
   Chip,
+  Facts,
   IconButton,
   Loadable,
   NumberedStep,
@@ -283,19 +284,19 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
     <Card variant="accent">
-      <Text style={styles.eyebrowInverse}>
-        {copy.today.upNext(formatVisitTime(visit.when))}
-      </Text>
+      <Text style={styles.eyebrowInverse}>{copy.today.upNext}</Text>
+      <Text style={styles.upNextTime}>{formatVisitTime(visit.when)}</Text>
       <View style={base.rowBetween}>
         <View style={base.grow}>
           <Jp {...visit.place.name} bold size="lg" tone="inverse" />
-          <Text style={styles.captionInverse}>
-            {copy.today.visitLine(
-              visit.place.category,
-              visit.place.area,
-              visit.tangoCount,
-            )}
-          </Text>
+          <Facts
+            inverse
+            items={[
+              { icon: 'category', text: visit.place.category },
+              { icon: 'pin', text: visit.place.area },
+              { icon: 'tango', text: copy.common.tangoCount(visit.tangoCount) },
+            ]}
+          />
         </View>
         <Button
           label={copy.today.prepare}
@@ -382,9 +383,12 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
             en={copy.today.reviewTitle}
             jp={copy.today.reviewTitleJp}
           />
-          <Text style={base.caption}>
-            {copy.today.reviewSummary(card.dueCount, card.minutes)}
-          </Text>
+          <Facts
+            items={[
+              { icon: 'review', text: copy.common.due(card.dueCount) },
+              { icon: 'time', text: copy.common.aboutMinutes(card.minutes) },
+            ]}
+          />
           <Text style={base.caption}>
             {copy.today.reviewFrom(card.areas)}
           </Text>
@@ -554,6 +558,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: space.md,
   },
+  upNextTime: {
+    ...base.heading,
+    color: colors.textInverse,
+  },
   plansLinkText: {
     ...base.caption,
     color: colors.accent,
@@ -578,10 +586,6 @@ const styles = StyleSheet.create({
   },
   eyebrowInverse: {
     ...base.label,
-    color: colors.textInverse,
-  },
-  captionInverse: {
-    ...base.caption,
     color: colors.textInverse,
   },
   stepTitle: {

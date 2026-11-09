@@ -9,10 +9,11 @@ import {
   Button,
   Card,
   Chip,
+  Facts,
+  IconLabel,
   Loadable,
   NumberedStep,
   SectionTitle,
-  IconLabel,
 } from '../../components/ui';
 import { FavoriteHeart } from '../../features/places/FavoriteHeart';
 import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
@@ -60,6 +61,9 @@ export function PrepareScreen({
             onPress={() => navigation.navigate('Rehearse', { placeId })}
           />
           <View style={styles.center}>
+            <IconLabel icon="time" style={base.caption}>
+              {copy.prepare.rehearseTime}
+            </IconLabel>
             <IconLabel icon="ai" style={base.caption}>
               {copy.prepare.aiNote}
             </IconLabel>
@@ -89,10 +93,13 @@ export function PrepareScreen({
           <View style={base.stack}>
             <View style={base.stackSm}>
               <Jp {...data.place.name} bold size="xxl" />
-              <Text style={base.caption}>
-                {data.place.category} · {data.place.area}
-                {data.place.note ? copy.prepare.placeNote(data.place.note) : ''}
-              </Text>
+              <Facts
+                items={[
+                  { icon: 'category', text: data.place.category },
+                  { icon: 'pin', text: data.place.area },
+                  { icon: 'hint', text: data.place.note },
+                ]}
+              />
               <View style={base.row}>
                 <Chip icon="ai" label={data.source} tone="accent" />
               </View>
@@ -100,14 +107,20 @@ export function PrepareScreen({
 
             <Card>
               <View style={base.rowBetween}>
-                <IconLabel
-                  icon={planned ? 'done' : 'calendar'}
-                  style={planned ? styles.planned : base.text}
-                >
-                  {planned
-                    ? copy.plans.planned(formatVisitTime(planned.when))
-                    : copy.plans.notPlanned}
-                </IconLabel>
+                {planned ? (
+                  <View>
+                    <IconLabel icon="done" style={styles.planned}>
+                      {copy.plans.planned}
+                    </IconLabel>
+                    <Text style={base.text}>
+                      {formatVisitTime(planned.when)}
+                    </Text>
+                  </View>
+                ) : (
+                  <IconLabel icon="calendar" style={base.text}>
+                    {copy.plans.notPlanned}
+                  </IconLabel>
+                )}
                 <Button
                   label={planned ? copy.plans.change : copy.plans.planVisit}
                   variant="secondary"
@@ -183,9 +196,12 @@ export function PrepareScreen({
                 <View key={tip.id} style={styles.tip}>
                   <Text style={base.text}>{copy.prepare.tipQuote(tip.quote)}</Text>
                   <View style={base.rowBetween}>
-                    <Text style={base.caption}>
-                      {copy.prepare.tipMeta(tip.learners, tip.when)}
-                    </Text>
+                    <Facts
+                      items={[
+                        { icon: 'people', text: copy.prepare.learners(tip.learners) },
+                        { icon: 'time', text: tip.when },
+                      ]}
+                    />
                     {tip.inRehearsal ? (
                       <Text style={styles.inRehearsal}>
                         {copy.prepare.inRehearsal}

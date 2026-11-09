@@ -1,12 +1,12 @@
 import { PROFILE } from '../mocks/user';
 import type { ProfileUpdate, ReadingLevel, UserProfile } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
+import { copy } from '../copy';
 
 /** Backend shape (backend/app/schemas/user.py). */
 interface ProfileResponse {
   uid: string;
   name: string;
-  level_note: string;
   reading_level: ReadingLevel | null;
   home_area: {
     label: string;
@@ -20,7 +20,9 @@ interface ProfileResponse {
 function toProfile(r: ProfileResponse): UserProfile {
   return {
     name: r.name,
-    levelNote: r.level_note,
+    levelNote: r.reading_level
+      ? copy.me.levelNotes[r.reading_level]
+      : copy.me.levelNotSet,
     readingLevel: r.reading_level,
     homeArea: r.home_area
       ? {

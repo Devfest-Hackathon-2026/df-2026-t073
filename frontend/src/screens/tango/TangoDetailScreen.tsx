@@ -14,6 +14,8 @@ import { TangoMap } from '../../components/TangoMap';
 import {
   Button,
   Card,
+  Chip,
+  Facts,
   IconButton,
   IconLabel,
   Loadable,
@@ -294,15 +296,13 @@ export function TangoDetailScreen({
                   <View key={sentence.id} style={styles.phrase}>
                     <View style={base.grow}>
                       <Text style={base.label}>
-                        {copy.tangoDetail.sentenceMeta(
-                          sentence.kind,
-                          sentence.placeName,
-                        )}
+                        {copy.tangoDetail.sentenceKind(sentence.kind)}
                       </Text>
                       <Jp {...sentence.jp} />
                       {sentence.jp.meaning ? (
                         <Text style={base.caption}>{sentence.jp.meaning}</Text>
                       ) : null}
+                      <Facts items={[{ icon: 'pin', text: sentence.placeName }]} />
                     </View>
                     <IconButton
                       icon="play"
@@ -349,9 +349,14 @@ export function TangoDetailScreen({
                       </Text>
                     ) : null}
                   </View>
-                  {event.badge ? (
-                    <Text style={styles.badge}>{event.badge}</Text>
-                  ) : null}
+                  <View style={styles.eventSide}>
+                    {event.badge ? (
+                      <Text style={styles.badge}>{event.badge}</Text>
+                    ) : null}
+                    {event.when ? (
+                      <Text style={base.caption}>{event.when}</Text>
+                    ) : null}
+                  </View>
                 </View>
               ))}
             </Card>
@@ -436,16 +441,17 @@ function PlacesCard({ tango }: { tango: Tango }): React.JSX.Element | null {
         </View>
       ) : null}
       {groups.map(g => (
-        <IconLabel
-          key={g.key}
-          icon="pin"
-          style={base.caption}
-          numberOfLines={1}
-        >
-          {g.name}
-          {g.count > 1 ? copy.tangoDetail.timesSeen(g.count) : ''} ·{' '}
-          {formatDay(g.lastSeen)}
-        </IconLabel>
+        <View key={g.key} style={styles.seenRow}>
+          <View style={base.grow}>
+            <IconLabel icon="pin" style={base.caption} numberOfLines={1}>
+              {g.name}
+            </IconLabel>
+          </View>
+          {g.count > 1 ? (
+            <Chip label={copy.tangoDetail.timesSeen(g.count)} tone="outline" />
+          ) : null}
+          <Text style={base.caption}>{formatDay(g.lastSeen)}</Text>
+        </View>
       ))}
     </Card>
   );
@@ -465,6 +471,15 @@ const eventStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  seenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  eventSide: {
+    alignItems: 'flex-end',
+    gap: space.xxs,
+  },
   miniMap: {
     height: sizes.mapHeight * 0.8,
     borderRadius: radii.md,

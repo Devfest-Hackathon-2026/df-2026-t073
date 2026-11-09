@@ -7,6 +7,7 @@ import { Icon } from '../../components/Icon';
 import {
   Button,
   Card,
+  Facts,
   Loadable,
   SegmentedControl,
   ToggleRow,
@@ -226,9 +227,12 @@ function HomeAreaCard({
                 <Text style={styles.rowLabel}>
                   {place.name.meaning || place.name.text}
                 </Text>
-                <Text style={base.caption}>
-                  {[place.area, place.category].filter(Boolean).join(' · ')}
-                </Text>
+                <Facts
+                  items={[
+                    { icon: 'pin', text: place.area },
+                    { icon: 'category', text: place.category },
+                  ]}
+                />
               </View>
             </Pressable>
           ))}
@@ -472,10 +476,12 @@ export function DeveloperSection(): React.JSX.Element {
         <Text style={base.label}>{copy.developer.backendConnection}</Text>
         <Text style={base.caption}>
           {copy.developer.data(
-            USE_MOCKS ? copy.developer.mockData([...LIVE_APIS]) : copy.developer.backend,
-            API_BASE_URL,
+            USE_MOCKS
+              ? copy.developer.mockData([...LIVE_APIS])
+              : copy.developer.backend,
           )}
         </Text>
+        <Text style={base.caption}>{copy.developer.baseUrl(API_BASE_URL)}</Text>
         <Text style={base.caption}>{copy.developer.health(health)}</Text>
         <Button
           label={copy.developer.checkHealth}
@@ -494,14 +500,20 @@ export function DeveloperSection(): React.JSX.Element {
         <Text style={base.label}>{copy.developer.userAccount}</Text>
         <Text style={base.caption}>
           {copy.developer.status(AUTH_LABEL[auth.status])}
-          {auth.user?.email
-            ? copy.developer.email(auth.user.email)
-            : auth.user?.isAnonymous
-            ? copy.developer.anonymous
-            : ''}
-          {auth.user ? copy.developer.uid(auth.user.uid.slice(0, 8)) : ''}
-          {auth.error ? copy.developer.authError(auth.error) : ''}
         </Text>
+        {auth.user?.email ? (
+          <Text style={base.caption}>{copy.developer.email(auth.user.email)}</Text>
+        ) : auth.user?.isAnonymous ? (
+          <Text style={base.caption}>{copy.developer.anonymous}</Text>
+        ) : null}
+        {auth.user ? (
+          <Text style={base.caption}>
+            {copy.developer.uid(auth.user.uid.slice(0, 8))}
+          </Text>
+        ) : null}
+        {auth.error ? (
+          <Text style={base.caption}>{copy.developer.authError(auth.error)}</Text>
+        ) : null}
 
         <Text style={styles.subLabel}>{copy.developer.testCredentials}</Text>
         <TextInput

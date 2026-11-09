@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.schemas.flashcard import FlashcardResponse, ReviewStats, Sighting
-from app.services.profile import DEFAULT_NAME, build_profile, display_name, level_note
+from app.services.profile import DEFAULT_NAME, build_profile, display_name
 
 NOW = datetime(2026, 11, 8, tzinfo=timezone.utc)
 
@@ -32,11 +32,6 @@ def test_chosen_name_wins_over_sign_in_name() -> None:
 def test_anonymous_users_get_a_default_name() -> None:
     assert display_name({"name": None}) == DEFAULT_NAME
     assert display_name({"display_name": "   "}) == DEFAULT_NAME
-
-
-def test_level_note() -> None:
-    assert level_note("kana") == "Reads hiragana and katakana"
-    assert level_note(None) == "Reading level not set yet"
 
 
 def test_stats_count_tango_stars_and_distinct_places() -> None:

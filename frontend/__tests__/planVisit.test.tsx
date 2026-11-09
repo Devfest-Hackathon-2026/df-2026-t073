@@ -145,7 +145,8 @@ describe('PlanVisitSheet', () => {
 
   test('an existing plan shows Change and Remove', async () => {
     const tree = await sheet(EXISTING);
-    expect(allTexts(tree)).toContain('Planned · Thu 12:00');
+    expect(allTexts(tree)).toContain('Planned');
+    expect(allTexts(tree)).toContain('Thu 12:00');
     await press(tree, 'Remove');
     expect(deleteMock).toHaveBeenCalledWith('visit-1');
     expect(createMock).not.toHaveBeenCalled();
@@ -261,7 +262,7 @@ describe('Prepare screen', () => {
 
   test('with a plan: its day and time, and Change', async () => {
     const tree = await prepare('nakano-ward-office');
-    expect(allTexts(tree)).toContain('Planned · ');
+    expect(allTexts(tree)).toContain('Planned');
     await press(tree, 'Change');
     expect(allTexts(tree)).toContain('Remove');
   });

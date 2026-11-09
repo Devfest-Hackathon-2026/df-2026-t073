@@ -41,6 +41,12 @@ const common = {
   /** Sun..Sat, indexed by Date.getDay(). */
   weekdays: WEEKDAYS,
   play: (text: string) => `Play ${text}`,
+  // Facts shown side by side with icons (no separators).
+  tangoCount: (n: number) => `${n} Tango`,
+  placeCount: (n: number) => (n === 1 ? '1 place' : `${n} places`),
+  minutes: (n: number) => `${n} min`,
+  aboutMinutes: (n: number) => `About ${n} min`,
+  due: (n: number) => `${n} due`,
   open: (text: string) => `Open ${text}`,
   /** Light, upbeat lines shown while something loads. */
   loadingLines: ['Gathering your words…', 'Lining things up…', 'Almost there…'],
@@ -95,8 +101,7 @@ const saveWord = {
 /** "How it grew" events on the Tango page. */
 const history = {
   caught: 'Caught',
-  seenAgain: 'Seen again',
-  seenWithCamera: 'camera',
+  seenAgain: 'Seen again with the camera',
   missedInReview: 'Missed in review',
   gotItInReview: 'Got it in review',
 };
@@ -143,8 +148,6 @@ const errors = {
 const captureToday = {
   loadingLines: ["Counting today's catch…"],
   title: "Today's catch",
-  summary: (tango: number, places: number) =>
-    `${tango} Tango · ${places} places`,
   empty: 'Nothing caught yet today.',
   reviewed: 'Reviewed',
 };
@@ -156,8 +159,6 @@ const plans = {
   searchA11y: 'Search places to visit',
   empty: 'No visits planned yet.',
   cancelVisit: (place: string) => `Cancel visit to ${place}`,
-  placeLine: (category: string, area: string, tango: number) =>
-    `${category} · ${area} · ${tango} Tango`,
   prepare: 'Prepare',
   // Plan sheet (Prepare, Today)
   sheetTitle: (place: string) => `Plan a visit to ${place}`,
@@ -175,7 +176,7 @@ const plans = {
   slotLabel: (name: string, time: string) => `${name} ${time}`,
   addToPlans: 'Add to plans',
   saveChange: 'Save change',
-  planned: (when: string) => `Planned · ${when}`,
+  planned: 'Planned',
   change: 'Change',
   remove: 'Remove',
   notPlanned: 'Not planned',
@@ -192,7 +193,7 @@ const rehearseResults = {
   rehearseAgain: 'Rehearse again',
   title: 'Results',
   niceWork: 'Nice work!',
-  hintsUsed: (n: number) => `· used ${n} hint${n === 1 ? '' : 's'}`,
+  hintsUsed: (n: number) => `Used ${n} hint${n === 1 ? '' : 's'}`,
   feedbackBy: 'Feedback by Gemini',
   staff: 'Staff:',
   /** Marks for each of your lines: ○ natural, △ could be better. */
@@ -237,7 +238,6 @@ const lists = {
 
 /** Tango rows in lists: the first place it was seen. */
 const tangoRow = {
-  place: (name: string) => ` · ${name}`,
 };
 
 const meSections = {
@@ -254,13 +254,10 @@ const review = {
   title: 'Review',
   titleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
   quickReview: 'Quick review',
-  dueSummary: (due: number, minutes: number) => `${due} due · ${minutes} min`,
   start: 'Start',
   collections: 'Collections',
-  collectionChip: (label: string, count: number) => `${label} · ${count}`,
   recentTango: 'Recent Tango',
-  allTango: (total?: number) =>
-    `All Tango${total !== undefined ? ` · ${total}` : ''}`,
+  allTango: 'All Tango',
   nothingCaught: 'Nothing caught yet',
   /** Names of the built-in collections. */
   favourites: 'Favourites',
@@ -282,8 +279,6 @@ const mapScreen = {
   /** Heart on a place (Prepare, search results). */
   favoritePlace: (name: string) => `Favourite ${name}`,
   unfavoritePlace: (name: string) => `Remove ${name} from favourites`,
-  areaSummary: (tango: number, places: number) =>
-    `${tango} Tango · ${places} places`,
   reviewThese: 'Review these',
   planVisit: 'Plan a visit',
 };
@@ -298,6 +293,14 @@ const me = {
   statPlaces: 'Places',
   statDue: 'Due today',
   logOut: 'Log out of this device',
+  /** Under your name, from your reading level. */
+  levelNotes: {
+    none: 'Just starting, with romaji for now',
+    kana: 'Reads hiragana and katakana',
+    some_kanji: 'Reads some everyday kanji',
+    most: 'Reads most signs and menus',
+  },
+  levelNotSet: 'Reading level not set yet',
   credits:
     'Dictionary data: JMdict, © Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0.',
 };
@@ -308,11 +311,11 @@ const prepare = {
     "Picking the words you'll hear at the counter…",
     'Planning your first moves inside…',
   ],
-  rehearse: 'Rehearse with staff · 2 min',
+  rehearse: 'Rehearse with staff',
+  rehearseTime: 'About 2 min',
   aiNote: 'AI suggestion from reviews; may be out of date.',
   title: 'Prepare',
   titleJp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' },
-  placeNote: (note: string) => ` · ${note}`,
   whatToExpect: 'What to expect',
   whatToExpectJp: {
     text: 'お店の流れ',
@@ -325,7 +328,7 @@ const prepare = {
   tipsSubtitle: 'Anonymous tips from other learners',
   noTips: 'No tips for this place yet.',
   tipQuote: (quote: string) => `"${quote}"`,
-  tipMeta: (learners: number, when: string) => `${learners} learners · ${when}`,
+  learners: (n: number) => (n === 1 ? '1 learner' : `${n} learners`),
   inRehearsal: 'In your rehearsal',
 };
 
@@ -344,10 +347,11 @@ const rehearse = {
     'Recording is not available here. Choose a reply instead.',
   holdWhileSpeaking: 'Hold the button while you speak.',
   recordingFailed: 'Recording failed. Choose a reply instead.',
-  staffAi: 'STAFF · AI',
+  staffAi: 'Staff',
   tapForEnglish: 'Tap to see English',
   playAgain: 'Play again',
-  you: (spoken: boolean) => `You${spoken ? ' · spoken' : ''}`,
+  you: 'You',
+  spoken: 'Spoken',
   yourTurn: 'Your turn',
   hint: 'Hint',
   needHint: 'Need a hint?',
@@ -384,10 +388,10 @@ const tangoDetail = {
   expandRelated: 'Expand with related vocabulary',
   whereYouSawIt: 'Where you saw it',
   yourSentences: 'Your sentences',
-  sentenceMeta: (kind: 'yours' | 'suggested', place: string) =>
-    [kind === 'yours' ? 'You said' : 'Suggested', place].filter(Boolean).join(' · '),
+  sentenceKind: (kind: 'yours' | 'suggested') =>
+    kind === 'yours' ? 'You said' : 'Suggested',
   removeSentence: (text: string) => `Remove "${text}"`,
-  timesSeen: (n: number) => ` · ${n}×`,
+  timesSeen: (n: number) => `${n}×`,
 };
 
 const welcome = {
@@ -424,7 +428,7 @@ const welcome = {
   readBody:
     "Just a starting point. Tankengo adjusts as you catch and review, so there's no wrong answer.",
   explanationsIn: (language: string) =>
-    `Explanations in ${language} · change it later in Me`,
+    `Explanations are in ${language}. You can change this later in Me.`,
   mapTitle: 'Your map stays yours',
   mapBody:
     "Location lets each Tango remember where you found it. Here's what that means.",
@@ -490,9 +494,7 @@ const today = {
   openMap: 'Open your Tango map',
   tangoMap: 'Your Tango map',
   explore: 'Explore',
-  upNext: (when: string) => `Up next · ${when}`,
-  visitLine: (category: string, area: string, tango: number) =>
-    `${category} · ${area} · ${tango} Tango`,
+  upNext: 'Up next',
   prepare: 'Prepare',
   allPlans: 'All plans',
   planVisit: 'Plan a visit',
@@ -509,8 +511,6 @@ const today = {
   },
   reviewTitle: 'Review',
   reviewTitleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
-  reviewSummary: (due: number, minutes: number) =>
-    `${due} due · about ${minutes} min`,
   reviewFrom: (areas: string[]) => `From ${areas.join(', ')}`,
   start: 'Start',
   more: (n: number) => `+${n}`,
@@ -541,6 +541,7 @@ const reviewSession = {
     stale: "Didn't count: practiced elsewhere",
   },
   photoA11y: 'Your capture photo with the target highlighted',
+  yourPhoto: 'Your photo',
   noPlace: 'No place saved',
   flipA11y: 'Flip flashcard',
   flashcardTextPrompt: 'Do you remember how to read and translate this?',
@@ -566,13 +567,14 @@ const reviewSession = {
     fill_object_name: 'Type the Japanese name for this object (kanji or kana)',
   },
   typePlaceholder: 'Type your answer here',
-  keyboardKana: 'Japanese keyboard · hiragana and katakana both count',
-  keyboardKanjiOrKana: 'Japanese keyboard · kanji or kana accepted (no romaji)',
+  keyboardKana: 'Use a Japanese keyboard. Hiragana and katakana both count.',
+  keyboardKanjiOrKana:
+    'Use a Japanese keyboard. Kanji or kana both count, but not romaji.',
   answerInKana: 'Please answer in kana',
   showAnswer: 'Show answer',
   check: 'Check',
-  flashcardAnswer: (text: string, reading: string, meaning: string) =>
-    `${text} (${reading}) · ${meaning}`,
+  flashcardAnswer: (text: string, reading: string) =>
+    reading && reading !== text ? `${text} (${reading})` : text,
   revealed: "Here's the answer",
   correct: 'Correct!',
   wrong: 'Not quite',
@@ -588,8 +590,7 @@ const reviewSession = {
 
 const sessionResults = {
   excellent: 'Excellent work!',
-  summary: (reviewed: number, minutes: number) =>
-    `${reviewed} Tango reviewed · ${minutes} min`,
+  reviewed: (n: number) => `${n} Tango reviewed`,
   biggestWin: "Today's MVP",
   winTitle: (stampEarned: boolean) =>
     stampEarned ? 'earned a Hana Stamp' : 'is getting stronger',
@@ -598,8 +599,7 @@ const sessionResults = {
   practiced: 'Tango practiced',
   tangoCount: (n: number) => `${n} Tango`,
   /** The next planned visit, in one line. */
-  next: (place: string, meaning: string | undefined, when: string) =>
-    `Next: ${place}${meaning ? ` (${meaning})` : ''} · ${when}`,
+  nextPlan: 'Your next plan',
   backToToday: 'Back to Today',
   prepareNext: 'Prepare next',
 };
@@ -635,19 +635,20 @@ const capture = {
     'Camera preview unavailable (no camera or no permission). Mock detection still runs.',
   allowCamera: 'Allow camera',
   lookUp: (text: string) => `Look up ${text}`,
-  youKnowThis: '· you know this',
+  youKnowThis: 'You know this',
   saved: 'Saved',
   newTango: 'New Tango',
   frozenA11y: 'Tap what you want to catch, or drag across words to join them',
   closeCamera: 'Close camera',
   caughtToday: (n: number) => `${n} caught today. Open today's catch`,
-  photoReading: 'Photo taken · reading…',
-  photoFound: (n: number) => `Photo taken · ${n} found`,
-  photoNothing: 'Photo taken · nothing was detected',
+  photoReading: 'Reading the photo…',
+  photoFound: (n: number) => `${n} found in this photo`,
+  photoNothing: 'Nothing found in this photo',
   details: 'Details',
   undo: 'Undo',
   tapToDismiss: (error: string) => `${error} (tap to dismiss)`,
-  partsJoined: (n: number) => `${n} parts joined · `,
+  partsJoined: (n: number) => `${n} parts joined`,
+  objectTag: 'Object',
   pickOrJoin: 'tap a box to pick it, or drag across boxes to join them',
   pick: 'tap a box to pick it',
   retake: 'Retake',
@@ -785,7 +786,8 @@ const developer = {
   signedOut: 'Signed out.',
   signOutError: (error: string) => `Sign out error: ${error}`,
   backendConnection: 'Backend Connection',
-  data: (source: string, baseUrl: string) => `Data: ${source} · ${baseUrl}`,
+  data: (source: string) => `Data: ${source}`,
+  baseUrl: (url: string) => `API: ${url}`,
   mockData: (live: string[]) =>
     `mock data${live.length ? `, live: ${live.join(', ')}` : ''}`,
   backend: 'backend',
@@ -795,10 +797,10 @@ const developer = {
   checkSignIn: 'Check sign-in with backend',
   userAccount: 'User Account',
   status: (label: string) => `Status: ${label}`,
-  email: (email: string) => ` · Email: ${email}`,
-  anonymous: ' · (Anonymous user)',
-  uid: (uid: string) => ` · UID: ${uid}…`,
-  authError: (error: string) => ` · ${error}`,
+  email: (email: string) => `Email: ${email}`,
+  anonymous: 'Anonymous user',
+  uid: (uid: string) => `UID: ${uid}…`,
+  authError: (error: string) => `Error: ${error}`,
   authStatus: {
     not_configured: 'off (Firebase values not set in .env)',
     signing_in: 'signing in…',

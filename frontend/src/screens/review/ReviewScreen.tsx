@@ -9,6 +9,8 @@ import {
   Button,
   Card,
   Chip,
+  CountBadge,
+  Facts,
   Loadable,
   SectionTitle,
 } from '../../components/ui';
@@ -65,8 +67,12 @@ export function ReviewScreen(): React.JSX.Element {
                 <View style={base.grow}>
                   <Text style={styles.eyebrow}>{copy.review.quickReview}</Text>
                   <Text style={styles.bigInverse}>
-                    {copy.review.dueSummary(s.dueCount, s.minutes)}
+                    {copy.common.due(s.dueCount)}
                   </Text>
+                  <Facts
+                    inverse
+                    items={[{ icon: 'time', text: copy.common.minutes(s.minutes) }]}
+                  />
                 </View>
                 <Button
                   label={copy.review.start}
@@ -81,7 +87,8 @@ export function ReviewScreen(): React.JSX.Element {
               {s.collections.map(c => (
                 <Chip
                   key={c.id}
-                  label={copy.review.collectionChip(c.label, c.count)}
+                  label={c.label}
+                  count={c.count}
                   icon={collectionIcon(c)}
                   tone={c.isPlaceCue || c.isFavorites ? 'accent' : 'outline'}
                   onPress={() => openCollection(c)}
@@ -106,9 +113,10 @@ export function ReviewScreen(): React.JSX.Element {
           onPress={() => nav.navigate('AllTango')}
           style={styles.link}
         >
-          <Text style={styles.linkText}>
-            {copy.review.allTango(summary.data?.totalTango)}
-          </Text>
+          <Text style={styles.linkText}>{copy.review.allTango}</Text>
+          {summary.data ? (
+            <CountBadge count={summary.data.totalTango} />
+          ) : null}
           <Icon name="forward" color={colors.accent} />
         </Pressable>
       </View>

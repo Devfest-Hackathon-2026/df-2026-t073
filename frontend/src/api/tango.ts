@@ -110,7 +110,8 @@ function toEvent(
     return {
       type: 'caught',
       label: copy.history.caught,
-      detail: [event.detail, when].filter(Boolean).join(' · '),
+      detail: event.detail,
+      when,
       badge: copy.common.new,
     };
   }
@@ -118,9 +119,8 @@ function toEvent(
     return {
       type: 'seen_again',
       label: copy.history.seenAgain,
-      detail: [event.detail, when, copy.history.seenWithCamera]
-        .filter(Boolean)
-        .join(' · '),
+      detail: event.detail,
+      when,
       badge,
     };
   }
@@ -138,7 +138,8 @@ function toEvent(
   return {
     type: 'reviewed',
     label: missed ? copy.history.missedInReview : copy.history.gotItInReview,
-    detail: [qLabel, when].filter(Boolean).join(' · '),
+    detail: qLabel,
+    when,
     badge,
   };
 }

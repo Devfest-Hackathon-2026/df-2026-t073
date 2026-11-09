@@ -122,7 +122,7 @@ def _photo_layer(
     return PhotoLayer(
         image_url=card.image_url,
         box=gap_from_bbox(card.bounding_box),
-        caption=f"Your photo · {area}" if area else "Your photo",
+        area=area,
     )
 
 

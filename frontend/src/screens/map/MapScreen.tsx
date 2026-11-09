@@ -11,7 +11,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getToday, searchPlaces } from '../../api/places';
 import { TangoMap } from '../../components/TangoMap';
 import { Icon } from '../../components/Icon';
-import { Button, Card, Chip } from '../../components/ui';
+import {
+  Button,
+  Card,
+  Chip,
+  Facts,
+} from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { type Coords, getCurrentCoords } from '../../location/location';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -185,9 +190,12 @@ export function AreaCard({
           accessibilityLabel={copy.mapScreen.closeAreaCard}
         >
           <View style={base.row}>
-            <Text style={base.caption}>
-              {copy.mapScreen.areaSummary(area.tangoCount, area.placeCount)}
-            </Text>
+            <Facts
+              items={[
+                { icon: 'tango', text: copy.common.tangoCount(area.tangoCount) },
+                { icon: 'pin', text: copy.common.placeCount(area.placeCount) },
+              ]}
+            />
             {onClose ? (
               <Icon name="close" size={fontSizes.md} color={colors.textMuted} />
             ) : null}

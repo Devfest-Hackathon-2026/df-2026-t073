@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
+import { copy } from '../src/copy';
 import {
   checkFillAnswer,
   hasNonKanaForReading,
@@ -213,7 +214,7 @@ describe('SESSION mock coverage', () => {
         <SettingsProvider>
           <PhotoLayerView
             photo={{
-              caption: 'Your photo · Koenji',
+              area: 'Koenji',
               box: { x: 0.2, y: 0.3, w: 0.4, h: 0.2 },
               lines: ['食券'],
             }}
@@ -225,7 +226,8 @@ describe('SESSION mock coverage', () => {
       .findAllByType(Text)
       .map(n => n.props.children)
       .flat();
-    expect(texts).toContain('Your photo · Koenji');
+    expect(texts).toContain('Your photo');
+    expect(texts).toContain('Koenji');
     expect(TextInput).toBeDefined();
   });
 
@@ -267,7 +269,7 @@ describe('SESSION mock coverage', () => {
     };
 
     // 1. Starts on ex-1 (flashcard_text)
-    expect(allTexts()).toContain('Flashcard · Text');
+    expect(allTexts()).toContain(copy.reviewSession.flashcardTextPrompt);
     await ReactTestRenderer.act(async () => {
       pressByText('Flip card');
     });
@@ -279,7 +281,7 @@ describe('SESSION mock coverage', () => {
     });
     expect(allTexts()).not.toContain('Correct!');
     expect(allTexts()).toContain('Level up for');
-    expect(allTexts()).toContain('Flashcard · Object');
+    expect(allTexts()).toContain(copy.reviewSession.flashcardObjectPrompt);
 
     // ex-2 (flashcard_object): rating moves straight on as well
     await ReactTestRenderer.act(async () => {
@@ -290,7 +292,7 @@ describe('SESSION mock coverage', () => {
     });
 
     // 2. Now on ex-3 (mcq_text_translate at stage mcq_photo)
-    expect(allTexts()).toContain('Translate · Multiple choice');
+    expect(allTexts()).toContain(copy.reviewSession.mcqHeading.translatePhoto);
     await ReactTestRenderer.act(async () => {
       pressByText('meal ticket');
     });
@@ -311,7 +313,7 @@ describe('SESSION mock coverage', () => {
     });
 
     // 3. Now on ex-7 (fill_text_reading)
-    expect(allTexts()).toContain('Reading · Type the answer');
+    expect(allTexts()).toContain(copy.reviewSession.keyboardKana);
     const input = tree.root.findByType(TextInput);
 
     // Typing kanji triggers "Please answer in kana" instead of grading wrong

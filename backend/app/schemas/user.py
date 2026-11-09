@@ -37,7 +37,6 @@ class ProfileResponse(BaseModel):
 
     uid: str
     name: str
-    level_note: str
     reading_level: ReadingLevel | None = None
     home_area: HomeArea | None = None
     stats: ProfileStats

@@ -38,7 +38,7 @@ interface ExampleResponse {
 interface PhotoLayerResponse {
   image_url: string;
   box: { x: number; y: number; w: number; h: number };
-  caption: string;
+  area: string;
 }
 
 interface ReviewCardResponse {
@@ -200,7 +200,7 @@ function toPhoto(photo: PhotoLayerResponse | null | undefined): PhotoLayer | nul
   return {
     imageUrl: photo.image_url || undefined,
     box: photo.box,
-    caption: photo.caption,
+    area: photo.area,
   };
 }
 

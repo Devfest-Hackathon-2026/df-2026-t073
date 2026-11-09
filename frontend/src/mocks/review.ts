@@ -49,7 +49,7 @@ export const SESSION: Exercise[] = [
     stage: 'flashcard',
     tangoId: 'shoyu',
     photo: {
-      caption: 'Your photo · 麺屋 たいき, Koenji',
+      area: '麺屋 たいき, Koenji',
       box: { x: 0.28, y: 0.36, w: 0.44, h: 0.2 },
       lines: ['醤油ラーメン', '850円'],
     },
@@ -76,7 +76,7 @@ export const SESSION: Exercise[] = [
     stage: 'flashcard',
     tangoId: 'shokken',
     photo: {
-      caption: 'Your photo · 麺屋 たいき, Koenji',
+      area: '麺屋 たいき, Koenji',
       box: { x: 0.25, y: 0.3, w: 0.5, h: 0.32 },
       lines: ['食券機', 'TICKET MACHINE'],
     },
@@ -103,7 +103,7 @@ export const SESSION: Exercise[] = [
     stage: 'mcq_photo',
     tangoId: 'shokken',
     photo: {
-      caption: 'Your photo · 麺屋 たいき, Koenji',
+      area: '麺屋 たいき, Koenji',
       box: { x: 0.3, y: 0.4, w: 0.4, h: 0.18 },
       lines: ['食券', 'MEAL TICKET'],
     },
@@ -171,7 +171,7 @@ export const SESSION: Exercise[] = [
     stage: 'mcq',
     tangoId: 'tachiiri-kinshi',
     photo: {
-      caption: 'The sign you caught at Koenji Station, North Exit · Mon',
+      area: 'Koenji Station, North Exit',
       box: { x: 0.3, y: 0.42, w: 0.4, h: 0.16 },
       lines: ['教職員以外', '', 'FACULTY/STAFF ONLY'],
     },
@@ -263,7 +263,7 @@ export const SESSION: Exercise[] = [
     stage: 'fill',
     tangoId: 'churin-kinshi',
     photo: {
-      caption: 'Your photo · Koenji Station',
+      area: 'Koenji Station',
       box: { x: 0.25, y: 0.35, w: 0.5, h: 0.24 },
       lines: ['駐輪禁止', 'NO BICYCLE PARKING'],
     },

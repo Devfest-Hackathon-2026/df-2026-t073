@@ -4,7 +4,13 @@ import { getTodaysCatch } from '../../api/capture';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
-import { Button, Card, Chip, Loadable } from '../../components/ui';
+import {
+  Button,
+  Card,
+  Chip,
+  Facts,
+  Loadable,
+} from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import type { RootScreenProps } from '../../navigation/types';
@@ -42,9 +48,12 @@ export function CaptureTodayScreen({
             <Card>
               <View style={base.rowBetween}>
                 <Text style={base.heading}>{copy.captureToday.title}</Text>
-                <Text style={base.caption}>
-                  {copy.captureToday.summary(list.length, places)}
-                </Text>
+                <Facts
+                  items={[
+                    { icon: 'tango', text: copy.common.tangoCount(list.length) },
+                    { icon: 'pin', text: copy.common.placeCount(places) },
+                  ]}
+                />
               </View>
               {list.length === 0 ? (
                 <Text style={base.caption}>{copy.captureToday.empty}</Text>
@@ -62,11 +71,12 @@ export function CaptureTodayScreen({
                   <View style={styles.word}>
                     <Jp {...entry.tango} bold size="lg" />
                   </View>
-                  <Text style={[base.caption, base.grow]} numberOfLines={2}>
-                    {[entry.tango.meaning, entry.placeName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
+                  <View style={base.grow}>
+                    <Text style={base.caption} numberOfLines={1}>
+                      {entry.tango.meaning}
+                    </Text>
+                    <Facts items={[{ icon: 'pin', text: entry.placeName }]} />
+                  </View>
                   <Chip
                     label={
                       entry.status === 'new'

@@ -26,10 +26,11 @@ import { Jp } from '../../components/Jp';
 import { ScreenHeader } from '../../components/layout';
 import {
   Button,
+  Chip,
   IconButton,
+  IconLabel,
   Loadable,
   SegmentedControl,
-  IconLabel,
 } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
@@ -277,9 +278,12 @@ function Conversation({
           const said = answers[turn.id];
           return (
             <View key={turn.id} style={styles.userBlock}>
-              <Text style={base.label}>
-                {copy.rehearse.you(!!said?.spoken)}
-              </Text>
+              <View style={styles.youRow}>
+                <Text style={base.label}>{copy.rehearse.you}</Text>
+                {said?.spoken ? (
+                  <Chip label={copy.rehearse.spoken} tone="outline" />
+                ) : null}
+              </View>
               <View style={styles.userBubble}>
                 <Jp {...(said?.said ?? turn.jp)} size="lg" tone="inverse" />
               </View>
@@ -407,6 +411,12 @@ const styles = StyleSheet.create({
   },
   staffBlock: {
     alignItems: 'flex-start',
+    gap: space.xs,
+  },
+  youRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
     gap: space.xs,
   },
   staffBubble: {

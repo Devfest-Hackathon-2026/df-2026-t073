@@ -12,10 +12,11 @@ function seenAt(placeId: string, iso: string): Sighting {
   };
 }
 
-const caught = (detail: string) => ({
+const caught = (detail: string, when: string) => ({
   type: 'caught' as const,
   label: 'Caught',
   detail,
+  when,
   badge: 'New',
 });
 
@@ -36,10 +37,11 @@ export const TANGO: Record<string, Tango> = {
       {
         type: 'reviewed',
         label: 'Got it in review',
-        detail: 'Multiple choice · Wed',
+        detail: 'Multiple choice',
+        when: 'Wed',
         badge: '+1',
       },
-      caught('麺屋 たいき, Koenji · Mon'),
+      caught('麺屋 たいき, Koenji', 'Mon'),
     ],
     examples: [
       { register: 'easy', jp: { text: '食券をください。', reading: 'しょっけんをください。', romaji: 'shokken o kudasai.', meaning: 'A meal ticket, please.' } },
@@ -57,7 +59,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 1,
     stage: 'flashcard',
     known: false,
-    history: [caught('麺屋 たいき, Koenji · Mon')],
+    history: [caught('麺屋 たいき, Koenji', 'Mon')],
     examples: [],
   },
   oomori: {
@@ -71,7 +73,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 1,
     stage: 'flashcard',
     known: false,
-    history: [caught('麺屋 たいき, Koenji · Mon')],
+    history: [caught('麺屋 たいき, Koenji', 'Mon')],
     examples: [],
   },
   katame: {
@@ -86,7 +88,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 1,
     stage: 'flashcard',
     known: false,
-    history: [caught('麺屋 たいき, Koenji · Mon')],
+    history: [caught('麺屋 たいき, Koenji', 'Mon')],
     examples: [
       { register: 'easy', jp: { text: 'かためでお願いします。', reading: 'かためでおねがいします。', romaji: 'katame de onegai shimasu.', meaning: 'Firm, please.' } },
     ],
@@ -102,7 +104,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 0,
     stage: 'flashcard',
     known: false,
-    history: [caught('Rehearsal · 麺屋 たいき · Mon')],
+    history: [caught('Rehearsal at 麺屋 たいき', 'Mon')],
     examples: [],
   },
   kaedama: {
@@ -118,8 +120,8 @@ export const TANGO: Record<string, Tango> = {
     stage: 'mcq',
     known: false,
     history: [
-      { type: 'reviewed', label: 'Got it in review', detail: 'Place cue · Thu', badge: '+1' },
-      caught('麺屋 たいき, Koenji · Mon'),
+      { type: 'reviewed', label: 'Got it in review', detail: 'Place cue', when: 'Thu', badge: '+1' },
+      caught('麺屋 たいき, Koenji', 'Mon'),
     ],
     examples: [
       { register: 'easy', jp: { text: '替え玉、お願いします。', reading: 'かえだま、おねがいします。', romaji: 'kaedama, onegai shimasu.', meaning: 'An extra noodle refill, please.' } },
@@ -142,9 +144,9 @@ export const TANGO: Record<string, Tango> = {
     stage: 'mcq',
     known: false,
     history: [
-      { type: 'seen_again', label: 'Seen again', detail: 'Asagaya construction site · Thu · camera', badge: '+1' },
-      { type: 'reviewed', label: 'Got it in review', detail: 'Fill the gap, from your Koenji photo · Tue', badge: '+1' },
-      caught('Koenji Station, North Exit · Mon'),
+      { type: 'seen_again', label: 'Seen again with the camera', detail: 'Asagaya construction site', when: 'Thu', badge: '+1' },
+      { type: 'reviewed', label: 'Got it in review', detail: 'Fill the gap, from your Koenji photo', when: 'Tue', badge: '+1' },
+      caught('Koenji Station, North Exit', 'Mon'),
     ],
     examples: [
       { register: 'easy', jp: { text: 'ここへは入ってはいけません', reading: 'ここへははいってはいけません', romaji: 'koko e wa haitte wa ikemasen', meaning: "You can't go in here." } },
@@ -166,8 +168,8 @@ export const TANGO: Record<string, Tango> = {
     stage: 'fill',
     known: true,
     history: [
-      { type: 'seen_again', label: 'Seen again', detail: 'Koenji Station, North Exit · Mon · camera', badge: '+1' },
-      caught('関係者以外 sign, Asagaya Pearl Center · Oct 12'),
+      { type: 'seen_again', label: 'Seen again with the camera', detail: 'Koenji Station, North Exit', when: 'Mon', badge: '+1' },
+      caught('関係者以外 sign, Asagaya Pearl Center', 'Oct 12'),
     ],
     examples: [],
   },
@@ -183,7 +185,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 0,
     stage: 'flashcard',
     known: false,
-    history: [caught('Supermarket, Nakano · Fri')],
+    history: [caught('Supermarket, Nakano', 'Fri')],
     examples: [],
   },
   bento: {
@@ -197,7 +199,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 4,
     stage: 'fill',
     known: true,
-    history: [caught('Supermarket, Nakano · Oct 20')],
+    history: [caught('Supermarket, Nakano', 'Oct 20')],
     examples: [],
   },
   'mikiri-hin': {
@@ -212,7 +214,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 0,
     stage: 'flashcard',
     known: false,
-    history: [caught('Supermarket, Nakano · Fri')],
+    history: [caught('Supermarket, Nakano', 'Fri')],
     examples: [],
   },
   penguin: {
@@ -227,7 +229,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 0,
     stage: 'flashcard',
     known: false,
-    history: [caught('Penguin enclosure · Sat')],
+    history: [caught('Penguin enclosure', 'Sat')],
     examples: [
       { register: 'easy', jp: { text: 'ペンギンが日向ぼっこしてるね。', reading: 'ぺんぎんがひなたぼっこしてるね。', romaji: 'pengin ga hinatabokko shiteru ne.', meaning: 'The penguin is sunbathing.' } },
     ],
@@ -243,7 +245,7 @@ export const TANGO: Record<string, Tango> = {
     strength: 1,
     stage: 'flashcard',
     known: false,
-    history: [caught('Asagaya Pearl Center · Thu')],
+    history: [caught('Asagaya Pearl Center', 'Thu')],
     examples: [],
   },
 };

@@ -24,18 +24,6 @@ DEFAULT_NAME = "Learner"
 # Enough for a hackathon-sized collection; stats count everything loaded.
 MAX_CARDS = 500
 
-LEVEL_NOTES = {
-    "none": "Just starting · romaji for now",
-    "kana": "Reads hiragana and katakana",
-    "some_kanji": "Reads some everyday kanji",
-    "most": "Reads most signs and menus",
-}
-
-
-def level_note(reading_level: str | None) -> str:
-    return LEVEL_NOTES.get(reading_level or "", "Reading level not set yet")
-
-
 def display_name(stored: dict[str, Any]) -> str:
     """Chosen name, else the sign-in name, else a friendly default."""
     for key in ("display_name", "name"):
@@ -58,7 +46,6 @@ def build_profile(uid: str, stored: dict[str, Any], cards: list[FlashcardRespons
     return ProfileResponse(
         uid=uid,
         name=display_name(stored),
-        level_note=level_note(stored.get("reading_level")),
         reading_level=stored.get("reading_level"),
         home_area=stored.get("home_area"),
         stats=compute_stats(cards),

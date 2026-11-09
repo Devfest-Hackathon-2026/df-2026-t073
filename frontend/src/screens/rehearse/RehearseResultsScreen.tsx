@@ -6,6 +6,7 @@ import { Screen, ScreenHeader } from '../../components/layout';
 import {
   Button,
   Card,
+  Facts,
   IconButton,
   IconLabel,
   Loadable,
@@ -57,12 +58,12 @@ export function RehearseResultsScreen({
         {data => (
           <View style={base.stack}>
             <Text style={base.title}>{copy.rehearseResults.niceWork}</Text>
-            <View style={base.row}>
-              <Jp {...data.place.name} size="sm" tone="muted" />
-              <Text style={base.caption}>
-                {copy.rehearseResults.hintsUsed(hintsUsed)}
-              </Text>
-            </View>
+            <Jp {...data.place.name} size="sm" tone="muted" />
+            <Facts
+              items={[
+                { icon: 'hint', text: copy.rehearseResults.hintsUsed(hintsUsed) },
+              ]}
+            />
             <IconLabel icon="ai" style={styles.eyebrow}>
               {copy.rehearseResults.feedbackBy}
             </IconLabel>

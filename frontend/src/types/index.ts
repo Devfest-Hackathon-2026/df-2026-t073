@@ -59,7 +59,10 @@ export type Strength = 0 | 1 | 2 | 3 | 4;
 export interface TangoEvent {
   type: 'caught' | 'reviewed' | 'seen_again';
   label: string;
+  /** Where it happened, or the question asked; may be empty. */
   detail: string;
+  /** The day, e.g. "Mon"; shown on the right. */
+  when?: string;
   /** e.g. "+1" or "New" */
   badge: string;
 }
@@ -333,7 +336,8 @@ export interface ReviewSummary {
 export interface PhotoLayer {
   imageUrl?: string;
   box: NormalizedBox;
-  caption: string;
+  /** Where the photo was taken, or "" if no place was saved. */
+  area: string;
   /** Optional sign text lines for mock-mode photos without an imageUrl. */
   lines?: string[];
 }

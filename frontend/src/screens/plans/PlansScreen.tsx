@@ -7,6 +7,7 @@ import { Screen, ScreenHeader } from '../../components/layout';
 import {
   Button,
   Card,
+  Facts,
   IconButton,
   Loadable,
   SectionTitle,
@@ -95,13 +96,16 @@ export function PlansScreen(): React.JSX.Element {
                 <View style={base.rowBetween}>
                   <View style={base.grow}>
                     <Jp {...visit.place.name} bold size="lg" />
-                    <Text style={base.caption}>
-                      {copy.plans.placeLine(
-                        visit.place.category,
-                        visit.place.area,
-                        visit.tangoCount,
-                      )}
-                    </Text>
+                    <Facts
+                      items={[
+                        { icon: 'category', text: visit.place.category },
+                        { icon: 'pin', text: visit.place.area },
+                        {
+                          icon: 'tango',
+                          text: copy.common.tangoCount(visit.tangoCount),
+                        },
+                      ]}
+                    />
                   </View>
                   <Button
                     label={copy.plans.prepare}

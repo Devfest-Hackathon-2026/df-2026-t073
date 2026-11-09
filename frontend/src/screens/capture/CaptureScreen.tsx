@@ -1043,8 +1043,12 @@ export function CaptureScreen({
                     {pickedDef?.meaning ?? picked[0].english_gloss}
                   </Text>
                 ) : null}
+                {picked.length > 1 ? (
+                  <Text style={styles.hintText}>
+                    {copy.capture.partsJoined(picked.length)}
+                  </Text>
+                ) : null}
                 <Text style={styles.hintText}>
-                  {picked.length > 1 ? copy.capture.partsJoined(picked.length) : ''}
                   {mode === 'text'
                     ? copy.capture.pickOrJoin
                     : copy.capture.pick}
@@ -1315,8 +1319,12 @@ export function CaptureScreen({
                   />
                   <Text style={base.caption}>
                     {item.english_gloss ?? item.source_label}
-                    {item.item_type === 'object' ? ' · object' : ''}
                   </Text>
+                  {item.item_type === 'object' ? (
+                    <View style={base.row}>
+                      <Chip label={copy.capture.objectTag} tone="outline" />
+                    </View>
+                  ) : null}
                 </View>
                 <Button
                   label={
