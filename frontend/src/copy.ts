@@ -294,7 +294,7 @@ const mapScreen = {
   locationUnavailableTitle: 'Location unavailable',
   locationUnavailableBody:
     'Turn on location and allow Tankengo to use it, then try again.',
-  searchPlaceholder: 'どこへ行く？',
+  searchPlaceholder: 'さあ、旅立とう！',
   searchA11y: 'Search places to visit',
   filterAll: 'All Tango',
   filterStamps: 'Hana Stamp',
@@ -500,10 +500,10 @@ const today = {
     'Choosing your word of the day…',
   ],
   greeting: {
-    text: 'こんにちは',
-    reading: 'こんにちは',
-    romaji: 'konnichiwa',
-    meaning: 'Hello',
+    text: 'こんにちは、',
+    reading: 'こんにちは、',
+    romaji: 'konnichiwa,',
+    meaning: 'Hello,',
   },
   nameSan: (name: string) => ({
     text: `${name}さん`,

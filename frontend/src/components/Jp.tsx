@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   save: {
     marginTop: space.sm,
     minHeight: sizes.touch,
-    borderRadius: radii.pill,
+    borderRadius: radii.button,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',

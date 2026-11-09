@@ -24,6 +24,7 @@ import { copy } from '../../copy';
 import { favoriteHearts } from '../../features/places/FavoriteHeart';
 import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
+import { TicketCard } from '../../components/shapes';
 import type { Visit } from '../../types';
 
 /**
@@ -95,30 +96,31 @@ export function PlansScreen({
             ) : null}
             {list.map(visit => (
               // Tapping a plan opens the plan sheet: change or remove it.
-              <Card key={visit.id} onPress={() => setEditing(visit)}>
-                <View style={base.rowBetween}>
-                  <View style={[base.grow, styles.planBody]}>
-                    <Jp {...visit.place.name} bold size="lg" furigana={false} />
-                    <Facts
-                      items={[
-                        { icon: 'calendar', text: formatVisitTime(visit.when) },
-                        { icon: 'category', text: visit.place.category },
-                        { icon: 'pin', text: visit.place.area },
-                        {
-                          icon: 'tango',
-                          text: copy.common.tangoCount(visit.tangoCount),
-                        },
-                      ]}
-                    />
-                  </View>
+              <TicketCard
+                key={visit.id}
+                onPress={() => setEditing(visit)}
+                stub={
                   <Button
                     label={copy.plans.prepare}
                     onPress={() =>
                       nav.navigate('Prepare', { placeId: visit.place.id })
                     }
                   />
-                </View>
-              </Card>
+                }
+              >
+                <Jp {...visit.place.name} bold size="lg" furigana={false} />
+                <Facts
+                  items={[
+                    { icon: 'calendar', text: formatVisitTime(visit.when) },
+                    { icon: 'category', text: visit.place.category },
+                    { icon: 'pin', text: visit.place.area },
+                    {
+                      icon: 'tango',
+                      text: copy.common.tangoCount(visit.tangoCount),
+                    },
+                  ]}
+                />
+              </TicketCard>
             ))}
             <PlanVisitSheet
               visible={editing !== null}
@@ -154,8 +156,5 @@ const styles = StyleSheet.create({
     ...base.text,
     flex: 1,
     paddingVertical: 0,
-  },
-  planBody: {
-    gap: space.xxs,
   },
 });

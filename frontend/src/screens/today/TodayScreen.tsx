@@ -25,6 +25,11 @@ import {
 } from '../../features/tango/saveWord';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
 import { ReviewStartCard } from '../../features/review/ReviewStartCard';
+import {
+  CardStack,
+  RedPenUnderline,
+  TicketCard,
+} from '../../components/shapes';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -291,33 +296,34 @@ function Regular({
 function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
-    <Card variant="accent">
-      <Text style={styles.titleInverse}>{copy.today.upNext}</Text>
-      <View style={base.rowBetween}>
-        <View style={base.grow}>
-          <Jp
-            {...visit.place.name}
-            bold
-            size="lg"
-            tone="inverse"
-            furigana={false}
-          />
-          <Facts
-            inverse
-            items={[
-              { icon: 'calendar', text: formatVisitTime(visit.when) },
-              { icon: 'category', text: visit.place.category },
-              { icon: 'pin', text: visit.place.area },
-            ]}
-          />
-        </View>
+    <TicketCard
+      ink
+      stub={
         <Button
           label={copy.today.prepare}
           variant="light"
+          onColor={colors.ink}
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
-      </View>
-    </Card>
+      }
+    >
+      <Text style={styles.titleInverse}>{copy.today.upNext}</Text>
+      <Jp
+        {...visit.place.name}
+        bold
+        size="lg"
+        tone="inverse"
+        furigana={false}
+      />
+      <Facts
+        inverse
+        items={[
+          { icon: 'calendar', text: formatVisitTime(visit.when) },
+          { icon: 'category', text: visit.place.category },
+          { icon: 'pin', text: visit.place.area },
+        ]}
+      />
+    </TicketCard>
   );
 }
 
@@ -339,7 +345,9 @@ function PlansRow({
   return (
     <View style={styles.plansRow}>
       <View style={base.grow}>
-        <Text style={base.heading}>{copy.today.yourPlans}</Text>
+        <RedPenUnderline>
+          <Text style={base.heading}>{copy.today.yourPlans}</Text>
+        </RedPenUnderline>
         {hasPlans ? null : (
           <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
         )}
@@ -359,34 +367,36 @@ function PlansRow({
 function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   const saver = useSaveWord(word);
   return (
-    <Card>
-      <Text style={styles.eyebrow}>{copy.today.wordOfDay}</Text>
-      <Text style={base.caption}>{word.reason}</Text>
-      <View style={base.rowBetween}>
-        <View style={base.grow}>
-          <Jp
-            text={word.text}
-            reading={word.reading}
-            romaji={word.romaji}
-            bold
-            size="jumbo"
+    <CardStack>
+      <Card>
+        <Text style={styles.eyebrow}>{copy.today.wordOfDay}</Text>
+        <Text style={base.caption}>{word.reason}</Text>
+        <View style={base.rowBetween}>
+          <View style={base.grow}>
+            <Jp
+              text={word.text}
+              reading={word.reading}
+              romaji={word.romaji}
+              bold
+              size="jumbo"
+            />
+            <Text style={styles.wordMeaning}>{word.meaning}</Text>
+          </View>
+          <IconButton
+            icon="play"
+            label={copy.common.play(word.text)}
+            onPress={() => playWord(word.text)}
           />
-          <Text style={styles.wordMeaning}>{word.meaning}</Text>
         </View>
-        <IconButton
-          icon="play"
-          label={copy.common.play(word.text)}
-          onPress={() => playWord(word.text)}
+        <Button
+          label={SAVE_LABEL[saver.state]}
+          icon={SAVE_ICON[saver.state]}
+          variant="secondary"
+          disabled={saver.busy}
+          onPress={saver.save}
         />
-      </View>
-      <Button
-        label={SAVE_LABEL[saver.state]}
-        icon={SAVE_ICON[saver.state]}
-        variant="secondary"
-        disabled={saver.busy}
-        onPress={saver.save}
-      />
-    </Card>
+      </Card>
+    </CardStack>
   );
 }
 

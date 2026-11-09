@@ -13,15 +13,20 @@ export const colors = {
   textMuted: '#6A6A66',
   textInverse: '#FFFFFF',
   dark: '#1B1B1B',
+  /** The card peeking out behind a dark card (the Review deck). */
+  deckBack: '#3A3A3C',
   camera: '#202326',
   scrim: 'rgba(0, 0, 0, 0.4)',
   overlay: 'rgba(0, 0, 0, 0.65)',
   // Light fills and lines on dark cards
   inverseSoft: 'rgba(255, 255, 255, 0.08)',
   inverseBorder: 'rgba(255, 255, 255, 0.3)',
-  // The one accent
-  accent: '#2D46C8',
-  accentSoft: '#E6E9F9',
+  // The one accent: red pen, a shade deeper than the 花丸 red so white text
+  // on it stays readable.
+  accent: '#C2302B',
+  accentSoft: '#F9E3E1',
+  // Ink navy: the Up next card, so red stays for actions.
+  ink: '#22304A',
   // Status (kept minimal)
   positive: '#2E7A4F',
   caution: '#A35C00',
@@ -29,8 +34,10 @@ export const colors = {
   hanamaru: '#D2452B',
 } as const;
 
+// Android bundles Murecho (res/font, registered in MainApplication.kt). iOS
+// keeps the system font until the font is added to the iOS project too.
 export const fonts = {
-  body: Platform.select({ android: 'sans-serif', default: 'System' }),
+  body: Platform.select({ android: 'Murecho', default: 'System' }),
   mono: Platform.select({ android: 'monospace', default: 'Menlo' }),
 } as const;
 
@@ -64,6 +71,8 @@ export const radii = {
   sm: 8,
   md: 12,
   lg: 18,
+  /** Actions are rounded rectangles; pills are for tags and chips. */
+  button: 12,
   pill: 999,
 } as const;
 
@@ -82,6 +91,8 @@ export const sizes = {
   strengthSegment: 8,
   dot: 2,
   handle: 22,
+  /** The hanko seal at the end of a strength bar. */
+  seal: 22,
 } as const;
 
 export const tracking = {

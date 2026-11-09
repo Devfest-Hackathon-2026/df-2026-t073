@@ -801,6 +801,7 @@ export function CaptureScreen({
             <Button
               label={copy.capture.allowCamera}
               variant="light"
+              onColor={colors.camera}
               onPress={requestPermission}
             />
           ) : null}
@@ -1592,7 +1593,7 @@ const styles = StyleSheet.create({
   catchButton: {
     minHeight: sizes.shutter,
     minWidth: sizes.shutter * 2,
-    borderRadius: radii.pill,
+    borderRadius: radii.button,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',

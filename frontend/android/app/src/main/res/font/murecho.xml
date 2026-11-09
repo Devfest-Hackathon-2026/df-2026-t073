@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Murecho (SIL OFL 1.1, see frontend/assets/fonts): the app's UI font. -->
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+  <font app:fontStyle="normal" app:fontWeight="400" app:font="@font/murecho_regular" />
+  <font app:fontStyle="normal" app:fontWeight="700" app:font="@font/murecho_bold" />
+</font-family>

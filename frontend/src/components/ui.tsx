@@ -26,6 +26,7 @@ import {
 } from '../styles/tokens';
 import type { AppJapanese, JpText, Strength } from '../types';
 import { Hanamaru } from './Hanamaru';
+import { HanaSeal } from './shapes';
 import { Icon, type IconName } from './Icon';
 import { Jp } from './Jp';
 import { copy } from '../copy';
@@ -41,6 +42,7 @@ export function Button({
   disabled = false,
   style,
   icon,
+  onColor,
 }: {
   label: string;
   onPress?: () => void;
@@ -48,8 +50,14 @@ export function Button({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   icon?: IconName;
+  /**
+   * The colored surface a light button sits on (e.g. the ink Up next card).
+   * Its text takes that color, so the button reads as cut from the surface.
+   */
+  onColor?: string;
 }): React.JSX.Element {
-  const textColor = buttonTextStyles[variant].color;
+  const textColor =
+    variant === 'light' && onColor ? onColor : buttonTextStyles[variant].color;
   return (
     <Pressable
       accessibilityRole="button"
@@ -66,9 +74,7 @@ export function Button({
         {icon ? (
           <Icon name={icon} size={fontSizes.md} color={textColor} />
         ) : null}
-        <Text style={[styles.buttonText, buttonTextStyles[variant]]}>
-          {label}
-        </Text>
+        <Text style={[styles.buttonText, { color: textColor }]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -333,7 +339,7 @@ const chipStyles = StyleSheet.create({
 
 // ---------- Card ----------
 
-type CardVariant = 'default' | 'accent' | 'dark' | 'soft';
+type CardVariant = 'default' | 'ink' | 'dark' | 'soft';
 
 export function Card({
   children,
@@ -359,7 +365,7 @@ export function Card({
 
 const cardStyles = StyleSheet.create({
   default: {},
-  accent: { backgroundColor: colors.accent, borderColor: colors.accent },
+  ink: { backgroundColor: colors.ink, borderColor: colors.ink },
   dark: { backgroundColor: colors.dark, borderColor: colors.dark },
   soft: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
 });
@@ -500,10 +506,7 @@ export function StrengthBar({
           ]}
         />
       ))}
-      <Hanamaru
-        size={fontSizes.lg}
-        color={strength === 4 ? colors.hanamaru : colors.border}
-      />
+      <HanaSeal color={strength === 4 ? colors.hanamaru : colors.border} />
     </View>
   );
 }

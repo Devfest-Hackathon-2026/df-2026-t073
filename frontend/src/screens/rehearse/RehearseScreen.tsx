@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.accent,
     backgroundColor: colors.accentSoft,
-    borderRadius: radii.pill,
+    borderRadius: radii.button,
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
   },
