@@ -16,7 +16,11 @@ from app.schemas.review import (
     ReviewSummaryResponse,
     SessionResultResponse,
 )
-from app.services import review_rules as rules
+from app.services.review_rules.distractors import complete_distractors, needs_distractors
+from app.services.review_rules.exercises import build_exercise
+from app.services.review_rules.grading import merge_synonyms
+from app.services.review_rules.results import answered_by_area, areas_summary, biggest_win, exercise_types_summary, session_minutes
+from app.services.review_rules.selection import AREA_PREFIX, FAVORITES_COLLECTION, LIST_PREFIX, PLACE_CUE_COLLECTION, PLACE_PREFIX, SESSION_SIZE, area_of, estimate_minutes, is_due, order_session_cards, pick_session_cards
 from app.services.lists import get_list, list_lists
 from app.services.firestore import (
     create_review_session,
@@ -43,7 +47,7 @@ async def _all_cards(db: AsyncClient, uid: str) -> list[FlashcardResponse]:
 
 
 def _due(cards: list[FlashcardResponse], now: datetime) -> list[FlashcardResponse]:
-    due = [c for c in cards if rules.is_due(c, now)]
+    due = [c for c in cards if is_due(c, now)]
     due.sort(key=lambda c: (c.strength, c.review_stats.next_review_at))
     return due
 
@@ -53,8 +57,8 @@ async def get_review_card(*, db: AsyncClient, uid: str) -> ReviewCardResponse:
     due = _due(await _all_cards(db, uid), now)
     return ReviewCardResponse(
         due_count=len(due),
-        minutes=rules.estimate_minutes(min(len(due), rules.SESSION_SIZE)),
-        areas=[a.area for a in rules.areas_summary(due)][:3],
+        minutes=estimate_minutes(min(len(due), SESSION_SIZE)),
+        areas=[a.area for a in areas_summary(due)][:3],
         sample=due[:SAMPLE_SIZE],
         more_count=max(0, len(due) - SAMPLE_SIZE),
     )
@@ -64,23 +68,23 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
     now = datetime.now(timezone.utc)
     cards = await _all_cards(db, uid)
     due = _due(cards, now)
-    place_cue = [c for c in due if rules.area_of(c)]
+    place_cue = [c for c in due if area_of(c)]
     collections = [
         Collection(
-            id=f"{rules.PLACE_PREFIX}{a.area}",
+            id=f"{PLACE_PREFIX}{a.area}",
             label=a.area,
             count=a.count,
             is_place=True,
             is_place_cue=False,
         )
-        for a in rules.areas_summary(cards)
+        for a in areas_summary(cards)
     ]
     favorites = [c for c in cards if c.favorite]
     if favorites:
         collections.insert(
             0,
             Collection(
-                id=rules.FAVORITES_COLLECTION,
+                id=FAVORITES_COLLECTION,
                 label="Favourites",
                 count=len(favorites),
                 is_place=False,
@@ -92,7 +96,7 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
     for user_list in await list_lists(db=db, uid=uid):
         collections.append(
             Collection(
-                id=f"{rules.LIST_PREFIX}{user_list.list_id}",
+                id=f"{LIST_PREFIX}{user_list.list_id}",
                 label=user_list.name,
                 count=sum(1 for i in user_list.tango_ids if i in owned),
                 is_place=False,
@@ -103,7 +107,7 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
     if place_cue:
         collections.append(
             Collection(
-                id=rules.PLACE_CUE_COLLECTION,
+                id=PLACE_CUE_COLLECTION,
                 label="Place cue",
                 count=len(place_cue),
                 is_place=False,
@@ -112,10 +116,10 @@ async def get_review_summary(*, db: AsyncClient, uid: str) -> ReviewSummaryRespo
         )
     return ReviewSummaryResponse(
         due_count=len(due),
-        minutes=rules.estimate_minutes(min(len(due), rules.SESSION_SIZE)),
+        minutes=estimate_minutes(min(len(due), SESSION_SIZE)),
         place_cue_count=len(place_cue),
         collections=collections,
-        exercise_types=rules.exercise_types_summary(cards),
+        exercise_types=exercise_types_summary(cards),
         total_tango=len(cards),
     )
 
@@ -132,22 +136,22 @@ async def build_session(
     now = datetime.now(timezone.utc)
     cards = await _all_cards(db, uid)
     area_by_place: dict[str, str] | None = None
-    if collection and collection.startswith(rules.AREA_PREFIX):
+    if collection and collection.startswith(AREA_PREFIX):
         place_ids = {s.place_id for c in cards for s in c.sightings if s.place_id}
         area_by_place = await areas_for(db, place_ids)
     list_ids: set[str] | None = None
-    if collection and collection.startswith(rules.LIST_PREFIX):
-        chosen = await get_list(db=db, uid=uid, list_id=collection[len(rules.LIST_PREFIX) :])
+    if collection and collection.startswith(LIST_PREFIX):
+        chosen = await get_list(db=db, uid=uid, list_id=collection[len(LIST_PREFIX) :])
         list_ids = set(chosen.tango_ids)
-    picked = rules.order_session_cards(
-        rules.pick_session_cards(
+    picked = order_session_cards(
+        pick_session_cards(
             cards, now, collection, area_by_place=area_by_place, list_ids=list_ids
         )
     )
     session_id = f"rs_{uuid.uuid4().hex[:16]}"
 
     # One Gemini call for every card that has no cached wrong answers or lacks needed readings.
-    missing = {c.flashcard_id: c for c in picked if rules.needs_distractors(c)}
+    missing = {c.flashcard_id: c for c in picked if needs_distractors(c)}
     raw = await generate_distractors(
         http_client=http_client, cards=list(missing.values()), language=language
     )
@@ -155,7 +159,7 @@ async def build_session(
     # accept card.meaning_synonyms, which must match what the server grades against.
     generated = {
         fid: d.model_copy(
-            update={"synonyms": rules.merge_synonyms(missing[fid].meaning_synonyms, d.synonyms)}
+            update={"synonyms": merge_synonyms(missing[fid].meaning_synonyms, d.synonyms)}
         )
         for fid, d in raw.items()
         if fid in missing
@@ -168,8 +172,8 @@ async def build_session(
         if found is not None and saved:
             # Exercises accept card.meaning_synonyms, so use the list just stored.
             card = card.model_copy(update={"meaning_synonyms": found.synonyms})
-        distractors = rules.complete_distractors(card, found or card.distractors, cards)
-        exercises.append(rules.build_exercise(card, distractors, position, session_id))
+        distractors = complete_distractors(card, found or card.distractors, cards)
+        exercises.append(build_exercise(card, distractors, position, session_id))
 
     await create_review_session(
         db=db,
@@ -188,7 +192,7 @@ async def get_session_result(*, db: AsyncClient, uid: str, session_id: str) -> S
     record = await get_review_session(db=db, uid=uid, session_id=session_id)
     return SessionResultResponse(
         reviewed=len({a.flashcard_id for a in record.answers}),
-        minutes=rules.session_minutes(record.started_at, record.answers),
-        biggest_win=rules.biggest_win(record.answers),
-        by_area=rules.answered_by_area(record.answers),
+        minutes=session_minutes(record.started_at, record.answers),
+        biggest_win=biggest_win(record.answers),
+        by_area=answered_by_area(record.answers),
     )

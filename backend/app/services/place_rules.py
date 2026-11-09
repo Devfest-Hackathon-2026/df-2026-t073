@@ -7,7 +7,7 @@ from collections import defaultdict
 from app.schemas.flashcard import FlashcardResponse, Sighting
 from app.schemas.place import JpName, MapArea, MapPin, Place
 from app.schemas.user import HomeArea
-from app.services.review_rules import area_id as review_area_id
+from app.services.review_rules.selection import area_id as review_area_id
 from app.services.tango_rules import is_mastered
 from app.services.tango_rules import clean_place_name
 

@@ -37,7 +37,7 @@ backend/
 │   └── services/              # Business logic. *_rules.py files are pure (no I/O) and unit-tested
 │       ├── firestore.py       # captures, flashcards, review sessions in Firestore
 │       ├── tango_rules.py     # card identity, strength 0-4, sightings, history
-│       ├── review.py / review_rules.py       # due cards, sessions, questions, results
+│       ├── review.py / review_rules/         # due cards, sessions, questions, results
 │       ├── places.py / place_rules.py        # Places API, place cache, map pins and areas
 │       ├── visits.py          # planned visits and the Today summary
 │       ├── profile.py         # profile fields and Me-tab stats

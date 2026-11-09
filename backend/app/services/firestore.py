@@ -18,11 +18,17 @@ from app.schemas.flashcard import (
     RelatedVocabItem,
     ReviewStats,
     Sighting,
+    card_has_photo,
 )
 from app.schemas.review import ReviewSessionRecord, SessionAnswer
 from app.schemas.user import UserProfile
-from app.services import review_rules, tango_rules
-from app.services.review_rules import area_of, card_has_photo
+from app.services import tango_rules
+from app.services.review_rules import cards as review_cards
+from app.services.review_rules.exercises import backfill_photo_fields
+from app.services.review_rules.grading import grade_answer, rating_for_answer
+from app.services.review_rules.questions import is_stale_answer
+from app.services.review_rules.selection import area_of
+from app.services.review_rules.stages import next_stage
 
 Rating = Literal["again", "good", "easy"]
 
@@ -321,7 +327,7 @@ async def add_sighting(
         sighting_id=sighting.sighting_id,
         strength_after=strength,
     )
-    backfill = review_rules.backfill_photo_fields(card, sighting, bounding_box)
+    backfill = backfill_photo_fields(card, sighting, bounding_box)
     updates: dict[str, Any] = {
         "sightings": ArrayUnion([sighting.model_dump(mode="python")]),
         "history": ArrayUnion([event.model_dump(mode="python")]),
@@ -513,9 +519,9 @@ async def update_flashcard_review(
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
 
-    is_correct = review_rules.grade_answer(card, question_type, correct, rating, answer_text)
+    is_correct = grade_answer(card, question_type, correct, rating, answer_text)
 
-    if review_rules.is_stale_answer(card, question_type):
+    if is_stale_answer(card, question_type):
         # The card moved to another stage since this question was built: don't count it.
         logger.info("Ignoring stale %s answer for %s (uid=%s)", question_type, flashcard_id, uid)
         if session_id:
@@ -526,12 +532,12 @@ async def update_flashcard_review(
                 answer=_session_answer(card, is_correct, card.strength, now),
             )
         return card
-    effective_rating = review_rules.rating_for_answer(question_type, is_correct, rating)
+    effective_rating = rating_for_answer(question_type, is_correct, rating)
     strength = tango_rules.apply_review(card.strength, effective_rating)
     scheduled_stats = next_review_stats(card.review_stats, effective_rating, now, strength)
-    new_stats = review_rules.next_stage(
+    new_stats = next_stage(
         scheduled_stats,
-        review_rules.capture_format(card),
+        review_cards.capture_format(card),
         is_correct,
         has_photo=card_has_photo(card),
         question_type=question_type,
