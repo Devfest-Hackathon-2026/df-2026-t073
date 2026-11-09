@@ -356,6 +356,10 @@ export const submitAnswer = pick(
   ) => {
     // The backend works out the rating from question_type and correct
     // (rating_for_answer); only self-rated flashcards send their own rating.
+    // The server grades fill questions itself and needs a typed answer, so
+    // "Show answer" (nothing typed) sends "" and is graded as a miss.
+    const isFill = options?.questionType?.startsWith('fill_') ?? false;
+    const answer = options?.answer ?? (isFill ? '' : undefined);
     await request<FlashcardResponse>(
       `${API_V1}/flashcards/${encodeURIComponent(tangoId)}/review`,
       {
@@ -364,7 +368,7 @@ export const submitAnswer = pick(
           rating: options?.rating,
           correct,
           question_type: options?.questionType,
-          answer: options?.answer,
+          answer,
           session_id: sessionId ?? undefined,
         },
       },
