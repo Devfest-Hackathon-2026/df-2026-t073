@@ -100,7 +100,7 @@ describe('plan sheet without a place', () => {
     await search(tree, 'nakano');
     await press(tree, '中野区役所');
     expect(allTexts(tree)).toContain('Plan a visit to 中野区役所');
-    await press(tree, 'Tomorrow');
+    // The default date and time is always still ahead.
     await press(tree, 'Add to plans');
     expect(createMock.mock.calls[0][0]).toBe('nakano-ward-office');
   });

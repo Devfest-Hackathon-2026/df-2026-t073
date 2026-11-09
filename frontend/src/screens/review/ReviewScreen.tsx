@@ -1,25 +1,18 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { createList } from '../../api/lists';
-import { getReviewSummary } from '../../api/review';
+import { getReviewCard, getReviewSummary } from '../../api/review';
 import { listTango } from '../../api/tango';
 import { Icon } from '../../components/Icon';
 import { Screen } from '../../components/layout';
-import {
-  Button,
-  Card,
-  Chip,
-  CountBadge,
-  Facts,
-  Loadable,
-  SectionTitle,
-} from '../../components/ui';
+import { Chip, CountBadge, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontWeights, space } from '../../styles/tokens';
 import type { Collection } from '../../types';
+import { ReviewStartCard } from '../../features/review/ReviewStartCard';
 import { NameListSheet } from './ListSheets';
 import { TangoRow } from './TangoRow';
 import { copy } from '../../copy';
@@ -40,8 +33,9 @@ function collectionIcon(c: Collection) {
 export function ReviewScreen(): React.JSX.Element {
   const nav = useRootNav();
   const summary = useAsync(getReviewSummary);
+  const card = useAsync(getReviewCard);
   const recent = useAsync(() => listTango());
-  useReloadOnFocus(summary.reload, recent.reload);
+  useReloadOnFocus(summary.reload, card.reload, recent.reload);
   const [naming, setNaming] = useState(false);
 
   const openCollection = (c: Collection) => {
@@ -62,25 +56,12 @@ export function ReviewScreen(): React.JSX.Element {
       <Loadable state={summary} messages={LINES}>
         {s => (
           <View style={base.stack}>
-            <Card variant="dark">
-              <View style={base.rowBetween}>
-                <View style={base.grow}>
-                  <Text style={styles.eyebrow}>{copy.review.quickReview}</Text>
-                  <Text style={styles.bigInverse}>
-                    {copy.common.due(s.dueCount)}
-                  </Text>
-                  <Facts
-                    inverse
-                    items={[{ icon: 'time', text: copy.common.minutes(s.minutes) }]}
-                  />
-                </View>
-                <Button
-                  label={copy.review.start}
-                  variant="light"
-                  onPress={() => nav.navigate('ReviewSession')}
-                />
-              </View>
-            </Card>
+            {card.data ? (
+              <ReviewStartCard
+                card={card.data}
+                title={copy.review.quickReview}
+              />
+            ) : null}
 
             <Text style={base.heading}>{copy.review.collections}</Text>
             <View style={base.wrap}>
@@ -152,14 +133,6 @@ export function ReviewScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  eyebrow: {
-    ...base.label,
-    color: colors.textInverse,
-  },
-  bigInverse: {
-    ...base.heading,
-    color: colors.textInverse,
-  },
   link: {
     flexDirection: 'row',
     alignItems: 'center',

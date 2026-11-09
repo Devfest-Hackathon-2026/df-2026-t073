@@ -95,7 +95,7 @@ export function PlansScreen(): React.JSX.Element {
                 </View>
                 <View style={base.rowBetween}>
                   <View style={base.grow}>
-                    <Jp {...visit.place.name} bold size="lg" />
+                    <Jp {...visit.place.name} bold size="lg" furigana={false} />
                     <Facts
                       items={[
                         { icon: 'category', text: visit.place.category },

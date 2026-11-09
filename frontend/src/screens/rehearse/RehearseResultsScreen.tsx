@@ -58,7 +58,7 @@ export function RehearseResultsScreen({
         {data => (
           <View style={base.stack}>
             <Text style={base.title}>{copy.rehearseResults.niceWork}</Text>
-            <Jp {...data.place.name} size="sm" tone="muted" />
+            <Jp {...data.place.name} size="sm" tone="muted" furigana={false} />
             <Facts
               items={[
                 { icon: 'hint', text: copy.rehearseResults.hintsUsed(hintsUsed) },

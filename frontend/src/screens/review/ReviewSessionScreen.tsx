@@ -1008,7 +1008,7 @@ function Results({
                 <Text style={styles.eyebrow}>
                   {copy.sessionResults.nextPlan}
                 </Text>
-                <Jp {...r.next.place.name} bold size="lg" />
+                <Jp {...r.next.place.name} bold size="lg" furigana={false} />
                 {r.next.place.name.meaning ? (
                   <Text style={base.caption}>{r.next.place.name.meaning}</Text>
                 ) : null}

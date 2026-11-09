@@ -16,6 +16,9 @@ export const colors = {
   camera: '#202326',
   scrim: 'rgba(0, 0, 0, 0.4)',
   overlay: 'rgba(0, 0, 0, 0.65)',
+  // Light fills and lines on dark cards
+  inverseSoft: 'rgba(255, 255, 255, 0.08)',
+  inverseBorder: 'rgba(255, 255, 255, 0.3)',
   // The one accent
   accent: '#2D46C8',
   accentSoft: '#E6E9F9',

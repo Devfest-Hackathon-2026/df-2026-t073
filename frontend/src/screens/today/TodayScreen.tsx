@@ -24,6 +24,7 @@ import {
   useSaveWord,
 } from '../../features/tango/saveWord';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
+import { ReviewStartCard } from '../../features/review/ReviewStartCard';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -254,7 +255,9 @@ function Regular({
       <Greeting name={summary.userName} />
       {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
-      {review ? <ReviewCardView card={review} /> : null}
+      {review ? (
+        <ReviewStartCard card={review} title={copy.today.reviewTitle} />
+      ) : null}
       {summary.upNext ? <UpNextCard visit={summary.upNext} /> : null}
       <PlansRow
         hasPlans={summary.upNext !== null}
@@ -284,17 +287,22 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
     <Card variant="accent">
-      <Text style={styles.eyebrowInverse}>{copy.today.upNext}</Text>
-      <Text style={styles.upNextTime}>{formatVisitTime(visit.when)}</Text>
+      <Text style={styles.titleInverse}>{copy.today.upNext}</Text>
       <View style={base.rowBetween}>
         <View style={base.grow}>
-          <Jp {...visit.place.name} bold size="lg" tone="inverse" />
+          <Jp
+            {...visit.place.name}
+            bold
+            size="lg"
+            tone="inverse"
+            furigana={false}
+          />
           <Facts
             inverse
             items={[
+              { icon: 'calendar', text: formatVisitTime(visit.when) },
               { icon: 'category', text: visit.place.category },
               { icon: 'pin', text: visit.place.area },
-              { icon: 'tango', text: copy.common.tangoCount(visit.tangoCount) },
             ]}
           />
         </View>
@@ -319,22 +327,20 @@ function PlansRow({
   const nav = useRootNav();
   return (
     <View style={styles.plansRow}>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => nav.navigate('Plans')}
-        style={base.grow}
-      >
+      <View style={base.grow}>
         <Text style={base.heading}>{copy.today.yourPlans}</Text>
-        <View style={base.row}>
-          <Text style={styles.plansLinkText}>
-            {hasPlans ? copy.today.allPlans : copy.today.nothingPlanned}
-          </Text>
-          {hasPlans ? (
-            <Icon name="forward" size={fontSizes.md} color={colors.accent} />
-          ) : null}
-        </View>
-      </Pressable>
+        {hasPlans ? null : (
+          <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
+        )}
+      </View>
       <Button label={copy.today.planVisit} icon="add" onPress={onPlan} />
+      {hasPlans ? (
+        <Button
+          label={copy.today.allPlans}
+          variant="secondary"
+          onPress={() => nav.navigate('Plans')}
+        />
+      ) : null}
     </View>
   );
 }
@@ -369,49 +375,6 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
         disabled={saver.busy}
         onPress={saver.save}
       />
-    </Card>
-  );
-}
-
-function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
-  const nav = useRootNav();
-  return (
-    <Card>
-      <View style={base.rowBetween}>
-        <View style={base.grow}>
-          <SectionTitle
-            en={copy.today.reviewTitle}
-            jp={copy.today.reviewTitleJp}
-          />
-          <Facts
-            items={[
-              { icon: 'review', text: copy.common.due(card.dueCount) },
-              { icon: 'time', text: copy.common.aboutMinutes(card.minutes) },
-            ]}
-          />
-          <Text style={base.caption}>
-            {copy.today.reviewFrom(card.areas)}
-          </Text>
-        </View>
-        <Button
-          label={copy.today.start}
-          variant="dark"
-          onPress={() => nav.navigate('ReviewSession')}
-        />
-      </View>
-      <View style={base.wrap}>
-        {card.sample.map(tango => (
-          <Chip
-            key={tango.id}
-            jp={tango}
-            icon={tango.sightings.length ? 'pin' : undefined}
-            onPress={() => nav.navigate('TangoDetail', { id: tango.id })}
-          />
-        ))}
-        {card.moreCount > 0 ? (
-          <Text style={base.caption}>{copy.today.more(card.moreCount)}</Text>
-        ) : null}
-      </View>
     </Card>
   );
 }
@@ -558,19 +521,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: space.md,
   },
-  upNextTime: {
-    ...base.heading,
-    color: colors.textInverse,
-  },
-  plansLinkText: {
-    ...base.caption,
-    color: colors.accent,
-    fontWeight: fontWeights.bold,
-  },
   plansRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     backgroundColor: colors.surface,
     borderRadius: radii.md,
     padding: space.md,
@@ -584,8 +538,8 @@ const styles = StyleSheet.create({
     ...base.label,
     color: colors.accent,
   },
-  eyebrowInverse: {
-    ...base.label,
+  titleInverse: {
+    ...base.heading,
     color: colors.textInverse,
   },
   stepTitle: {

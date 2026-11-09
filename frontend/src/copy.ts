@@ -9,6 +9,20 @@
  */
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
 
 /** Word-of-the-day topic names, by the backend's topic id. */
 const TOPIC_NAMES: Record<string, string> = {
@@ -40,13 +54,14 @@ const common = {
   couldNotLoad: "Couldn't load this",
   /** Sun..Sat, indexed by Date.getDay(). */
   weekdays: WEEKDAYS,
+  /** January..December, indexed by Date.getMonth(). */
+  months: MONTHS,
   play: (text: string) => `Play ${text}`,
   // Facts shown side by side with icons (no separators).
   tangoCount: (n: number) => `${n} Tango`,
   placeCount: (n: number) => (n === 1 ? '1 place' : `${n} places`),
   minutes: (n: number) => `${n} min`,
   aboutMinutes: (n: number) => `About ${n} min`,
-  due: (n: number) => `${n} due`,
   open: (text: string) => `Open ${text}`,
   /** Light, upbeat lines shown while something loads. */
   loadingLines: ['Gathering your words…', 'Lining things up…', 'Almost there…'],
@@ -162,11 +177,20 @@ const plans = {
   prepare: 'Prepare',
   // Plan sheet (Prepare, Today)
   sheetTitle: (place: string) => `Plan a visit to ${place}`,
-  day: 'Day',
+  date: 'Date',
   time: 'Time',
-  today: 'Today',
-  tomorrow: 'Tomorrow',
-  dayLabel: (weekday: string, date: number) => `${weekday} ${date}`,
+  monthLabel: (month: string, year: number) => `${month} ${year}`,
+  previousMonth: 'Previous month',
+  nextMonth: 'Next month',
+  dayA11y: (weekday: string, date: number, month: string) =>
+    `${weekday} ${date} ${month}`,
+  hour: 'Hour',
+  minute: 'Minute',
+  earlier: (unit: string) => `Earlier ${unit.toLowerCase()}`,
+  later: (unit: string) => `Later ${unit.toLowerCase()}`,
+  pickLabel: (weekday: string, date: number, month: string, time: string) =>
+    `${weekday} ${date} ${month.slice(0, 3)}, ${time}`,
+  pastTime: 'Pick a time later than now.',
   slots: {
     morning: 'Morning',
     lunch: 'Lunch',
@@ -254,7 +278,6 @@ const review = {
   title: 'Review',
   titleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
   quickReview: 'Quick review',
-  start: 'Start',
   collections: 'Collections',
   recentTango: 'Recent Tango',
   allTango: 'All Tango',
@@ -510,10 +533,8 @@ const today = {
     everyday: 'An everyday word for your level',
   },
   reviewTitle: 'Review',
-  reviewTitleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
-  reviewFrom: (areas: string[]) => `From ${areas.join(', ')}`,
   start: 'Start',
-  more: (n: number) => `+${n}`,
+  more: (n: number) => `+${n} more`,
   firstOuting: 'Your first outing',
   aboutTenMin: 'About 10 min',
   stepCatch: 'Catch 3 Tango around the station',

@@ -1,11 +1,12 @@
 import { copy } from '../../copy';
+import { pad } from '../../utils/format';
 
-/** How many days ahead a visit can be planned from the sheet. */
-export const PLAN_DAYS = 14;
+/** Minutes move in steps of this size. */
+export const MINUTE_STEP = 5;
 
 export type SlotId = 'morning' | 'lunch' | 'afternoon' | 'evening';
 
-/** Times of day a visit can be planned for (local time). */
+/** Quick picks for common times of day (local time). */
 export const TIME_SLOTS: { id: SlotId; hour: number }[] = [
   { id: 'morning', hour: 10 },
   { id: 'lunch', hour: 12 },
@@ -13,52 +14,118 @@ export const TIME_SLOTS: { id: SlotId; hour: number }[] = [
   { id: 'evening', hour: 18 },
 ];
 
-export interface DayOption {
-  /** Days from today: 0 = today. */
-  offset: number;
-  label: string;
+/** A picked local date and time. `month` is 0-based, as in Date. */
+export interface PlanPick {
+  year: number;
+  month: number;
+  date: number;
+  hour: number;
+  minute: number;
 }
 
-/** Today, tomorrow, then "Wed 12" style labels, for the next PLAN_DAYS days. */
-export function dayOptions(now: Date): DayOption[] {
-  return Array.from({ length: PLAN_DAYS }, (_, offset) => {
-    const day = new Date(now);
-    day.setDate(day.getDate() + offset);
-    const label =
-      offset === 0
-        ? copy.plans.today
-        : offset === 1
-        ? copy.plans.tomorrow
-        : copy.plans.dayLabel(
-            copy.common.weekdays[day.getDay()],
-            day.getDate(),
-          );
-    return { offset, label };
-  });
+export function toDate(pick: PlanPick): Date {
+  return new Date(pick.year, pick.month, pick.date, pick.hour, pick.minute);
+}
+
+/** The pick for a date, with minutes rounded down to a MINUTE_STEP. */
+export function fromDate(when: Date): PlanPick {
+  return {
+    year: when.getFullYear(),
+    month: when.getMonth(),
+    date: when.getDate(),
+    hour: when.getHours(),
+    minute: Math.floor(when.getMinutes() / MINUTE_STEP) * MINUTE_STEP,
+  };
+}
+
+export function isPast(now: Date, pick: PlanPick): boolean {
+  return toDate(pick).getTime() <= now.getTime();
+}
+
+/** Days before today can't be picked. */
+export function isPastDay(
+  now: Date,
+  year: number,
+  month: number,
+  date: number,
+): boolean {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return new Date(year, month, date).getTime() < today.getTime();
+}
+
+/** The next quick-pick time still ahead today, else tomorrow at lunch. */
+export function defaultPick(now: Date): PlanPick {
+  const today = fromDate(now);
+  const slot = TIME_SLOTS.find(
+    s => !isPast(now, { ...today, hour: s.hour, minute: 0 }),
+  );
+  if (slot) {
+    return { ...today, hour: slot.hour, minute: 0 };
+  }
+  const tomorrow = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  );
+  return { ...fromDate(tomorrow), hour: 12, minute: 0 };
+}
+
+/**
+ * The days of a month as calendar weeks, Sunday first. Blank cells before
+ * the 1st and after the last day are null.
+ */
+export function monthWeeks(year: number, month: number): (number | null)[][] {
+  const lead = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array<null>(lead).fill(null),
+    ...Array.from({ length: days }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7) {
+    cells.push(null);
+  }
+  return Array.from({ length: cells.length / 7 }, (_, w) =>
+    cells.slice(w * 7, w * 7 + 7),
+  );
+}
+
+/** The month `delta` months from the given one. */
+export function addMonths(
+  year: number,
+  month: number,
+  delta: number,
+): { year: number; month: number } {
+  const moved = new Date(year, month + delta, 1);
+  return { year: moved.getFullYear(), month: moved.getMonth() };
+}
+
+/** Moves the hour, wrapping around midnight. */
+export function stepHour(pick: PlanPick, delta: number): PlanPick {
+  return { ...pick, hour: (pick.hour + delta + 24) % 24 };
+}
+
+/** Moves the minutes by MINUTE_STEP, wrapping within the hour. */
+export function stepMinute(pick: PlanPick, delta: number): PlanPick {
+  return { ...pick, minute: (pick.minute + delta * MINUTE_STEP + 60) % 60 };
+}
+
+export function timeLabel(hour: number, minute: number): string {
+  return `${hour}:${pad(minute)}`;
 }
 
 export function slotLabel(slot: { id: SlotId; hour: number }): string {
-  return copy.plans.slotLabel(copy.plans.slots[slot.id], `${slot.hour}:00`);
+  return copy.plans.slotLabel(
+    copy.plans.slots[slot.id],
+    timeLabel(slot.hour, 0),
+  );
 }
 
-/** The local date and time for a day offset and a time slot. */
-export function planTime(now: Date, offset: number, slotId: SlotId): Date {
-  const slot = TIME_SLOTS.find(s => s.id === slotId) ?? TIME_SLOTS[0];
-  const when = new Date(now);
-  when.setDate(when.getDate() + offset);
-  when.setHours(slot.hour, 0, 0, 0);
-  return when;
-}
-
-/** Slots already over today can't be picked. */
-export function isPast(now: Date, offset: number, slotId: SlotId): boolean {
-  return planTime(now, offset, slotId).getTime() <= now.getTime();
-}
-
-/** The next slot that is still ahead: later today, else tomorrow lunch. */
-export function defaultPick(now: Date): { offset: number; slotId: SlotId } {
-  const today = TIME_SLOTS.find(s => !isPast(now, 0, s.id));
-  return today
-    ? { offset: 0, slotId: today.id }
-    : { offset: 1, slotId: 'lunch' };
+/** e.g. "Thu 12 Nov, 12:15". */
+export function pickLabel(pick: PlanPick): string {
+  return copy.plans.pickLabel(
+    copy.common.weekdays[toDate(pick).getDay()],
+    pick.date,
+    copy.common.months[pick.month],
+    timeLabel(pick.hour, pick.minute),
+  );
 }

@@ -1,5 +1,5 @@
 import { copy } from '../copy';
-function pad(n: number): string {
+export function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 

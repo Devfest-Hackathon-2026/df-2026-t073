@@ -101,7 +101,10 @@ export interface Fact {
   text: string | number | null | undefined;
 }
 
-/** Small facts side by side, each with an icon (e.g. category, area, Tango count). */
+/**
+ * Small facts side by side, each with an icon (e.g. date, category, area, Tango count),
+ * in the all-caps label style used for small details across the app.
+ */
 export function Facts({
   items,
   inverse = false,
@@ -121,7 +124,7 @@ export function Facts({
           <IconLabel
             key={`${item.icon}-${item.text}`}
             icon={item.icon}
-            style={[base.caption, inverse && styles.factsInverse]}
+            style={[base.label, inverse && styles.factsInverse]}
           >
             {item.text}
           </IconLabel>
@@ -217,7 +220,14 @@ export function IconButton({
 
 // ---------- Chip ----------
 
-type ChipTone = 'default' | 'accent' | 'place' | 'hanamaru' | 'outline';
+type ChipTone =
+  | 'default'
+  | 'accent'
+  | 'place'
+  | 'hanamaru'
+  | 'outline'
+  /** Light outline and text, for dark cards. */
+  | 'inverse';
 
 export function Chip({
   label,
@@ -240,16 +250,37 @@ export function Chip({
   count?: number;
   onPress?: () => void;
 }): React.JSX.Element {
+  const inverse = tone === 'inverse';
   const content = (
     <>
       {icon === 'hanamaru' ? (
         <Hanamaru size={fontSizes.md} />
       ) : icon ? (
-        <Icon name={icon} size={fontSizes.md} color={colors.textMuted} />
+        <Icon
+          name={icon}
+          size={fontSizes.md}
+          color={inverse ? colors.textInverse : colors.textMuted}
+        />
       ) : null}
-      {jp ? <Jp {...jp} size="sm" /> : null}
+      {jp ? (
+        // Fills the chip's height so the word sits in the middle.
+        <View style={styles.chipJp}>
+          <Jp
+            {...jp}
+            size="sm"
+            tone={inverse ? 'inverse' : 'default'}
+            keepFuriganaLine={false}
+          />
+        </View>
+      ) : null}
       {label ? (
-        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+        <Text
+          style={[
+            styles.chipText,
+            inverse && styles.factsInverse,
+            selected && styles.chipTextSelected,
+          ]}
+        >
           {label}
         </Text>
       ) : null}
@@ -263,6 +294,7 @@ export function Chip({
     chipStyles[tone],
     selected && styles.chipSelected,
     dashed && styles.chipDashed,
+    dashed && inverse && chipStyles.inverseDashed,
   ];
   if (onPress) {
     return (
@@ -287,6 +319,15 @@ const chipStyles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: sizes.hairline,
     borderColor: colors.border,
+  },
+  inverse: {
+    backgroundColor: colors.inverseSoft,
+    borderWidth: sizes.hairline,
+    borderColor: colors.inverseBorder,
+  },
+  inverseDashed: {
+    backgroundColor: 'transparent',
+    borderColor: colors.inverseBorder,
   },
 });
 
@@ -639,6 +680,11 @@ const styles = StyleSheet.create({
   },
   iconButtonDark: {
     backgroundColor: colors.overlay,
+  },
+  chipJp: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    flexShrink: 1,
   },
   chipText: {
     ...base.text,

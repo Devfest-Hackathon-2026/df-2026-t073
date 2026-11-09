@@ -32,7 +32,7 @@ export function PlaceSearchResults({
             style={[styles.result, base.grow]}
             onPress={() => onPick(place)}
           >
-            <Jp {...place.name} bold />
+            <Jp {...place.name} bold furigana={false} />
             <Facts
               items={[
                 { icon: 'category', text: place.category },

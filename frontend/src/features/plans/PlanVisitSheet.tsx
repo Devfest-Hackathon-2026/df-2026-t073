@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { createVisit, deleteVisit, searchPlaces } from '../../api/places';
 import { Icon } from '../../components/Icon';
 import { PlaceSearchResults } from '../../components/PlaceSearchResults';
@@ -11,13 +11,15 @@ import { colors, radii, sizes, space } from '../../styles/tokens';
 import { useAsync } from '../../hooks/useAsync';
 import type { Visit } from '../../types';
 import { formatVisitTime } from '../../utils/format';
+import { CalendarMonth, TimePicker } from './DateTimePicker';
 import {
-  dayOptions,
   defaultPick,
+  fromDate,
   isPast,
-  planTime,
+  pickLabel,
   slotLabel,
   TIME_SLOTS,
+  toDate,
 } from './planTimes';
 
 /** The place a visit is planned for. */
@@ -27,8 +29,9 @@ export interface PlanPlace {
 }
 
 /**
- * Plan a visit: pick a day and a time of day. Without a `place`, it starts with a
- * place search. If the place already has a plan, shows it with Change and Remove.
+ * Plan a visit: pick a date on a calendar and a time (5-minute steps, with
+ * quick picks). Without a `place`, it starts with a place search. If the place
+ * already has a plan, shows it with Change and Remove.
  */
 export function PlanVisitSheet({
   visible,
@@ -95,16 +98,21 @@ export function PlanVisitSheet({
   // save never loses the plan the user already had.
   const save = (target: PlanPlace) =>
     run(async () => {
-      await createVisit(
-        target.id,
-        planTime(now, pick.offset, pick.slotId).toISOString(),
-      );
+      await createVisit(target.id, toDate(pick).toISOString());
       if (existing) {
         await deleteVisit(existing.id);
       }
     });
 
   const showPicker = !existing || changing;
+  const past = isPast(now, pick);
+
+  // Changing starts from the plan's own date and time, if still ahead.
+  const startChange = (visit: Visit) => {
+    const current = fromDate(new Date(visit.when));
+    setPick(isPast(now, current) ? defaultPick(now) : current);
+    setChanging(true);
+  };
 
   if (!chosen) {
     return (
@@ -151,48 +159,37 @@ export function PlanVisitSheet({
 
         {showPicker ? (
           <>
-            <Text style={base.label}>{copy.plans.day}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dayRow}
-            >
-              {dayOptions(now).map(day => (
-                <Chip
-                  key={day.offset}
-                  label={day.label}
-                  tone="outline"
-                  selected={pick.offset === day.offset}
-                  onPress={() => {
-                    // Keep the time if it's still ahead on that day.
-                    const slotId = isPast(now, day.offset, pick.slotId)
-                      ? defaultPick(now).slotId
-                      : pick.slotId;
-                    setPick({ offset: day.offset, slotId });
-                  }}
-                />
-              ))}
-            </ScrollView>
+            <Text style={base.label}>{copy.plans.date}</Text>
+            <CalendarMonth now={now} value={pick} onChange={setPick} />
 
             <Text style={base.label}>{copy.plans.time}</Text>
-            <View style={base.wrap}>
+            <TimePicker value={pick} onChange={setPick} />
+            <View style={styles.slots}>
               {TIME_SLOTS.filter(
-                slot => !isPast(now, pick.offset, slot.id),
+                slot => !isPast(now, { ...pick, hour: slot.hour, minute: 0 }),
               ).map(slot => (
                 <Chip
                   key={slot.id}
                   label={slotLabel(slot)}
                   tone="outline"
-                  selected={pick.slotId === slot.id}
-                  onPress={() => setPick({ ...pick, slotId: slot.id })}
+                  selected={pick.hour === slot.hour && pick.minute === 0}
+                  onPress={() =>
+                    setPick({ ...pick, hour: slot.hour, minute: 0 })
+                  }
                 />
               ))}
             </View>
 
+            <Text style={[base.heading, styles.summary]}>
+              {pickLabel(pick)}
+            </Text>
+            {past ? (
+              <Text style={styles.error}>{copy.plans.pastTime}</Text>
+            ) : null}
             <Button
               label={existing ? copy.plans.saveChange : copy.plans.addToPlans}
               icon="calendar"
-              disabled={busy}
+              disabled={busy || past}
               onPress={() => save(chosen)}
             />
           </>
@@ -208,7 +205,7 @@ export function PlanVisitSheet({
                 variant="secondary"
                 style={base.grow}
                 disabled={busy}
-                onPress={() => setChanging(true)}
+                onPress={() => startChange(existing)}
               />
               <Button
                 label={copy.plans.remove}
@@ -248,8 +245,14 @@ const styles = StyleSheet.create({
     ...base.caption,
     color: colors.accent,
   },
-  dayRow: {
+  slots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: space.sm,
+  },
+  summary: {
+    textAlign: 'center',
   },
   error: {
     ...base.caption,

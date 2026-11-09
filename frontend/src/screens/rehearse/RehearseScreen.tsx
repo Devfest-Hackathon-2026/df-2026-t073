@@ -72,7 +72,9 @@ export function RehearseScreen({
           <IconLabel icon="ai" style={styles.eyebrow}>
             {copy.rehearse.aiRolePlay}
           </IconLabel>
-          {script.data ? <Jp {...script.data.place.name} bold /> : null}
+          {script.data ? (
+            <Jp {...script.data.place.name} bold furigana={false} />
+          ) : null}
         </ScreenHeader>
         <SegmentedControl
           options={[

@@ -33,9 +33,40 @@ export interface JpProps extends JpText {
   alwaysKanji?: boolean;
   /** Center the word (and its furigana) in its row, e.g. in a centered hero. */
   center?: boolean;
+  /** False to never show furigana, e.g. for place names. */
+  furigana?: boolean;
+  /**
+   * Keep an empty furigana line over words without furigana, so they line
+   * up with words that have it. Off inside pills, which center their word.
+   */
+  keepFuriganaLine?: boolean;
 }
 
 const DOT_COUNT = 80;
+/** Furigana only goes over kanji; kana text reads fine on its own. */
+const KANJI = /[\u3400-\u4dbf\u4e00-\u9fff々]/;
+/**
+ * Furigana size for each word size. Small words keep a readable minimum;
+ * large words get furigana well under half their size.
+ */
+const FURIGANA_SIZE: Record<Size, number> = {
+  xs: 8,
+  sm: 9,
+  md: 10,
+  lg: 11,
+  xl: 12,
+  xxl: 14,
+  jumbo: 18,
+};
+/** Furigana line height, as a multiple of its font size. */
+const FURIGANA_LINE = 1.2;
+/**
+ * How far the furigana is pulled down into the word's line, as a share of
+ * the word's size; the line has empty space above the glyphs.
+ */
+const FURIGANA_TUCK = 0.15;
+/** How far a long reading may stick out past its word on each side. */
+const FURIGANA_OVERHANG = 100;
 const DOTS = Array.from({ length: DOT_COUNT }, (_, i) => i);
 
 /**
@@ -53,6 +84,8 @@ export function Jp({
   tone = 'default',
   alwaysKanji = false,
   center = false,
+  furigana = true,
+  keepFuriganaLine = true,
 }: JpProps): React.JSX.Element {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
@@ -65,8 +98,12 @@ export function Jp({
   } else if (mode === 'hiragana' && reading) {
     shown = reading;
   }
+  // With furigana on, every word keeps the furigana line (blank when there
+  // is nothing to show), so words with and without it line up.
+  const furiganaOn = furigana && settings.furigana && mode === 'kanji';
   const showFurigana =
-    settings.furigana && mode === 'kanji' && !!reading && reading !== text;
+    furiganaOn && !!reading && reading !== text && KANJI.test(text);
+  const furiganaLine = showFurigana || (furiganaOn && keepFuriganaLine);
 
   const textStyle = [
     styles.text,
@@ -84,8 +121,31 @@ export function Jp({
         center && styles.columnCenter,
       ]}
     >
-      {showFurigana ? (
-        <Text style={[styles.furigana, toneStyles[tone]]}>{reading}</Text>
+      {furiganaLine ? (
+        // A tight, fixed-height line. The reading is drawn over it, centered,
+        // so it never makes the word wider; kana words keep the line blank.
+        <View
+          style={{
+            height: FURIGANA_SIZE[size] * FURIGANA_LINE,
+            marginBottom: -fontSizes[size] * FURIGANA_TUCK,
+          }}
+        >
+          {showFurigana ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.furigana,
+                {
+                  fontSize: FURIGANA_SIZE[size],
+                  lineHeight: FURIGANA_SIZE[size] * FURIGANA_LINE,
+                },
+                toneStyles[tone],
+              ]}
+            >
+              {reading}
+            </Text>
+          ) : null}
+        </View>
       ) : null}
       <Text style={textStyle}>{shown}</Text>
       {peek ? (
@@ -198,8 +258,12 @@ const styles = StyleSheet.create({
   },
   furigana: {
     ...base.text,
-    fontSize: fontSizes.xs,
+    position: 'absolute',
+    top: 0,
+    left: -FURIGANA_OVERHANG,
+    right: -FURIGANA_OVERHANG,
     textAlign: 'center',
+    includeFontPadding: false,
   },
   columnCenter: {
     alignSelf: 'center',

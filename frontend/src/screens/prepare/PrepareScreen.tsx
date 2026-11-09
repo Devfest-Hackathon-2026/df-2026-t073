@@ -92,7 +92,7 @@ export function PrepareScreen({
         {data => (
           <View style={base.stack}>
             <View style={base.stackSm}>
-              <Jp {...data.place.name} bold size="xxl" />
+              <Jp {...data.place.name} bold size="xxl" furigana={false} />
               <Facts
                 items={[
                   { icon: 'category', text: data.place.category },
