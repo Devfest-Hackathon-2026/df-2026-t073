@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteVisit, listVisits, searchPlaces } from '../../api/places';
+import { listVisits, searchPlaces } from '../../api/places';
 import { Icon } from '../../components/Icon';
 import { Jp } from '../../components/Jp';
 import { Screen, ScreenHeader } from '../../components/layout';
@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   Facts,
-  IconButton,
   Loadable,
   SectionTitle,
 } from '../../components/ui';
@@ -24,8 +23,18 @@ import { formatVisitTime } from '../../utils/format';
 import { copy } from '../../copy';
 import { favoriteHearts } from '../../features/places/FavoriteHeart';
 import { useFavoritePlaces } from '../../features/places/useFavoritePlaces';
+import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
+import type { Visit } from '../../types';
 
-export function PlansScreen(): React.JSX.Element {
+/**
+ * The user's planned visits. As a tab (when the map is off it takes the Map
+ * tab's place) it has a page title instead of a back button.
+ */
+export function PlansScreen({
+  asTab = false,
+}: {
+  asTab?: boolean;
+}): React.JSX.Element {
   const nav = useRootNav();
   const favorites = useFavoritePlaces();
   const visits = useAsync(listVisits);
@@ -33,17 +42,23 @@ export function PlansScreen(): React.JSX.Element {
   // With the map off, place search lives here instead of on the Map tab.
   const { settings } = useSettings();
   const [query, setQuery] = useState('');
+  const [editing, setEditing] = useState<Visit | null>(null);
   const searchQuery = useDebouncedValue(query);
   const results = useAsync(() => searchPlaces(searchQuery), searchQuery);
 
   return (
-    <Screen>
-      <ScreenHeader onBack={() => nav.goBack()}>
+    <Screen edges={asTab ? ['top'] : undefined}>
+      {asTab ? (
         <SectionTitle
           en={copy.plans.title}
           jp={copy.plans.titleJp}
+          size="title"
         />
-      </ScreenHeader>
+      ) : (
+        <ScreenHeader onBack={() => nav.goBack()}>
+          <SectionTitle en={copy.plans.title} jp={copy.plans.titleJp} />
+        </ScreenHeader>
+      )}
       {!settings.mapFeatures ? (
         <>
           <View style={styles.searchBox}>
@@ -79,27 +94,14 @@ export function PlansScreen(): React.JSX.Element {
               </Card>
             ) : null}
             {list.map(visit => (
-              <Card key={visit.id}>
+              // Tapping a plan opens the plan sheet: change or remove it.
+              <Card key={visit.id} onPress={() => setEditing(visit)}>
                 <View style={base.rowBetween}>
-                  <Text style={base.label}>{formatVisitTime(visit.when)}</Text>
-                  <IconButton
-                    icon="close"
-                    label={copy.plans.cancelVisit(visit.place.name.text)}
-                    onPress={async () => {
-                      try {
-                        await deleteVisit(visit.id);
-                        visits.reload();
-                      } catch {
-                        // ignore
-                      }
-                    }}
-                  />
-                </View>
-                <View style={base.rowBetween}>
-                  <View style={base.grow}>
+                  <View style={[base.grow, styles.planBody]}>
                     <Jp {...visit.place.name} bold size="lg" furigana={false} />
                     <Facts
                       items={[
+                        { icon: 'calendar', text: formatVisitTime(visit.when) },
                         { icon: 'category', text: visit.place.category },
                         { icon: 'pin', text: visit.place.area },
                         {
@@ -118,6 +120,17 @@ export function PlansScreen(): React.JSX.Element {
                 </View>
               </Card>
             ))}
+            <PlanVisitSheet
+              visible={editing !== null}
+              onClose={() => setEditing(null)}
+              place={
+                editing
+                  ? { id: editing.place.id, name: editing.place.name.text }
+                  : undefined
+              }
+              visits={list}
+              onSaved={visits.reload}
+            />
           </View>
         )}
       </Loadable>
@@ -141,5 +154,8 @@ const styles = StyleSheet.create({
     ...base.text,
     flex: 1,
     paddingVertical: 0,
+  },
+  planBody: {
+    gap: space.xxs,
   },
 });

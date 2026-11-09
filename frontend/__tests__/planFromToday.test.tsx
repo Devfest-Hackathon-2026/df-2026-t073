@@ -62,9 +62,21 @@ async function press(tree: ReactTestRenderer.ReactTestRenderer, label: string) {
   });
 }
 
+/** Search delay in useDebouncedValue, plus a little slack. */
+const SEARCH_WAIT_MS = 350;
+
 async function search(tree: ReactTestRenderer.ReactTestRenderer, q: string) {
   await ReactTestRenderer.act(async () => {
     tree.root.findByType(TextInput).props.onChangeText(q);
+  });
+  // Place search waits for typing to pause before it runs.
+  await ReactTestRenderer.act(async () => {
+    // Jest's modern fake timers put a `clock` on setTimeout.
+    if ('clock' in setTimeout) {
+      jest.advanceTimersByTime(SEARCH_WAIT_MS);
+    } else {
+      await new Promise<void>(resolve => setTimeout(resolve, SEARCH_WAIT_MS));
+    }
   });
 }
 

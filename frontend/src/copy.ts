@@ -173,7 +173,6 @@ const plans = {
   searchPlaceholder: 'どこへ行く？',
   searchA11y: 'Search places to visit',
   empty: 'No visits planned yet.',
-  cancelVisit: (place: string) => `Cancel visit to ${place}`,
   prepare: 'Prepare',
   // Plan sheet (Prepare, Today)
   sheetTitle: (place: string) => `Plan a visit to ${place}`,

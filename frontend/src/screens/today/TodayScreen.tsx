@@ -384,46 +384,6 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   );
 }
 
-function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
-  const nav = useRootNav();
-  return (
-    <Card>
-      <View style={base.rowBetween}>
-        <View style={base.grow}>
-          <SectionTitle
-            en={copy.today.reviewTitle}
-            jp={copy.today.reviewTitleJp}
-          />
-          <Text style={base.caption}>
-            {copy.today.reviewSummary(card.dueCount, card.minutes)}
-          </Text>
-          <Text style={base.caption}>
-            {copy.today.reviewFrom(card.areas)}
-          </Text>
-        </View>
-        <Button
-          label={copy.today.start}
-          variant="dark"
-          onPress={() => nav.navigate('ReviewSession')}
-        />
-      </View>
-      <View style={base.wrap}>
-        {card.sample.map(tango => (
-          <Chip
-            key={tango.id}
-            jp={tango}
-            icon={tango.sightings.length ? 'pin' : undefined}
-            onPress={() => nav.navigate('TangoDetail', { id: tango.id })}
-          />
-        ))}
-        {card.moreCount > 0 ? (
-          <Text style={base.caption}>{copy.today.more(card.moreCount)}</Text>
-        ) : null}
-      </View>
-    </Card>
-  );
-}
-
 function FirstOutingCard({
   summary,
   onDismiss,
