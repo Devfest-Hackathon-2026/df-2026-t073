@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.capture import Vertex
 from app.schemas.review_types import CaptureFormat, QuestionType, Rating, ReviewStats
+from app.services.review_rules.question_types import family_of
 from app.services.review_rules.stages import (
     has_usable_photo,
     infer_stage,
@@ -106,7 +107,7 @@ class FlashcardReviewRequest(BaseModel):
     @model_validator(mode="after")
     def validate_outcome(self) -> "FlashcardReviewRequest":
         # Fill-in-the-blank is graded by the server, so it needs the typed answer.
-        if self.question_type is not None and self.question_type.startswith("fill_"):
+        if family_of(self.question_type) == "fill":
             if self.answer is None:
                 raise ValueError("answer is required for fill_* questions.")
             return self

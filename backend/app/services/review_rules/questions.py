@@ -1,4 +1,4 @@
-"""Which question a card gets, and which stages each question type belongs to."""
+"""Which question a card gets, and whether an answer still fits the card's stage."""
 
 import random
 
@@ -6,24 +6,9 @@ from app.schemas.flashcard import (
     FlashcardResponse,
     QuestionType,
 )
-from app.schemas.review_types import ReviewStage
 from app.services.review_rules.cards import effective_stage, uses_object_questions
 from app.services.review_rules.grading import is_kana_only
-
-# Which stages each question type is asked at. An answer to a question that doesn't
-# match the card's current stage (a stale exercise) doesn't move the stage.
-QUESTION_STAGES: dict[QuestionType, frozenset[ReviewStage]] = {
-    "flashcard_text": frozenset({"flashcard"}),
-    "flashcard_object": frozenset({"flashcard"}),
-    "mcq_text_reading": frozenset({"mcq"}),
-    "mcq_text_translate": frozenset({"mcq_photo", "mcq"}),
-    "mcq_text_reverse": frozenset({"mcq"}),
-    "mcq_object_name": frozenset({"mcq"}),
-    "fill_text_reading": frozenset({"fill"}),
-    "fill_text_translate": frozenset({"fill"}),
-    "fill_text_reverse": frozenset({"fill"}),
-    "fill_object_name": frozenset({"fill"}),
-}
+from app.services.review_rules.question_types import QUESTIONS
 
 
 def is_stale_answer(
@@ -33,42 +18,22 @@ def is_stale_answer(
     exercise after the card moved on). Such answers are not counted."""
     return (
         question_type is not None
-        and effective_stage(card) not in QUESTION_STAGES[question_type]
+        and effective_stage(card) not in QUESTIONS[question_type].stages
     )
 
 
 def pick_question_type(card: FlashcardResponse, seed: str = "") -> QuestionType:
     """Pick the question type for a card's stage and format, rotating away from last_question_type."""
     stage = effective_stage(card)
-
-    if uses_object_questions(card):
-        if stage == "flashcard":
-            return "flashcard_object"
-        if stage == "fill":
-            return "fill_object_name"
-        return "mcq_object_name"
-
-    if stage == "flashcard":
-        return "flashcard_text"
-    if stage == "mcq_photo":
-        return "mcq_text_translate"
-
-    if stage == "mcq":
-        candidates: list[QuestionType] = [
-            "mcq_text_reading",
-            "mcq_text_translate",
-            "mcq_text_reverse",
-        ]
-        if is_kana_only(card):
-            candidates.remove("mcq_text_reading")
-    else:
-        candidates = [
-            "fill_text_reading",
-            "fill_text_translate",
-            "fill_text_reverse",
-        ]
-        if is_kana_only(card):
-            candidates.remove("fill_text_reading")
+    object_card = uses_object_questions(card)
+    kana_only = is_kana_only(card)
+    candidates: list[QuestionType] = [
+        qtype
+        for qtype, spec in QUESTIONS.items()
+        if stage in spec.stages
+        and spec.object_question == object_card
+        and not (spec.asks_reading and kana_only)
+    ]
 
     last = card.review_stats.last_question_type
     if len(candidates) > 1 and last in candidates:

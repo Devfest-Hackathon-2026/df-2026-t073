@@ -1,6 +1,8 @@
 """Building the exercise a card is shown as (flashcard, MCQ, fill-in-the-blank)."""
 
 import random
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.schemas.capture import Vertex
@@ -20,7 +22,7 @@ from app.schemas.review import (
     McqExercise,
     PhotoLayer,
 )
-from app.schemas.review_types import ReviewStage
+from app.schemas.review_types import QuestionType, ReviewStage
 from app.services.review_rules.cards import (
     capture_format,
     card_has_photo,
@@ -28,6 +30,7 @@ from app.services.review_rules.cards import (
 )
 from app.services.review_rules.distractors import WRONG_PER_QUESTION
 from app.services.review_rules.grading import accepted_answers_for
+from app.services.review_rules.question_types import QUESTIONS, Family
 from app.services.review_rules.questions import pick_question_type
 from app.services.review_rules.selection import area_of
 from app.services.review_rules.stages import next_stage, shows_photo
@@ -144,6 +147,139 @@ def _stage_transitions(
     return promoted, demoted
 
 
+@dataclass(frozen=True, slots=True)
+class _Context:
+    """What every exercise for one card in one session shares."""
+
+    card: FlashcardResponse
+    distractors: Distractors
+    question_type: QuestionType
+    exercise_id: str
+    seed: str
+    stage: ReviewStage
+    photo: PhotoLayer | None
+    example: Example | None
+    place_hint: str
+    next_step: str
+    promoted_to: ReviewStage | None
+    demoted_to: ReviewStage | None
+    jp_prompt: JpOption
+
+
+type _PromptKind = Literal["jp", "meaning", "photo"]
+type _McqChoices = tuple[JpOption | str, list[JpOption] | list[str], _PromptKind]
+
+
+def _mcq_reading(ctx: _Context) -> _McqChoices:
+    return ctx.card.reading, ctx.distractors.readings, "jp"
+
+
+def _mcq_translate(ctx: _Context) -> _McqChoices:
+    prompt_kind: _PromptKind = "photo" if ctx.photo is not None else "jp"
+    return ctx.card.meaning, ctx.distractors.meanings, prompt_kind
+
+
+def _mcq_reverse(ctx: _Context) -> _McqChoices:
+    return ctx.jp_prompt, ctx.distractors.words, "meaning"
+
+
+def _mcq_object_name(ctx: _Context) -> _McqChoices:
+    return ctx.jp_prompt, ctx.distractors.words, "photo"
+
+
+# Right answer, wrong-answer pool and prompt for each multiple-choice question type.
+_MCQ_CHOICES: dict[QuestionType, Callable[[_Context], _McqChoices]] = {
+    "mcq_text_reading": _mcq_reading,
+    "mcq_text_translate": _mcq_translate,
+    "mcq_text_reverse": _mcq_reverse,
+    "mcq_object_name": _mcq_object_name,
+}
+
+
+def _flashcard_exercise(ctx: _Context) -> FlashcardExercise:
+    card = ctx.card
+    return FlashcardExercise(
+        id=ctx.exercise_id,
+        question_type=ctx.question_type,  # type: ignore[arg-type]  # QUESTIONS family guarantees a flashcard_* type
+        stage=ctx.stage,
+        flashcard_id=card.flashcard_id,
+        photo=ctx.photo,
+        front=ctx.jp_prompt if ctx.question_type == "flashcard_text" else None,
+        back=FlashcardBack(
+            text=card.kanji,
+            reading=card.reading,
+            romaji=card.romaji,
+            meaning=card.meaning,
+            example=ctx.example,
+        ),
+        place_hint=ctx.place_hint,
+        next_step=ctx.next_step,
+        promoted_to=ctx.promoted_to,
+        demoted_to=ctx.demoted_to,
+    )
+
+
+def _mcq_exercise(ctx: _Context) -> McqExercise:
+    correct, wrong, prompt_kind = _MCQ_CHOICES[ctx.question_type](ctx)
+    options, answer = _shuffle_with_answer(correct, wrong, ctx.seed)
+    return McqExercise(
+        id=ctx.exercise_id,
+        question_type=ctx.question_type,  # type: ignore[arg-type]  # QUESTIONS family guarantees an mcq_* type
+        stage=ctx.stage,
+        flashcard_id=ctx.card.flashcard_id,
+        photo=ctx.photo,
+        prompt_kind=prompt_kind,
+        prompt=ctx.jp_prompt,
+        meaning_prompt=ctx.card.meaning,
+        options=options,
+        answer_index=answer,
+        place_hint=ctx.place_hint,
+        example=ctx.example,
+        next_step=ctx.next_step,
+        promoted_to=ctx.promoted_to,
+        demoted_to=ctx.demoted_to,
+    )
+
+
+def _answer_display(card: FlashcardResponse, question_type: QuestionType) -> str:
+    if question_type == "fill_text_reading":
+        return card.reading
+    if question_type == "fill_text_translate":
+        return card.meaning
+    if card.reading and card.reading != card.kanji:
+        return f"{card.kanji} ({card.reading})"
+    return card.kanji
+
+
+def _fill_exercise(ctx: _Context) -> FillBlankExercise:
+    card = ctx.card
+    return FillBlankExercise(
+        id=ctx.exercise_id,
+        question_type=ctx.question_type,  # type: ignore[arg-type]  # QUESTIONS family guarantees a fill_* type
+        stage=ctx.stage,
+        flashcard_id=card.flashcard_id,
+        photo=ctx.photo,
+        prompt=ctx.jp_prompt,
+        meaning_prompt=card.meaning,
+        cloze=build_cloze(card),
+        answer_kind=QUESTIONS[ctx.question_type].answer_kind or "kana",
+        accepted_answers=accepted_answers_for(card, ctx.question_type),
+        answer_display=_answer_display(card, ctx.question_type),
+        place_hint=ctx.place_hint,
+        example=ctx.example,
+        next_step=ctx.next_step,
+        promoted_to=ctx.promoted_to,
+        demoted_to=ctx.demoted_to,
+    )
+
+
+_BUILDERS: dict[Family, Callable[[_Context], Exercise]] = {
+    "flashcard": _flashcard_exercise,
+    "mcq": _mcq_exercise,
+    "fill": _fill_exercise,
+}
+
+
 def build_exercise(
     card: FlashcardResponse,
     distractors: Distractors,
@@ -155,113 +291,26 @@ def build_exercise(
     Typed meanings are accepted from card.meaning_synonyms only (what the server grades
     against), never from distractors.synonyms.
     """
-    exercise_id = f"{session_id}-{position}"
     area = area_of(card)
     seed = f"{session_id}:{card.flashcard_id}:{position}"
     stage = effective_stage(card)
     qtype = pick_question_type(card, seed)
-    photo = _photo_layer(card, stage, area)
-    example = _pick_example(card)
-    place_hint = (
-        f"You saved this at {area}." if area else "No place saved for this one."
-    )
-    next_step = _next_step_text(card)
     promoted_to, demoted_to = _stage_transitions(card, stage)
-    jp_prompt = JpOption(text=card.kanji, reading=card.reading, romaji=card.romaji)
-
-    if qtype in ("flashcard_text", "flashcard_object"):
-        return FlashcardExercise(
-            id=exercise_id,
-            question_type=qtype,
-            stage=stage,
-            flashcard_id=card.flashcard_id,
-            photo=photo,
-            front=jp_prompt if qtype == "flashcard_text" else None,
-            back=FlashcardBack(
-                text=card.kanji,
-                reading=card.reading,
-                romaji=card.romaji,
-                meaning=card.meaning,
-                example=example,
-            ),
-            place_hint=place_hint,
-            next_step=next_step,
-            promoted_to=promoted_to,
-            demoted_to=demoted_to,
-        )
-
-    if qtype in (
-        "mcq_text_reading",
-        "mcq_text_translate",
-        "mcq_text_reverse",
-        "mcq_object_name",
-    ):
-        if qtype == "mcq_text_reading":
-            options, answer = _shuffle_with_answer(
-                card.reading, distractors.readings, seed
-            )
-            prompt_kind: Literal["jp", "meaning", "photo"] = "jp"
-        elif qtype == "mcq_text_translate":
-            options, answer = _shuffle_with_answer(
-                card.meaning, distractors.meanings, seed
-            )
-            prompt_kind = "photo" if photo is not None else "jp"
-        elif qtype == "mcq_text_reverse":
-            options, answer = _shuffle_with_answer(jp_prompt, distractors.words, seed)
-            prompt_kind = "meaning"
-        else:  # mcq_object_name
-            options, answer = _shuffle_with_answer(jp_prompt, distractors.words, seed)
-            prompt_kind = "photo"
-
-        return McqExercise(
-            id=exercise_id,
-            question_type=qtype,
-            stage=stage,
-            flashcard_id=card.flashcard_id,
-            photo=photo,
-            prompt_kind=prompt_kind,
-            prompt=jp_prompt,
-            meaning_prompt=card.meaning,
-            options=options,
-            answer_index=answer,
-            place_hint=place_hint,
-            example=example,
-            next_step=next_step,
-            promoted_to=promoted_to,
-            demoted_to=demoted_to,
-        )
-
-    # Fill in the blank
-    answer_kind: Literal["kana", "meaning"] = (
-        "meaning" if qtype == "fill_text_translate" else "kana"
-    )
-    accepted = accepted_answers_for(card, qtype)
-    if qtype == "fill_text_reading":
-        answer_display = card.reading
-    elif qtype == "fill_text_translate":
-        answer_display = card.meaning
-    else:
-        answer_display = (
-            f"{card.kanji} ({card.reading})"
-            if card.reading and card.reading != card.kanji
-            else card.kanji
-        )
-
-    return FillBlankExercise(
-        id=exercise_id,
+    ctx = _Context(
+        card=card,
+        distractors=distractors,
         question_type=qtype,
+        exercise_id=f"{session_id}-{position}",
+        seed=seed,
         stage=stage,
-        flashcard_id=card.flashcard_id,
-        photo=photo,
-        prompt=jp_prompt,
-        meaning_prompt=card.meaning,
-        cloze=build_cloze(card),
-        answer_kind=answer_kind,
-        accepted_answers=accepted,
-        answer_display=answer_display,
-        place_hint=place_hint,
-        example=example,
-        next_step=next_step,
+        photo=_photo_layer(card, stage, area),
+        example=_pick_example(card),
+        place_hint=(
+            f"You saved this at {area}." if area else "No place saved for this one."
+        ),
+        next_step=_next_step_text(card),
         promoted_to=promoted_to,
         demoted_to=demoted_to,
+        jp_prompt=JpOption(text=card.kanji, reading=card.reading, romaji=card.romaji),
     )
+    return _BUILDERS[QUESTIONS[qtype].family](ctx)

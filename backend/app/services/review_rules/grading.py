@@ -3,13 +3,18 @@
 import re
 import unicodedata
 from collections.abc import Callable
-from typing import Literal
 
 from app.schemas.flashcard import (
     FlashcardResponse,
     QuestionType,
 )
 from app.schemas.review_types import Rating
+from app.services.review_rules.question_types import (
+    QUESTIONS,
+    RATING_WHEN_CORRECT,
+    AnswerKind,
+    family_of,
+)
 
 _KANJI_OR_LATIN_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff々a-zA-Z]")
 
@@ -40,14 +45,12 @@ def rating_for_answer(
     client_rating: Rating | None = None,
 ) -> Rating:
     """Derive the review rating from the question type and whether the answer was right."""
-    if question_type and question_type.startswith("fill_"):
+    family = family_of(question_type)
+    fixed = RATING_WHEN_CORRECT[family] if family else None
+    if fixed is not None:
         if correct is None:
-            return "easy" if client_rating in ("good", "easy") else "again"
-        return "easy" if correct else "again"
-    if question_type and question_type.startswith("mcq_"):
-        if correct is None:
-            return "good" if client_rating in ("good", "easy") else "again"
-        return "good" if correct else "again"
+            return fixed if client_rating in ("good", "easy") else "again"
+        return fixed if correct else "again"
     if client_rating is not None:
         return client_rating
     return "good" if correct else "again"
@@ -66,7 +69,7 @@ def grade_answer(
     Otherwise it trusts the client's correct flag, then its rating.
     Missing information is never correct.
     """
-    if question_type and question_type.startswith("fill_"):
+    if question_type and family_of(question_type) == "fill":
         return answer_text is not None and check_card_answer(
             card, question_type, answer_text
         )
@@ -177,7 +180,7 @@ def accepted_answers_for(
 def check_fill_answer(
     answer: str,
     accepted_answers: list[str],
-    answer_kind: Literal["kana", "meaning"],
+    answer_kind: AnswerKind,
 ) -> bool:
     """Grade a typed answer against accepted_answers."""
     if not answer or not answer.strip():
@@ -202,13 +205,11 @@ def check_card_answer(
     answer: str,
 ) -> bool:
     """Grade a typed answer for a specific card and question type."""
-    if question_type == "fill_text_reading" and has_non_kana_for_reading(answer):
+    spec = QUESTIONS[question_type]
+    if spec.asks_reading and has_non_kana_for_reading(answer):
         return False
-    answer_kind: Literal["kana", "meaning"] = (
-        "meaning" if question_type == "fill_text_translate" else "kana"
-    )
     return check_fill_answer(
-        answer, accepted_answers_for(card, question_type), answer_kind
+        answer, accepted_answers_for(card, question_type), spec.answer_kind or "kana"
     )
 
 
