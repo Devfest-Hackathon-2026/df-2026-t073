@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -23,12 +23,10 @@ from app.schemas.review import ReviewSessionRecord, SessionAnswer
 from app.schemas.review_types import Rating
 from app.schemas.user import UserProfile
 from app.services import tango_rules
-from app.services.review_rules import cards as review_cards
+from app.services.review_rules.answers import apply_answer
 from app.services.review_rules.exercises import backfill_photo_fields
-from app.services.review_rules.grading import grade_answer, rating_for_answer
-from app.services.review_rules.questions import is_stale_answer
+from app.services.review_rules.scheduling import next_review_stats
 from app.services.review_rules.selection import area_of
-from app.services.review_rules.stages import next_stage
 
 logger = logging.getLogger(__name__)
 
@@ -180,25 +178,6 @@ def _flashcard_ref(db: AsyncClient, uid: str, flashcard_id: str) -> Any:
 def make_flashcard_id(uid: str, target_word: str) -> str:
     """One card per user and word, wherever it was found (see tango_rules)."""
     return tango_rules.make_flashcard_id(uid, target_word)
-
-
-def next_review_stats(stats: ReviewStats, rating: Rating, now: datetime, strength: int) -> ReviewStats:
-    """Schedule the next review. Simple interval doubling (not SM-2); mastered follows strength."""
-    count = stats.review_count + 1
-    if rating == "again":
-        next_due = now + timedelta(minutes=10)
-    elif rating == "good":
-        next_due = now + timedelta(days=min(30, 2 ** min(count - 1, 4)))
-    else:  # "easy"
-        next_due = now + timedelta(days=min(60, 4 * max(1, count)))
-    return stats.model_copy(
-        update={
-            "review_count": count,
-            "last_reviewed_at": now,
-            "next_review_at": next_due,
-            "mastered": tango_rules.is_mastered(strength),
-        }
-    )
 
 
 async def get_flashcard_if_exists(
@@ -516,61 +495,50 @@ async def update_flashcard_review(
     """
     card = await get_flashcard(db=db, uid=uid, flashcard_id=flashcard_id)
     now = datetime.now(timezone.utc)
-
-    is_correct = grade_answer(card, question_type, correct, rating, answer_text)
-
-    if is_stale_answer(card, question_type):
-        # The card moved to another stage since this question was built: don't count it.
-        logger.info("Ignoring stale %s answer for %s (uid=%s)", question_type, flashcard_id, uid)
-        if session_id:
-            await record_session_answer(
-                db=db,
-                uid=uid,
-                session_id=session_id,
-                answer=_session_answer(card, is_correct, card.strength, now),
-            )
-        return card
-    effective_rating = rating_for_answer(question_type, is_correct, rating)
-    strength = tango_rules.apply_review(card.strength, effective_rating)
-    scheduled_stats = next_review_stats(card.review_stats, effective_rating, now, strength)
-    new_stats = next_stage(
-        scheduled_stats,
-        review_cards.capture_format(card),
-        is_correct,
-        has_photo=review_cards.card_has_photo(card),
+    outcome = apply_answer(
+        card,
+        now,
+        rating=rating,
+        correct=correct,
+        answer_text=answer_text,
         question_type=question_type,
     )
-    event = tango_rules.history_event(
-        now=now,
-        type="reviewed",
-        detail=question_type or effective_rating,
-        strength_after=strength,
-    )
-    try:
-        await _flashcard_ref(db, uid, flashcard_id).update(
-            {
-                "review_stats": new_stats.model_dump(mode="python"),
-                "strength": strength,
-                "history": ArrayUnion([event.model_dump(mode="python")]),
-            }
-        )
-    except (GoogleAPICallError, GoogleAuthError) as exc:
-        logger.exception("Failed to update review stats for %s (uid=%s)", flashcard_id, uid)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to update flashcard review state.",
-        ) from exc
+
+    if outcome.event is None:
+        # Stale: the card moved to another stage since this question was built.
+        logger.info("Ignoring stale %s answer for %s (uid=%s)", question_type, flashcard_id, uid)
+    else:
+        try:
+            await _flashcard_ref(db, uid, flashcard_id).update(
+                {
+                    "review_stats": outcome.stats.model_dump(mode="python"),
+                    "strength": outcome.strength,
+                    "history": ArrayUnion([outcome.event.model_dump(mode="python")]),
+                }
+            )
+        except (GoogleAPICallError, GoogleAuthError) as exc:
+            logger.exception("Failed to update review stats for %s (uid=%s)", flashcard_id, uid)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to update flashcard review state.",
+            ) from exc
 
     if session_id:
         await record_session_answer(
             db=db,
             uid=uid,
             session_id=session_id,
-            answer=_session_answer(card, is_correct, strength, now),
+            answer=_session_answer(card, outcome.correct, outcome.strength, now),
         )
 
+    if outcome.event is None:
+        return card
     return card.model_copy(
-        update={"review_stats": new_stats, "strength": strength, "history": [*card.history, event]}
+        update={
+            "review_stats": outcome.stats,
+            "strength": outcome.strength,
+            "history": [*card.history, outcome.event],
+        }
     )
 
 
