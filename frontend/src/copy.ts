@@ -291,8 +291,8 @@ const me = {
   statTango: 'Tango',
   statStamps: 'Hana Stamps',
   statPlaces: 'Places',
-  statDue: 'Due today',
   logOut: 'Log out of this device',
+  editProfile: 'Edit profile',
   /** Under your name, from your reading level. */
   levelNotes: {
     none: 'Just starting, with romaji for now',

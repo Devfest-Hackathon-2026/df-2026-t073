@@ -1,11 +1,16 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { getReviewSummary } from '../../api/review';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { getProfile } from '../../api/user';
 import { Hanamaru } from '../../components/Hanamaru';
 import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
-import { Card, Loadable, SectionTitle } from '../../components/ui';
+import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { type MeSectionId, useRootNav } from '../../navigation/types';
@@ -23,15 +28,18 @@ import {
 import { copy } from '../../copy';
 
 const LINES = copy.me.loadingLines;
+/** The profile section takes about this share of the screen's height. */
+const PROFILE_SHARE = 0.4;
+const AVATAR_SIZE = 96;
 
 /** Me: who you are and how you're doing at a glance; settings one tap away. */
 export function MeScreen(): React.JSX.Element {
   const nav = useRootNav();
+  const { height } = useWindowDimensions();
   const { settings } = useSettings();
   const auth = useAuth();
   const profile = useAsync(getProfile);
-  const review = useAsync(getReviewSummary);
-  useReloadOnFocus(profile.reload, review.reload);
+  useReloadOnFocus(profile.reload);
 
   const sections: {
     id: MeSectionId;
@@ -39,7 +47,6 @@ export function MeScreen(): React.JSX.Element {
     title: string;
     value?: string;
   }[] = [
-    { id: 'profile', icon: 'me', title: copy.meSections.profile },
     { id: 'display', icon: 'display', title: copy.meSections.display },
     { id: 'practice', icon: 'learn', title: copy.meSections.practice },
     {
@@ -61,39 +68,32 @@ export function MeScreen(): React.JSX.Element {
       <SectionTitle en={copy.me.title} size="title" />
       <Loadable state={profile} messages={LINES}>
         {p => (
-          <View style={base.stack}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => nav.navigate('MeSection', { section: 'profile' })}
-              style={styles.header}
-            >
+          <View style={[styles.profile, { minHeight: height * PROFILE_SHARE }]}>
+            <View style={styles.identity}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{p.name.charAt(0)}</Text>
               </View>
-              <View style={base.grow}>
-                <Text style={base.heading} numberOfLines={1}>
-                  {p.name}
-                </Text>
-                <Text style={base.caption} numberOfLines={1}>
-                  {p.levelNote}
-                </Text>
-              </View>
-              <Icon name="forward" color={colors.textMuted} />
-            </Pressable>
-
-            <View style={styles.grid}>
-              <Metric value={p.stats.tango} label={copy.me.statTango} />
-              <Metric
+              <Text style={base.title} numberOfLines={1}>
+                {p.name}
+              </Text>
+              <Text style={base.caption} numberOfLines={1}>
+                {p.levelNote}
+              </Text>
+              <Button
+                label={copy.me.editProfile}
+                icon="edit"
+                variant="secondary"
+                onPress={() => nav.navigate('MeSection', { section: 'profile' })}
+              />
+            </View>
+            <View style={styles.stats}>
+              <Stat value={p.stats.tango} label={copy.me.statTango} />
+              <Stat
                 value={p.stats.stars}
                 label={copy.me.statStamps}
-                mark={<Hanamaru size={fontSizes.lg} />}
+                mark={<Hanamaru size={fontSizes.md} />}
               />
-              <Metric value={p.stats.places} label={copy.me.statPlaces} />
-              <Metric
-                value={review.data?.dueCount ?? '–'}
-                label={copy.me.statDue}
-                accent
-              />
+              <Stat value={p.stats.places} label={copy.me.statPlaces} />
             </View>
           </View>
         )}
@@ -160,42 +160,43 @@ export function MeScreen(): React.JSX.Element {
   );
 }
 
-function Metric({
+/** One number in the profile's stats row. */
+function Stat({
   value,
   label,
   mark,
-  accent = false,
 }: {
   value: number | string;
   label: string;
   mark?: React.ReactNode;
-  accent?: boolean;
 }): React.JSX.Element {
   return (
-    <View style={styles.metric}>
-      <View style={base.row}>
-        <Text style={[styles.metricValue, accent && styles.metricAccent]}>
-          {value}
-        </Text>
+    <View style={styles.stat}>
+      <View style={styles.statValueRow}>
+        <Text style={styles.statValue}>{value}</Text>
         {mark}
       </View>
-      <Text style={base.caption}>{label}</Text>
+      <Text style={styles.statLabel} numberOfLines={2}>
+        {label}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
+  // Part of the page itself, not a card.
+  profile: {
+    paddingVertical: space.xl,
+    justifyContent: 'space-between',
+    gap: space.xl,
+  },
+  identity: {
     alignItems: 'center',
-    gap: space.md,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: space.md,
+    gap: space.sm,
   },
   avatar: {
-    width: sizes.shutter,
-    height: sizes.shutter,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: radii.pill,
     backgroundColor: colors.accentSoft,
     alignItems: 'center',
@@ -203,30 +204,34 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     ...base.text,
-    fontSize: fontSizes.xxl,
+    fontSize: fontSizes.jumbo,
     fontWeight: fontWeights.bold,
     color: colors.accent,
   },
-  grid: {
+  stats: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.sm,
+    borderTopWidth: sizes.hairline,
+    borderTopColor: colors.border,
+    paddingTop: space.lg,
   },
-  metric: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    padding: space.md,
+  stat: {
+    flex: 1,
+    alignItems: 'center',
     gap: space.xxs,
   },
-  metricValue: {
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xxs,
+  },
+  statValue: {
     ...base.text,
-    fontSize: fontSizes.xxl,
+    fontSize: fontSizes.xl,
     fontWeight: fontWeights.bold,
   },
-  metricAccent: {
-    color: colors.accent,
+  statLabel: {
+    ...base.caption,
+    textAlign: 'center',
   },
   row: {
     flexDirection: 'row',
