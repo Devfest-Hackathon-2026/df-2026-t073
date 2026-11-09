@@ -30,6 +30,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'A ticket you buy from a machine before ordering.',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:20:00+09:00')],
     strength: 2,
+    stage: 'mcq',
     known: false,
     history: [
       {
@@ -54,6 +55,7 @@ export const TANGO: Record<string, Tango> = {
     meaning: 'soy sauce',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:22:00+09:00')],
     strength: 1,
+    stage: 'flashcard',
     known: false,
     history: [caught('麺屋 たいき, Koenji · Mon')],
     examples: [],
@@ -67,6 +69,7 @@ export const TANGO: Record<string, Tango> = {
     meaning: 'large serving',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:22:00+09:00')],
     strength: 1,
+    stage: 'flashcard',
     known: false,
     history: [caught('麺屋 たいき, Koenji · Mon')],
     examples: [],
@@ -81,6 +84,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'Ramen shops use かため when asking how firm you want your noodles.',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:25:00+09:00')],
     strength: 1,
+    stage: 'flashcard',
     known: false,
     history: [caught('麺屋 たいき, Koenji · Mon')],
     examples: [
@@ -96,6 +100,7 @@ export const TANGO: Record<string, Tango> = {
     meaning: 'Firm noodles, please',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:25:00+09:00')],
     strength: 0,
+    stage: 'flashcard',
     known: false,
     history: [caught('Rehearsal · 麺屋 たいき · Mon')],
     examples: [],
@@ -110,6 +115,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'An extra serving of noodles, dropped into the soup you have left.',
     sightings: [seenAt('menya-taiki', '2026-11-02T12:30:00+09:00')],
     strength: 3,
+    stage: 'mcq',
     known: false,
     history: [
       { type: 'reviewed', label: 'Got it in review', detail: 'Place cue · Thu', badge: '+1' },
@@ -133,6 +139,7 @@ export const TANGO: Record<string, Tango> = {
       seenAt('asagaya-pearl', '2026-11-05T17:40:00+09:00'),
     ],
     strength: 2,
+    stage: 'mcq',
     known: false,
     history: [
       { type: 'seen_again', label: 'Seen again', detail: 'Asagaya construction site · Thu · camera', badge: '+1' },
@@ -156,6 +163,7 @@ export const TANGO: Record<string, Tango> = {
       seenAt('koenji-station', '2026-11-02T09:10:00+09:00'),
     ],
     strength: 4,
+    stage: 'fill',
     known: true,
     history: [
       { type: 'seen_again', label: 'Seen again', detail: 'Koenji Station, North Exit · Mon · camera', badge: '+1' },
@@ -173,6 +181,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'Stickers in supermarkets, usually after 8 pm.',
     sightings: [seenAt('nakano-supermarket', '2026-11-06T20:05:00+09:00')],
     strength: 0,
+    stage: 'flashcard',
     known: false,
     history: [caught('Supermarket, Nakano · Fri')],
     examples: [],
@@ -186,6 +195,7 @@ export const TANGO: Record<string, Tango> = {
     meaning: 'boxed lunch',
     sightings: [seenAt('nakano-supermarket', '2026-10-20T19:00:00+09:00')],
     strength: 4,
+    stage: 'fill',
     known: true,
     history: [caught('Supermarket, Nakano · Oct 20')],
     examples: [],
@@ -200,6 +210,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'Marked-down goods, usually close to their best-before date.',
     sightings: [seenAt('nakano-supermarket', '2026-11-06T20:10:00+09:00')],
     strength: 0,
+    stage: 'flashcard',
     known: false,
     history: [caught('Supermarket, Nakano · Fri')],
     examples: [],
@@ -214,6 +225,7 @@ export const TANGO: Record<string, Tango> = {
     explanation: 'ペンギンが日向ぼっこしてるね。 The penguin is sunbathing.',
     sightings: [seenAt('penguin-enclosure', '2026-11-07T11:00:00+09:00')],
     strength: 0,
+    stage: 'flashcard',
     known: false,
     history: [caught('Penguin enclosure · Sat')],
     examples: [
@@ -229,6 +241,7 @@ export const TANGO: Record<string, Tango> = {
     meaning: 'no bicycle parking',
     sightings: [seenAt('asagaya-pearl', '2026-11-05T17:45:00+09:00')],
     strength: 1,
+    stage: 'flashcard',
     known: false,
     history: [caught('Asagaya Pearl Center · Thu')],
     examples: [],

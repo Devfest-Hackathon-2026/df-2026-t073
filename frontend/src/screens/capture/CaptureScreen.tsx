@@ -148,6 +148,7 @@ function tangoFromDetection(d: Detection): Tango {
     meaning: d.english_gloss ?? '',
     sightings: [],
     strength: 0,
+    stage: 'flashcard',
     known: false,
     history: [],
     examples: [],

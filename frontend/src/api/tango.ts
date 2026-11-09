@@ -65,7 +65,7 @@ export interface FlashcardResponse {
     last_reviewed_at: string | null;
     next_review_at: string;
     mastered: boolean;
-    stage?: ReviewStage;
+    stage: ReviewStage;
     stage_streak?: number;
     miss_streak?: number;
     last_question_type?: QuestionType | null;
@@ -133,31 +133,13 @@ function toEvent(
   };
 }
 
-function inferStage(
-  strength: Strength,
-  captureFormat: CaptureFormat,
-  hasPhoto: boolean,
-): ReviewStage {
-  if (strength <= 1) {
-    return 'flashcard';
-  }
-  if (strength === 2) {
-    return captureFormat === 'text' && hasPhoto ? 'mcq_photo' : 'mcq';
-  }
-  if (strength === 3) {
-    return 'mcq';
-  }
-  return 'fill';
-}
-
 /** Backend "flashcard" -> frontend "Tango". History is shown newest first. */
 export function flashcardToTango(card: FlashcardResponse): Tango {
   const strength = Math.max(0, Math.min(4, card.strength ?? 0)) as Strength;
   const captureFormat: CaptureFormat =
     card.capture_format ?? (card.kind === 'object' ? 'object' : 'text');
-  const hasPhoto = Boolean(card.image_url) && (card.bounding_box?.length ?? 0) >= 2;
-  const stage: ReviewStage =
-    card.review_stats?.stage ?? inferStage(strength, captureFormat, hasPhoto);
+  // The server always sends the stage (inferred for older cards, normalized for the photo).
+  const stage = card.review_stats.stage;
   const history = card.history ?? [];
   const events = history.map((event, i) =>
     toEvent(event, i > 0 ? history[i - 1].strength_after : 0),

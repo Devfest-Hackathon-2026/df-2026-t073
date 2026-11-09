@@ -93,8 +93,8 @@ export interface Tango {
   explanation?: string;
   /** Marked by the user; reviewable as "Favourites". */
   favorite?: boolean;
-  /** Current review stage (flashcard -> mcq_photo -> mcq -> fill). */
-  stage?: ReviewStage;
+  /** Current review stage (flashcard -> mcq_photo -> mcq -> fill), set by the server. */
+  stage: ReviewStage;
   captureFormat?: CaptureFormat;
 }
 

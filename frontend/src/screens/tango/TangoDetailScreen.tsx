@@ -283,17 +283,7 @@ export function TangoDetailScreen({
               <View style={base.rowBetween}>
                 <Text style={base.heading}>History</Text>
                 <Text style={styles.badge}>
-                  Stage:{' '}
-                  {
-                    STAGE_LABEL[
-                      t.stage ??
-                        (t.strength <= 1
-                          ? 'flashcard'
-                          : t.strength < 4
-                          ? 'mcq'
-                          : 'fill')
-                    ]
-                  }
+                  Stage: {STAGE_LABEL[t.stage]}
                 </Text>
               </View>
               {t.history.map((event, i) => (

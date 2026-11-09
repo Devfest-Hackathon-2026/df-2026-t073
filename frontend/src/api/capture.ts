@@ -170,6 +170,7 @@ export const catchTango = pick(
       meaning: detection?.english_gloss ?? '',
       sightings: [],
       strength: 0,
+      stage: 'flashcard',
       known: false,
       history: [],
       examples: [],
