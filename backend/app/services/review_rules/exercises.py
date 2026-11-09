@@ -15,6 +15,7 @@ from app.schemas.flashcard import (
 from app.schemas.review import (
     Example,
     Exercise,
+    ExerciseKey,
     FillBlankExercise,
     FlashcardBack,
     FlashcardExercise,
@@ -314,3 +315,25 @@ def build_exercise(
         jp_prompt=JpOption(text=card.kanji, reading=card.reading, romaji=card.romaji),
     )
     return _BUILDERS[QUESTIONS[qtype].family](ctx)
+
+
+def exercise_key(exercise: Exercise) -> ExerciseKey:
+    """The grading key saved with the session for one exercise."""
+    key = ExerciseKey(
+        exercise_id=exercise.id,
+        flashcard_id=exercise.flashcard_id,
+        question_type=exercise.question_type,
+        stage=exercise.stage,
+    )
+    match exercise:
+        case McqExercise():
+            return key.model_copy(update={"answer_index": exercise.answer_index})
+        case FillBlankExercise():
+            return key.model_copy(
+                update={
+                    "answer_kind": exercise.answer_kind,
+                    "accepted_answers": list(exercise.accepted_answers),
+                }
+            )
+        case FlashcardExercise():
+            return key

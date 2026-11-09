@@ -172,6 +172,23 @@ class SessionAnswer(BaseModel):
     area: str = ""
 
 
+class ExerciseKey(BaseModel):
+    """How one question in a session is graded, saved when the session starts.
+
+    Answers are graded against this, not against the card as it is when they arrive.
+    """
+
+    exercise_id: str
+    flashcard_id: str
+    question_type: QuestionType
+    stage: ReviewStage
+    # Multiple choice: the right option.
+    answer_index: int | None = None
+    # Fill-in-the-blank: what the learner types and which answers count.
+    answer_kind: Literal["kana", "meaning"] | None = None
+    accepted_answers: list[str] = Field(default_factory=list)
+
+
 class ReviewSessionRecord(BaseModel):
     """Stored in users/{uid}/review_sessions/{session_id}."""
 
@@ -180,6 +197,8 @@ class ReviewSessionRecord(BaseModel):
     collection: str | None = None
     started_at: datetime
     answers: list[SessionAnswer] = Field(default_factory=list)
+    # Empty for sessions saved before answer keys existed.
+    exercises: list[ExerciseKey] = Field(default_factory=list)
 
 
 class AreaCount(BaseModel):

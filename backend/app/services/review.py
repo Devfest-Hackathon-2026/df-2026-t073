@@ -17,7 +17,7 @@ from app.schemas.review import (
     SessionResultResponse,
 )
 from app.services.review_rules.distractors import complete_distractors, needs_distractors
-from app.services.review_rules.exercises import build_exercise
+from app.services.review_rules.exercises import build_exercise, exercise_key
 from app.services.review_rules.grading import merge_synonyms
 from app.services.review_rules.results import answered_by_area, areas_summary, biggest_win, exercise_types_summary, session_minutes
 from app.services.review_rules.selection import AREA_PREFIX, FAVORITES_COLLECTION, LIST_PREFIX, PLACE_CUE_COLLECTION, PLACE_PREFIX, SESSION_SIZE, area_of, estimate_minutes, is_due, order_session_cards, pick_session_cards
@@ -183,6 +183,7 @@ async def build_session(
             flashcard_ids=[c.flashcard_id for c in picked],
             collection=collection,
             started_at=now,
+            exercises=[exercise_key(e) for e in exercises],
         ),
     )
     return ReviewSessionResponse(session_id=session_id, exercises=exercises)
