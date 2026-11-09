@@ -7,6 +7,7 @@ import { Button } from '../../components/ui';
 import { base } from '../../styles/base';
 import { colors, radii, sizes, space } from '../../styles/tokens';
 import type { TangoList } from '../../types';
+import { copy } from '../../copy';
 
 /** Name a new list (or rename one). */
 export function NameListSheet({
@@ -39,7 +40,7 @@ export function NameListSheet({
       await onSave(trimmed);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? err.message : copy.lists.couldNotSave);
     }
   };
   return (
@@ -49,16 +50,16 @@ export function NameListSheet({
         value={name}
         onChangeText={setName}
         onSubmitEditing={save}
-        placeholder="e.g. Ramen shop words"
+        placeholder={copy.lists.namePlaceholder}
         placeholderTextColor={colors.textMuted}
         maxLength={40}
         autoFocus
         returnKeyType="done"
         style={styles.input}
-        accessibilityLabel="List name"
+        accessibilityLabel={copy.lists.nameA11y}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button label="Save" icon="done" onPress={save} />
+      <Button label={copy.common.save} icon="done" onPress={save} />
     </BottomSheet>
   );
 }
@@ -97,7 +98,7 @@ export function AddToListSheet({
   return (
     <>
       <BottomSheet visible={visible && !naming} onClose={onClose}>
-        <Text style={base.heading}>Add to a list</Text>
+        <Text style={base.heading}>{copy.lists.addToList}</Text>
         {(lists ?? []).map(list => {
           const inList = list.tangoIds.includes(tangoId);
           return (
@@ -120,7 +121,7 @@ export function AddToListSheet({
           );
         })}
         <Button
-          label="New list"
+          label={copy.lists.newList}
           icon="addToList"
           variant="secondary"
           onPress={() => setNaming(true)}
@@ -128,7 +129,7 @@ export function AddToListSheet({
       </BottomSheet>
       <NameListSheet
         visible={visible && naming}
-        title="New list"
+        title={copy.lists.newList}
         onClose={() => setNaming(false)}
         onSave={async name => {
           const created = await createList(name, [tangoId]);

@@ -19,13 +19,10 @@ import { useSettings } from '../../state/SettingsContext';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import { Icon } from '../../components/Icon';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
-const PREPARE_LINES = [
-  'Reading what visitors say about this place…',
-  "Picking the words you'll hear at the counter…",
-  'Planning your first moves inside…',
-];
+const PREPARE_LINES = copy.prepare.loadingLines;
 
 export function PrepareScreen({
   route,
@@ -49,7 +46,7 @@ export function PrepareScreen({
       await createVisit(placeId, when.toISOString());
       setPlanned(label);
     } catch (err) {
-      setPlanError(err instanceof Error ? err.message : 'Could not save');
+      setPlanError(err instanceof Error ? err.message : copy.prepare.couldNotSave);
     }
   };
 
@@ -59,12 +56,12 @@ export function PrepareScreen({
         <>
           <Button
             icon="mic"
-            label="Rehearse with staff · 2 min"
+            label={copy.prepare.rehearse}
             onPress={() => navigation.navigate('Rehearse', { placeId })}
           />
           <View style={styles.center}>
             <IconLabel icon="ai" style={base.caption}>
-              AI suggestion from reviews; may be out of date.
+              {copy.prepare.aiNote}
             </IconLabel>
           </View>
         </>
@@ -72,8 +69,8 @@ export function PrepareScreen({
     >
       <ScreenHeader onBack={() => navigation.goBack()}>
         <SectionTitle
-          en="Prepare"
-          jp={{ text: '準備', reading: 'じゅんび', romaji: 'junbi' }}
+          en={copy.prepare.title}
+          jp={copy.prepare.titleJp}
           jpFrom="some"
         />
       </ScreenHeader>
@@ -85,7 +82,7 @@ export function PrepareScreen({
               <Jp {...data.place.name} bold size="xxl" />
               <Text style={base.caption}>
                 {data.place.category} · {data.place.area}
-                {data.place.note ? ` · ${data.place.note}` : ''}
+                {data.place.note ? copy.prepare.placeNote(data.place.note) : ''}
               </Text>
               <View style={base.row}>
                 <Chip icon="ai" label={data.source} tone="accent" />
@@ -93,10 +90,10 @@ export function PrepareScreen({
             </View>
 
             <Card>
-              <Text style={base.heading}>Add to your plans</Text>
+              <Text style={base.heading}>{copy.prepare.addToPlans}</Text>
               {planned ? (
                 <IconLabel icon="done" style={styles.planned}>
-                  Planned for {planned.toLowerCase()}
+                  {copy.prepare.plannedFor(planned)}
                 </IconLabel>
               ) : (
                 <View style={base.wrap}>
@@ -115,12 +112,8 @@ export function PrepareScreen({
 
             <Card>
               <SectionTitle
-                en="What to expect"
-                jp={{
-                  text: 'お店の流れ',
-                  reading: 'おみせのながれ',
-                  romaji: 'omise no nagare',
-                }}
+                en={copy.prepare.whatToExpect}
+                jp={copy.prepare.whatToExpectJp}
                 jpFrom="some"
               />
               {data.steps.map((step, i) => (
@@ -132,7 +125,7 @@ export function PrepareScreen({
 
             <Card>
               <IconLabel icon="ai" style={base.heading}>
-                Tango for this visit
+                {copy.prepare.tangoForVisit}
               </IconLabel>
               {data.tango.map(tango => {
                 const owned = tango.tangoId;
@@ -162,24 +155,24 @@ export function PrepareScreen({
 
             <Card>
               <View style={base.rowBetween}>
-                <Text style={base.heading}>History here</Text>
-                <Text style={base.caption}>Your first visit</Text>
+                <Text style={base.heading}>{copy.prepare.historyHere}</Text>
+                <Text style={base.caption}>{copy.prepare.firstVisit}</Text>
               </View>
-              <Text style={base.caption}>
-                Anonymous tips from other learners
-              </Text>
+              <Text style={base.caption}>{copy.prepare.tipsSubtitle}</Text>
               {data.tips.length === 0 ? (
-                <Text style={base.caption}>No tips for this place yet.</Text>
+                <Text style={base.caption}>{copy.prepare.noTips}</Text>
               ) : null}
               {data.tips.map(tip => (
                 <View key={tip.id} style={styles.tip}>
-                  <Text style={base.text}>"{tip.quote}"</Text>
+                  <Text style={base.text}>{copy.prepare.tipQuote(tip.quote)}</Text>
                   <View style={base.rowBetween}>
                     <Text style={base.caption}>
-                      {tip.learners} learners · {tip.when}
+                      {copy.prepare.tipMeta(tip.learners, tip.when)}
                     </Text>
                     {tip.inRehearsal ? (
-                      <Text style={styles.inRehearsal}>In your rehearsal</Text>
+                      <Text style={styles.inRehearsal}>
+                        {copy.prepare.inRehearsal}
+                      </Text>
                     ) : null}
                   </View>
                 </View>
@@ -202,9 +195,9 @@ function planOptions(): { label: string; when: Date }[] {
   };
   const toSaturday = (6 - new Date().getDay() + 7) % 7 || 7;
   return [
-    { label: 'Today', when: at(0) },
-    { label: 'Tomorrow', when: at(1) },
-    { label: 'This weekend', when: at(toSaturday) },
+    { label: copy.prepare.planToday, when: at(0) },
+    { label: copy.prepare.planTomorrow, when: at(1) },
+    { label: copy.prepare.planWeekend, when: at(toSaturday) },
   ];
 }
 

@@ -1,5 +1,4 @@
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
+import { copy } from '../copy';
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -10,7 +9,9 @@ export function formatVisitTime(iso: string): string {
   if (Number.isNaN(date.getTime())) {
     return iso;
   }
-  return `${DAYS[date.getDay()]} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${copy.common.weekdays[date.getDay()]} ${pad(date.getHours())}:${pad(
+    date.getMinutes(),
+  )}`;
 }
 
 /** Puts the user's preferred register ("Phrases shown first") at the top. */

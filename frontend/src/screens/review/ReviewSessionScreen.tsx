@@ -55,11 +55,9 @@ import type {
   McqExercise,
   PhotoLayer,
 } from '../../types';
+import { copy } from '../../copy';
 
-const SESSION_LINES = [
-  'Picking your weakest Tango…',
-  'Setting up your questions…',
-];
+const SESSION_LINES = copy.reviewSession.loadingLines;
 
 /** Until the real size is known: the upload size is 4:3. */
 const PHOTO_ASPECT = 4 / 3;
@@ -137,8 +135,8 @@ function Session({
   if (!exercise) {
     return (
       <View style={base.content}>
-        <Text style={base.heading}>Nothing due right now.</Text>
-        <Button label="Close" onPress={onClose} />
+        <Text style={base.heading}>{copy.reviewSession.nothingDue}</Text>
+        <Button label={copy.common.close} onPress={onClose} />
       </View>
     );
   }
@@ -183,7 +181,7 @@ function Session({
       if (verdict?.stale) {
         setToast(current =>
           current?.exerciseId === verdict.exerciseId
-            ? { ...current, text: "Didn't count: practiced elsewhere" }
+            ? { ...current, text: copy.reviewSession.toast.stale }
             : current,
         );
       }
@@ -209,14 +207,14 @@ function Session({
   return (
     <View style={base.grow}>
       <View style={[base.row, styles.header]}>
-        <IconButton icon="close" label="End review" onPress={onClose} />
+        <IconButton icon="close" label={copy.reviewSession.endReview} onPress={onClose} />
         <ProgressBar
           value={(index + (outcome === null ? 0 : 1)) / exercises.length}
         />
         {outcome === null ? (
           <IconButton
             icon="hint"
-            label="Where did I see this Tango?"
+            label={copy.reviewSession.hintButton}
             onPress={() => setShowPlace(true)}
           />
         ) : null}
@@ -279,7 +277,7 @@ function Session({
       {outcome !== null ? (
         <View style={styles.footer}>
           <Button
-            label="Continue"
+            label={copy.reviewSession.continue}
             variant="dark"
             disabled={finishing}
             onPress={next}
@@ -324,16 +322,16 @@ export function flashcardToast(
       exerciseId: card.id,
       icon: 'triangle',
       text: card.demotedTo
-        ? `Back a step for ${word}`
-        : `${word} will come back soon`,
+        ? copy.reviewSession.toast.backAStep(word)
+        : copy.reviewSession.toast.comeBackSoon(word),
     };
   }
   return {
     exerciseId: card.id,
     icon: 'done',
     text: card.promotedTo
-      ? `Level up for ${word}!`
-      : `${word} is getting stronger`,
+      ? copy.reviewSession.toast.levelUp(word)
+      : copy.reviewSession.toast.stronger(word),
   };
 }
 
@@ -380,7 +378,7 @@ export function PhotoLayerView({
             source={{ uri: imageUrl }}
             style={StyleSheet.absoluteFill}
             resizeMode="stretch"
-            accessibilityLabel="Your capture photo with the target highlighted"
+            accessibilityLabel={copy.reviewSession.photoA11y}
           />
           <View style={[styles.highlightBox, boxStyle]} />
         </View>
@@ -418,7 +416,7 @@ export function PhotoLayerView({
 
 /** The area where the Tango was saved, as a short label. */
 function placeLabel(placeHint: string): string {
-  return placeHint || 'No place saved';
+  return placeHint || copy.reviewSession.noPlace;
 }
 
 /** Where the Tango was saved, once the hint (lightbulb) button is pressed. */
@@ -476,7 +474,7 @@ function Flashcard({
       {!flipped ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Flip flashcard"
+          accessibilityLabel={copy.reviewSession.flipA11y}
           onPress={flip}
         >
           <Card>
@@ -490,15 +488,15 @@ function Flashcard({
                     alwaysKanji
                   />
                   <Text style={base.caption}>
-                    Do you remember how to read and translate this?
+                    {copy.reviewSession.flashcardTextPrompt}
                   </Text>
                 </>
               ) : (
                 <Text style={base.heading}>
-                  Do you remember the Japanese word for this object?
+                  {copy.reviewSession.flashcardObjectPrompt}
                 </Text>
               )}
-              <Text style={styles.link}>Tap to flip</Text>
+              <Text style={styles.link}>{copy.reviewSession.tapToFlip}</Text>
             </View>
           </Card>
         </Pressable>
@@ -516,7 +514,7 @@ function Flashcard({
                 />
                 <IconButton
                   icon="play"
-                  label={`Play ${exercise.back.text}`}
+                  label={copy.common.play(exercise.back.text)}
                   onPress={() => playWord(exercise.back.text)}
                 />
               </View>
@@ -544,27 +542,31 @@ function Flashcard({
       )}
 
       {!flipped ? (
-        <Button label="Flip card" variant="secondary" onPress={flip} />
+        <Button
+          label={copy.reviewSession.flip}
+          variant="secondary"
+          onPress={flip}
+        />
       ) : (
         <View style={base.stackSm}>
           <Text style={[base.caption, styles.center]}>
-            How well did you know it?
+            {copy.reviewSession.howWell}
           </Text>
           <View style={base.row}>
             <Button
-              label="Again"
+              label={copy.reviewSession.again}
               variant="secondary"
               style={base.grow}
               onPress={() => onRate('again')}
             />
             <Button
-              label="Good"
+              label={copy.reviewSession.good}
               variant="primary"
               style={base.grow}
               onPress={() => onRate('good')}
             />
             <Button
-              label="Easy"
+              label={copy.reviewSession.easy}
               variant="dark"
               style={base.grow}
               onPress={() => onRate('easy')}
@@ -581,15 +583,15 @@ function Flashcard({
 function mcqHeading(exercise: McqExercise): string {
   switch (exercise.questionType) {
     case 'mcq_text_reading':
-      return 'How do you read this?';
+      return copy.reviewSession.mcqHeading.reading;
     case 'mcq_text_translate':
       return exercise.promptKind === 'photo'
-        ? 'What does the highlighted text mean?'
-        : 'What does this mean?';
+        ? copy.reviewSession.mcqHeading.translatePhoto
+        : copy.reviewSession.mcqHeading.translate;
     case 'mcq_text_reverse':
-      return 'How do you say this in Japanese?';
+      return copy.reviewSession.mcqHeading.reverse;
     case 'mcq_object_name':
-      return 'What is this called in Japanese?';
+      return copy.reviewSession.mcqHeading.objectName;
   }
 }
 
@@ -663,16 +665,7 @@ function Mcq({
 
 /** What to type; read out by screen readers as the input's label. */
 function fillInstruction(exercise: FillBlankExercise): string {
-  switch (exercise.questionType) {
-    case 'fill_text_reading':
-      return 'Type the reading in kana';
-    case 'fill_text_translate':
-      return 'Type the meaning';
-    case 'fill_text_reverse':
-      return 'Type the Japanese word (kanji or kana)';
-    case 'fill_object_name':
-      return 'Type the Japanese name for this object (kanji or kana)';
-  }
+  return copy.reviewSession.fillInstruction[exercise.questionType];
 }
 
 function FillBlank({
@@ -759,7 +752,7 @@ function FillBlank({
               setKanaWarning(false);
             }
           }}
-          placeholder="Type your answer here"
+          placeholder={copy.reviewSession.typePlaceholder}
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -771,26 +764,26 @@ function FillBlank({
         {exercise.answerKind === 'kana' ? (
           <Text style={base.caption}>
             {exercise.questionType === 'fill_text_reading'
-              ? 'Japanese keyboard · hiragana and katakana both count'
-              : 'Japanese keyboard · kanji or kana accepted (no romaji)'}
+              ? copy.reviewSession.keyboardKana
+              : copy.reviewSession.keyboardKanjiOrKana}
           </Text>
         ) : null}
         {kanaWarning ? (
           <Text style={styles.kanaWarning} accessibilityRole="alert">
-            Please answer in kana
+            {copy.reviewSession.answerInKana}
           </Text>
         ) : null}
       </View>
 
       <View style={base.row}>
         <Button
-          label="Show answer"
+          label={copy.reviewSession.showAnswer}
           variant="secondary"
           style={base.grow}
           onPress={() => onAnswer(false)}
         />
         <Button
-          label="Check"
+          label={copy.reviewSession.check}
           variant="primary"
           style={base.grow}
           disabled={!text.trim()}
@@ -805,7 +798,11 @@ function FillBlank({
 
 function answerTextFor(exercise: Exercise): string {
   if (exercise.type === 'flashcard') {
-    return `${exercise.back.text} (${exercise.back.reading}) · ${exercise.back.meaning}`;
+    return copy.reviewSession.flashcardAnswer(
+      exercise.back.text,
+      exercise.back.reading,
+      exercise.back.meaning,
+    );
   }
   if (exercise.type === 'mcq') {
     const right = exercise.options[exercise.answerIndex];
@@ -859,7 +856,7 @@ function Feedback({
         {revealed ? (
           <>
             <Text style={[styles.verdict, styles.neutral]}>
-              Here's the answer
+              {copy.reviewSession.revealed}
             </Text>
             <Text style={styles.revealedAnswer}>{answer}</Text>
           </>
@@ -873,20 +870,19 @@ function Feedback({
               />
             </View>
             <Text style={[styles.verdict, !correct && styles.wrong]}>
-              {correct ? 'Correct!' : 'Not quite'}
+              {correct ? copy.reviewSession.correct : copy.reviewSession.wrong}
             </Text>
             {!correct ? (
-              <Text style={base.caption}>The answer was “{answer}”.</Text>
+              <Text style={base.caption}>{copy.reviewSession.theAnswerWas(answer)}</Text>
             ) : null}
           </>
         )}
         {synonyms ? (
-          <Text style={base.caption}>Also accepted: {synonyms}</Text>
+          <Text style={base.caption}>{copy.reviewSession.alsoAccepted(synonyms)}</Text>
         ) : null}
         {stale ? (
           <Text style={base.caption} accessibilityRole="alert">
-            This one didn't count: you practiced this Tango elsewhere since
-            starting.
+            {copy.reviewSession.stale}
           </Text>
         ) : null}
       </View>
@@ -904,7 +900,7 @@ function Feedback({
               !correct && styles.stageBannerTextDemote,
             ]}
           >
-            {correct ? 'Level up!' : 'Back a step'}
+            {correct ? copy.reviewSession.levelUp : copy.reviewSession.backAStep}
           </Text>
         </View>
       ) : null}
@@ -919,7 +915,7 @@ function Feedback({
           </View>
           <IconButton
             icon="play"
-            label={`Play ${wordJp.text}`}
+            label={copy.common.play(wordJp.text)}
             onPress={() => playWord(wordJp.text)}
           />
         </View>
@@ -969,15 +965,17 @@ function Results({
                   color={colors.positive}
                 />
               </View>
-              <Text style={styles.verdict}>Excellent work!</Text>
+              <Text style={styles.verdict}>{copy.sessionResults.excellent}</Text>
               <Text style={base.caption}>
-                {r.reviewed} Tango reviewed · {r.minutes} min
+                {copy.sessionResults.summary(r.reviewed, r.minutes)}
               </Text>
             </View>
 
             {r.biggestWin ? (
               <>
-                <Text style={styles.eyebrow}>Biggest win today</Text>
+                <Text style={styles.eyebrow}>
+                  {copy.sessionResults.biggestWin}
+                </Text>
                 <Card>
                   <View style={base.row}>
                     <View style={styles.winIcon}>
@@ -1001,11 +999,15 @@ function Results({
 
             {r.byArea.length > 0 ? (
               <Card>
-                <Text style={base.heading}>Tango practiced</Text>
+                <Text style={base.heading}>
+                  {copy.sessionResults.practiced}
+                </Text>
                 {r.byArea.map(row => (
                   <View key={row.area} style={base.rowBetween}>
                     <Text style={base.text}>{row.area}</Text>
-                    <Text style={styles.strong}>{row.count} Tango</Text>
+                    <Text style={styles.strong}>
+                      {copy.sessionResults.tangoCount(row.count)}
+                    </Text>
                   </View>
                 ))}
               </Card>
@@ -1018,14 +1020,16 @@ function Results({
                     {r.next.label}
                   </IconLabel>
                   <Jp {...r.next.placeName} bold />
-                  <Text style={base.text}>on {r.next.day}.</Text>
+                  <Text style={base.text}>
+                    {copy.sessionResults.nextOn(r.next.day)}
+                  </Text>
                 </View>
               </Card>
             ) : null}
           </ScrollView>
           <View style={[base.row, styles.footer]}>
             <Button
-              label="Back to Today"
+              label={copy.sessionResults.backToToday}
               variant="secondary"
               style={base.grow}
               onPress={() => {
@@ -1035,7 +1039,7 @@ function Results({
             />
             {r.next ? (
               <Button
-                label="Prepare next"
+                label={copy.sessionResults.prepareNext}
                 style={base.grow}
                 onPress={() =>
                   r.next &&

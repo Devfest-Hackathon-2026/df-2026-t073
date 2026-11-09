@@ -86,6 +86,7 @@ import type {
   Tango,
 } from '../../types';
 import { orderExamples } from '../../utils/format';
+import { copy } from '../../copy';
 
 type Phase = 'live' | 'caught' | 'frozen';
 
@@ -124,10 +125,7 @@ const DEFAULT_BOX: NormalizedBox = { x: 0.2, y: 0.32, w: 0.6, h: 0.14 };
 const CAUGHT_MS = 500;
 /** Upload size: enough for small sign text, well under the backend's 10 MiB limit. */
 const PHOTO_SIZE = { width: 1600, height: 1200 };
-const LIVE_HINT: Record<DetectorMode, string> = {
-  text: 'Aim at a Japanese word',
-  objects: 'Aim at an object',
-};
+const LIVE_HINT: Record<DetectorMode, string> = copy.capture.liveHint;
 /** How close to the screen center a live word must be to count as aimed at. */
 const AIM_SLOP = 48;
 /** The aim frame: a centered square this share of the screen width. */
@@ -189,7 +187,7 @@ export function CaptureScreen({
   const [frame, setFrame] = useState<DetectorFrame>(EMPTY_FRAME);
   const [phase, setPhase] = useState<Phase>('live');
   const [place, setPlace] = useState<CurrentPlace>({
-    name: 'Finding your place…',
+    name: copy.capture.placeFinding,
     placeId: null,
     lat: null,
     lng: null,
@@ -254,7 +252,7 @@ export function CaptureScreen({
       .then(setPlace)
       .catch(() =>
         setPlace({
-          name: 'Unknown place',
+          name: copy.capture.placeUnknown,
           placeId: null,
           lat: null,
           lng: null,
@@ -419,7 +417,7 @@ export function CaptureScreen({
     setFrame({
       items,
       centeredId: aim?.item_id ?? null,
-      hint: aim ? '' : items.length ? 'Center a word to catch it.' : '',
+      hint: aim ? '' : items.length ? copy.capture.centerAWord : '',
     });
   };
 
@@ -434,7 +432,7 @@ export function CaptureScreen({
   };
 
   const showError = (err: unknown) =>
-    setError(err instanceof Error ? err.message : 'Something went wrong');
+    setError(err instanceof Error ? err.message : copy.capture.somethingWrong);
 
   const doCatch = async (detection: Detection) => {
     // Show the catch right away; the save finishes in the background and
@@ -446,7 +444,7 @@ export function CaptureScreen({
         text: detection.japanese_text,
         reading: detection.reading ?? undefined,
       },
-      text: 'caught here',
+      text: copy.capture.caughtHere,
     });
     later(() => setPhase('live'), CAUGHT_MS);
     try {
@@ -461,7 +459,7 @@ export function CaptureScreen({
       }
       setToast({
         jp: tango,
-        text: created ? 'caught here' : 'seen again, added here',
+        text: created ? copy.capture.caughtHere : copy.capture.seenAgainHere,
         undo: {
           tangoId: tango.id,
           sightingId,
@@ -489,7 +487,7 @@ export function CaptureScreen({
       }
       setToast({
         jp: tango,
-        text: created ? 'saved, pinned here' : 'seen again, added here',
+        text: created ? copy.capture.savedPinnedHere : copy.capture.seenAgainHere,
         undo: { tangoId: tango.id, sightingId, created },
       });
       unfreeze();
@@ -573,8 +571,8 @@ export function CaptureScreen({
       } else {
         setError(
           mode === 'text'
-            ? 'No Japanese text here. Try again closer, or with the text straight on.'
-            : 'No object recognized here. Try again with it filling the frame.',
+            ? copy.capture.noTextFound
+            : copy.capture.noObjectFound,
         );
       }
     } catch (err) {
@@ -603,7 +601,7 @@ export function CaptureScreen({
       }
       setToast({
         jp: tango,
-        text: created ? 'caught here' : 'seen again, added here',
+        text: created ? copy.capture.caughtHere : copy.capture.seenAgainHere,
         undo: { tangoId: tango.id, sightingId, itemId: item.item_id, created },
       });
     } catch (err) {
@@ -647,7 +645,7 @@ export function CaptureScreen({
       }
       setToast({
         jp: tango,
-        text: created ? 'caught here' : 'seen again, added here',
+        text: created ? copy.capture.caughtHere : copy.capture.seenAgainHere,
         undo: { tangoId: tango.id, sightingId, created },
       });
     } catch (err) {
@@ -659,7 +657,7 @@ export function CaptureScreen({
 
   const onShutterLive = async () => {
     if (!cameraReady) {
-      setError('No camera available. Use the photo import button instead.');
+      setError(copy.capture.noCamera);
       return;
     }
     try {
@@ -726,7 +724,7 @@ export function CaptureScreen({
         if (asset?.base64) {
           await readPhoto(asset.base64, asset.type ?? 'image/jpeg', shot);
         } else {
-          setError('Could not read that photo.');
+          setError(copy.capture.couldNotReadPhoto);
         }
       }
     } catch (err) {
@@ -752,9 +750,7 @@ export function CaptureScreen({
       await recordRecognition(tango.id, recognized, where);
       setToast({
         jp: tango,
-        text: recognized
-          ? 'nice. Review pushed later.'
-          : 'okay. It will come back sooner.',
+        text: recognized ? copy.capture.recognizedYes : copy.capture.recognizedNo,
       });
     } catch (err) {
       showError(err);
@@ -796,13 +792,10 @@ export function CaptureScreen({
         />
       ) : (
         <View style={styles.noCamera}>
-          <Text style={styles.noCameraText}>
-            Camera preview unavailable (no camera or no permission). Mock
-            detection still runs.
-          </Text>
+          <Text style={styles.noCameraText}>{copy.capture.noPreview}</Text>
           {permission.canRequestPermission ? (
             <Button
-              label="Allow camera"
+              label={copy.capture.allowCamera}
               variant="light"
               onPress={requestPermission}
             />
@@ -835,7 +828,7 @@ export function CaptureScreen({
               <Pressable
                 key={item.item_id}
                 accessibilityRole="button"
-                accessibilityLabel={`Look up ${item.japanese_text}`}
+                accessibilityLabel={copy.capture.lookUp(item.japanese_text)}
                 onPress={() => openDetection(item)}
                 style={[
                   styles.detection,
@@ -858,14 +851,18 @@ export function CaptureScreen({
                         reading={item.reading ?? undefined}
                         size="xs"
                       />
-                      <Text style={styles.tagTextDark}>· you know this</Text>
+                      <Text style={styles.tagTextDark}>
+                        {copy.capture.youKnowThis}
+                      </Text>
                     </View>
                   ) : (
                     <View style={[styles.tag, isCaught && styles.tagSaved]}>
                       <Text
                         style={isCaught ? styles.tagTextDark : styles.tagText}
                       >
-                        {isCaught ? 'Saved' : shortMeaning(item) ?? 'New Tango'}
+                        {isCaught
+                          ? copy.capture.saved
+                          : shortMeaning(item) ?? copy.capture.newTango}
                       </Text>
                     </View>
                   )}
@@ -917,7 +914,7 @@ export function CaptureScreen({
       {phase === 'frozen' && live ? (
         <View
           style={StyleSheet.absoluteFill}
-          accessibilityLabel="Tap what you want to catch, or drag across words to join them"
+          accessibilityLabel={copy.capture.frozenA11y}
           onStartShouldSetResponder={() => !!found && !busy}
           onMoveShouldSetResponder={() => !!found && !busy}
           onResponderGrant={e =>
@@ -946,7 +943,7 @@ export function CaptureScreen({
       <View style={[styles.topBar, { top: insets.top + space.sm }]}>
         <IconButton
           icon="close"
-          label="Close camera"
+          label={copy.capture.closeCamera}
           dark
           onPress={() => navigation.goBack()}
         />
@@ -957,7 +954,7 @@ export function CaptureScreen({
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${count} caught today. Open today's catch`}
+          accessibilityLabel={copy.capture.caughtToday(count)}
           onPress={() => navigation.navigate('CaptureToday')}
           style={[styles.countPill, count > 0 && styles.countPillActive]}
         >
@@ -976,9 +973,9 @@ export function CaptureScreen({
           <Text style={styles.pillText}>
             {live
               ? busy
-                ? 'Photo taken · reading…'
-                : `Photo taken · ${found?.items.length ?? 0} found`
-              : 'Photo taken · nothing was detected'}
+                ? copy.capture.photoReading
+                : copy.capture.photoFound(found?.items.length ?? 0)
+              : copy.capture.photoNothing}
           </Text>
         </View>
       ) : null}
@@ -999,7 +996,7 @@ export function CaptureScreen({
               toast.undo
                 ? [
                     {
-                      label: 'Details',
+                      label: copy.capture.details,
                       onPress: () =>
                         toast.undo &&
                         navigation.navigate('TangoDetail', {
@@ -1007,7 +1004,7 @@ export function CaptureScreen({
                         }),
                     },
                     {
-                      label: 'Undo',
+                      label: copy.capture.undo,
                       onPress: () => toast.undo && undo(toast.undo),
                     },
                   ]
@@ -1017,7 +1014,7 @@ export function CaptureScreen({
         ) : null}
         {error ? (
           <Pressable onPress={() => setError(null)} style={styles.hint}>
-            <Text style={styles.hintText}>{error} (tap to dismiss)</Text>
+            <Text style={styles.hintText}>{copy.capture.tapToDismiss(error)}</Text>
           </Pressable>
         ) : null}
 
@@ -1043,16 +1040,16 @@ export function CaptureScreen({
                   </Text>
                 ) : null}
                 <Text style={styles.hintText}>
-                  {picked.length > 1 ? `${picked.length} parts joined · ` : ''}
+                  {picked.length > 1 ? copy.capture.partsJoined(picked.length) : ''}
                   {mode === 'text'
-                    ? 'tap a box to pick it, or drag across boxes to join them'
-                    : 'tap a box to pick it'}
+                    ? copy.capture.pickOrJoin
+                    : copy.capture.pick}
                 </Text>
               </View>
             ) : null}
             <View style={base.row}>
               <Button
-                label="Retake"
+                label={copy.capture.retake}
                 variant="dark"
                 style={base.grow}
                 onPress={unfreeze}
@@ -1060,14 +1057,14 @@ export function CaptureScreen({
               <Button
                 label={
                   busy
-                    ? 'Reading…'
+                    ? copy.capture.reading
                     : picked.length === 0
-                    ? 'Catch'
+                    ? copy.capture.catch
                     : pickedSaved
-                    ? 'Saved'
+                    ? copy.capture.saved
                     : saving !== null
-                    ? 'Saving…'
-                    : 'Catch'
+                    ? copy.capture.saving
+                    : copy.capture.catch
                 }
                 style={base.grow}
                 disabled={
@@ -1080,20 +1077,17 @@ export function CaptureScreen({
         ) : phase === 'frozen' ? (
           <>
             <View style={styles.hint}>
-              <Text style={styles.hintText}>
-                Drag the box around what you want, and the corner to resize.
-                Handwriting, odd fonts and blurry signs all work.
-              </Text>
+              <Text style={styles.hintText}>{copy.capture.dragBox}</Text>
             </View>
             <View style={base.row}>
               <Button
-                label="Retake"
+                label={copy.capture.retake}
                 variant="dark"
                 style={base.grow}
                 onPress={unfreeze}
               />
               <Button
-                label={busy ? 'Reading…' : 'Read this'}
+                label={busy ? copy.capture.reading : copy.capture.readThis}
                 icon={busy ? undefined : 'ai'}
                 style={base.grow}
                 disabled={busy}
@@ -1114,8 +1108,8 @@ export function CaptureScreen({
             <View style={styles.modeToggle}>
               <SegmentedControl
                 options={[
-                  { value: 'text', label: 'Text', icon: 'scan' },
-                  { value: 'objects', label: 'Objects', icon: 'photo' },
+                  { value: 'text', label: copy.capture.modeText, icon: 'scan' },
+                  { value: 'objects', label: copy.capture.modeObjects, icon: 'photo' },
                 ]}
                 value={mode}
                 onChange={next => {
@@ -1128,7 +1122,7 @@ export function CaptureScreen({
             <View style={styles.controls}>
               <IconButton
                 icon="photo"
-                label="Import from photos"
+                label={copy.capture.importPhotos}
                 dark
                 onPress={onImport}
               />
@@ -1136,17 +1130,17 @@ export function CaptureScreen({
                 {phase === 'caught' ? (
                   <View style={[styles.catchButton, styles.caughtButton]}>
                     <IconLabel icon="done" style={styles.catchTitle}>
-                      Caught!
+                      {copy.capture.caught}
                     </IconLabel>
                   </View>
                 ) : centered ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Catch ${centered.japanese_text}`}
+                    accessibilityLabel={copy.capture.catchWord(centered.japanese_text)}
                     onPress={() => doCatch(centered)}
                     style={styles.catchButton}
                   >
-                    <Text style={styles.catchTitle}>Catch</Text>
+                    <Text style={styles.catchTitle}>{copy.capture.catch}</Text>
                     <Jp
                       text={centered.japanese_text}
                       reading={centered.reading ?? undefined}
@@ -1157,7 +1151,7 @@ export function CaptureScreen({
                 ) : (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Shutter"
+                    accessibilityLabel={copy.capture.shutter}
                     onPress={onShutter}
                     style={styles.shutter}
                   />
@@ -1177,12 +1171,12 @@ export function CaptureScreen({
               <Jp {...sheet.tango} size="xxl" bold />
               <IconButton
                 icon="play"
-                label={`Play ${sheet.tango.text}`}
+                label={copy.common.play(sheet.tango.text)}
                 onPress={() => playWord(sheet.tango.text)}
               />
             </View>
             <IconLabel icon="ai" style={styles.eyebrow}>
-              Explained by Gemini
+              {copy.capture.explainedBy}
             </IconLabel>
             <Text style={base.text}>
               <Text style={styles.strong}>{sheet.tango.meaning}. </Text>
@@ -1190,11 +1184,15 @@ export function CaptureScreen({
             </Text>
             {sheet.tango.examples.length > 0 ? (
               <View style={base.stackSm}>
-                <Text style={base.label}>Ways you might hear it</Text>
+                <Text style={base.label}>{copy.capture.waysToHear}</Text>
                 {examples(sheet.tango).map(example => (
                   <View key={example.jp.text} style={styles.example}>
                     <Chip
-                      label={example.register === 'easy' ? 'Easy' : 'Keigo'}
+                      label={
+                        example.register === 'easy'
+                          ? copy.capture.registerEasy
+                          : copy.capture.registerKeigo
+                      }
                       tone="outline"
                     />
                     <View style={base.grow}>
@@ -1210,7 +1208,7 @@ export function CaptureScreen({
             </IconLabel>
             <View style={base.row}>
               <Button
-                label="Practice"
+                label={copy.capture.practice}
                 variant="secondary"
                 style={base.grow}
                 onPress={() => {
@@ -1219,7 +1217,7 @@ export function CaptureScreen({
                 }}
               />
               <Button
-                label="Save Tango"
+                label={copy.capture.saveTango}
                 style={base.grow}
                 disabled={!!caught[sheet.detection.item_id]}
                 onPress={() => {
@@ -1236,7 +1234,7 @@ export function CaptureScreen({
           <>
             <Chip
               icon="hanamaru"
-              label="You've learned this one"
+              label={copy.capture.learned}
               tone="hanamaru"
             />
             <View style={base.row}>
@@ -1245,36 +1243,35 @@ export function CaptureScreen({
             </View>
             <View style={styles.history}>
               <Text style={base.caption}>
-                First saved:{' '}
-                {sheet.tango.history[sheet.tango.history.length - 1]?.detail ??
-                  'unknown'}
-                . You've seen it {sheet.tango.sightings.length} times since.
+                {copy.capture.firstSaved(
+                  sheet.tango.history[sheet.tango.history.length - 1]?.detail ??
+                    copy.capture.unknown,
+                  sheet.tango.sightings.length,
+                )}
               </Text>
             </View>
-            <Text style={base.heading}>Did you recognize this Tango?</Text>
+            <Text style={base.heading}>{copy.capture.recognizeQuestion}</Text>
             <View style={base.row}>
               <Button
-                label="Not really"
+                label={copy.capture.notReally}
                 variant="secondary"
                 style={base.grow}
                 onPress={() => answerRecognition(sheet.tango, false)}
               />
               <Button
-                label="Yes"
+                label={copy.capture.yes}
                 style={base.grow}
                 onPress={() => answerRecognition(sheet.tango, true)}
               />
             </View>
-            <Text style={base.caption}>
-              We'll tailor your review schedule based on your answer.
-            </Text>
+            <Text style={base.caption}>{copy.capture.tailorNote}</Text>
           </>
         ) : null}
 
         {sheet?.kind === 'found' && found ? (
           <>
             <IconLabel icon="ai" style={styles.eyebrow}>
-              Found in this photo
+              {copy.capture.foundInPhoto}
             </IconLabel>
             {error ? <Text style={styles.sheetError}>{error}</Text> : null}
             {toast && !error ? (
@@ -1287,18 +1284,19 @@ export function CaptureScreen({
                     style={styles.sheetUndo}
                     onPress={() => toast.undo && undo(toast.undo)}
                   >
-                    Undo
+                    {copy.capture.undo}
                   </Text>
                 ) : null}
               </View>
             ) : null}
             {found.items.length === 0 ? (
               <>
-                <Text style={base.text}>
-                  Nothing readable was found. Try again closer, or with the text
-                  straight on.
-                </Text>
-                <Button label="Retake" variant="dark" onPress={unfreeze} />
+                <Text style={base.text}>{copy.capture.nothingReadable}</Text>
+                <Button
+                  label={copy.capture.retake}
+                  variant="dark"
+                  onPress={unfreeze}
+                />
               </>
             ) : null}
             {found.items.map(item => (
@@ -1319,10 +1317,10 @@ export function CaptureScreen({
                 <Button
                   label={
                     caught[item.item_id]
-                      ? 'Saved'
+                      ? copy.capture.saved
                       : saving === item.item_id
-                      ? 'Saving…'
-                      : 'Catch'
+                      ? copy.capture.saving
+                      : copy.capture.catch
                   }
                   disabled={!!caught[item.item_id] || saving !== null}
                   onPress={() => catchFound(item)}
@@ -1335,7 +1333,7 @@ export function CaptureScreen({
         {sheet?.kind === 'reading' ? (
           <>
             <IconLabel icon="ai" style={styles.eyebrow}>
-              Gemini read your selection
+              {copy.capture.geminiRead}
             </IconLabel>
             <Jp {...sheet.reading.tango} size="xxl" bold />
             <Text style={base.text}>{sheet.reading.explanation}</Text>
@@ -1345,11 +1343,11 @@ export function CaptureScreen({
               ))}
             </View>
             <Button
-              label="Catch"
+              label={copy.capture.catch}
               onPress={() => catchFromReading(sheet.reading)}
             />
             <Button
-              label="Not quite? Adjust the box"
+              label={copy.capture.adjustBox}
               variant="ghost"
               onPress={() => setSheet(null)}
             />

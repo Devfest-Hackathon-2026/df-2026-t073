@@ -14,11 +14,11 @@ import { useAsync } from '../../hooks/useAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontWeights, radii, space } from '../../styles/tokens';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
 const RESULT_LINES = [
-  'Looking back at your conversation…',
-  'Picking out what went well…',
+  ...copy.rehearseResults.loadingLines,
 ];
 
 export function RehearseResultsScreen({
@@ -36,7 +36,7 @@ export function RehearseResultsScreen({
       footer={
         <View style={base.row}>
           <Button
-            label="Rehearse again"
+            label={copy.rehearseResults.rehearseAgain}
             variant="secondary"
             style={base.grow}
             onPress={() => navigation.replace('Rehearse', { placeId })}
@@ -50,30 +50,34 @@ export function RehearseResultsScreen({
       }
     >
       <ScreenHeader onBack={() => navigation.popToTop()} close>
-        <Text style={base.heading}>Results</Text>
+        <Text style={base.heading}>{copy.rehearseResults.title}</Text>
       </ScreenHeader>
       <Loadable state={result} messages={RESULT_LINES}>
         {data => (
           <View style={base.stack}>
-            <Text style={base.title}>Nice work!</Text>
+            <Text style={base.title}>{copy.rehearseResults.niceWork}</Text>
             <View style={base.row}>
               <Jp {...data.place.name} size="sm" tone="muted" />
               <Text style={base.caption}>
-                · used {hintsUsed} hint{hintsUsed === 1 ? '' : 's'}
+                {copy.rehearseResults.hintsUsed(hintsUsed)}
               </Text>
             </View>
             <IconLabel icon="ai" style={styles.eyebrow}>
-              Feedback by Gemini
+              {copy.rehearseResults.feedbackBy}
             </IconLabel>
             {data.lines.map(line => (
               <Card key={line.staff.text}>
                 <View style={base.row}>
-                  <Text style={base.caption}>Staff:</Text>
+                  <Text style={base.caption}>
+                    {copy.rehearseResults.staff}
+                  </Text>
                   <Jp {...line.staff} size="sm" tone="muted" />
                 </View>
                 <View style={base.row}>
                   <Text style={line.ok ? styles.ok : styles.warn}>
-                    {line.ok ? '○' : '△'}
+                    {line.ok
+                      ? copy.rehearseResults.okMark
+                      : copy.rehearseResults.notQuiteMark}
                   </Text>
                   <Jp {...line.said} size="lg" />
                 </View>
@@ -81,14 +85,14 @@ export function RehearseResultsScreen({
                   <View style={styles.suggestion}>
                     <View style={base.grow}>
                       <IconLabel icon="ai" style={styles.eyebrow}>
-                        Gemini suggests
+                        {copy.rehearseResults.geminiSuggests}
                       </IconLabel>
                       <Jp {...line.suggestion.jp} size="lg" bold />
                       <Text style={base.caption}>{line.suggestion.why}</Text>
                     </View>
                     <IconButton
                       icon="play"
-                      label="Play suggestion (coming soon)"
+                      label={copy.rehearseResults.playSuggestion}
                     />
                   </View>
                 ) : (

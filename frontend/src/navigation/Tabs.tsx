@@ -21,16 +21,17 @@ import {
 import { Icon, type IconName } from '../components/Icon';
 import { useSettings } from '../state/SettingsContext';
 import type { TabParamList } from './types';
+import { copy } from '../copy';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const TAB_META: Record<keyof TabParamList, { label: string; icon: IconName }> =
   {
-    Today: { label: 'Today', icon: 'home' },
-    Map: { label: 'Map', icon: 'map' },
-    CaptureTab: { label: 'Capture', icon: 'camera' },
-    Review: { label: 'Review', icon: 'review' },
-    Me: { label: 'Me', icon: 'me' },
+    Today: { label: copy.tabs.today, icon: 'home' },
+    Map: { label: copy.tabs.map, icon: 'map' },
+    CaptureTab: { label: copy.tabs.capture, icon: 'camera' },
+    Review: { label: copy.tabs.review, icon: 'review' },
+    Me: { label: copy.tabs.me, icon: 'me' },
   };
 
 function EmptyScreen(): null {
@@ -51,7 +52,7 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
             <View key={route.key} style={styles.item}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open camera"
+                accessibilityLabel={copy.tabs.openCamera}
                 onPress={() => navigation.getParent()?.navigate('Capture')}
                 style={styles.capture}
               >

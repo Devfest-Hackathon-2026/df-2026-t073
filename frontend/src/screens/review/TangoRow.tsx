@@ -7,6 +7,7 @@ import { StrengthBar } from '../../components/ui';
 import { base } from '../../styles/base';
 import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
 import type { Tango } from '../../types';
+import { copy } from '../../copy';
 
 /** One Tango in a list: word, meaning, strength; optional trailing action. */
 export function TangoRow({
@@ -22,7 +23,7 @@ export function TangoRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${tango.text}`}
+      accessibilityLabel={copy.common.open(tango.text)}
       onPress={onPress}
       style={styles.row}
     >
@@ -41,7 +42,9 @@ export function TangoRow({
         </View>
         <Text style={base.caption} numberOfLines={1}>
           {tango.meaning}
-          {tango.sightings[0] ? ` · ${tango.sightings[0].placeName}` : ''}
+          {tango.sightings[0]
+            ? copy.tangoRow.place(tango.sightings[0].placeName)
+            : ''}
         </Text>
       </View>
       <View style={styles.strength}>

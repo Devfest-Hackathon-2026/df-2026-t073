@@ -1,0 +1,708 @@
+/**
+ * All user-facing text in the app, in one place. Change wording here.
+ *
+ * Grouped by screen or feature. Text that includes values is a small function,
+ * e.g. `copy.common.play('食券')` -> "Play 食券".
+ *
+ * Not in here: mock data (src/mocks), route names, ids and storage keys, and
+ * developer-only errors.
+ */
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+const common = {
+  close: 'Close',
+  back: 'Back',
+  cancel: 'Cancel',
+  delete: 'Delete',
+  save: 'Save',
+  done: 'Done',
+  new: 'New',
+  tango: 'Tango',
+  tryAgain: 'Try again',
+  couldNotLoad: "Couldn't load this",
+  /** Sun..Sat, indexed by Date.getDay(). */
+  weekdays: WEEKDAYS,
+  play: (text: string) => `Play ${text}`,
+  open: (text: string) => `Open ${text}`,
+  /** Light, upbeat lines shown while something loads. */
+  loadingLines: ['Gathering your words…', 'Lining things up…', 'Almost there…'],
+};
+
+const strength = {
+  a11y: (n: number) => `Strength ${n} of 4`,
+  /** Label per strength 0-4. */
+  levels: ['New', 'Warming up', 'Warming up', 'Almost there', 'Hanamaru'],
+};
+
+const tabs = {
+  today: 'Today',
+  map: 'Map',
+  capture: 'Capture',
+  review: 'Review',
+  me: 'Me',
+  openCamera: 'Open camera',
+};
+
+const map = {
+  a11y: 'Map of your Tango',
+  goToMyLocation: 'Go to my location',
+  /** Glyph on the "up next" pin: 次 = next. */
+  nextGlyph: '次',
+  /** Glyph on Tango pins: 単 is from 単語 (word). */
+  tangoGlyph: '単',
+  placeholder: 'Map placeholder',
+  placeholderPin: (label: string, count: number | string) =>
+    `${label || 'Pin'} ${count || ''}`,
+  /** Placeholder map's mastered count: 花 is from 花丸 (hanamaru). */
+  placeholderStars: (n: number) => `花${n}`,
+};
+
+const jp = {
+  peekHint: 'Shows the meaning, plays it, and lets you save it',
+  noMeaning: 'No meaning yet',
+};
+
+const saveWord = {
+  idle: 'Save as Tango',
+  saving: 'Saving…',
+  saved: 'Saved to your Tango',
+  owned: 'Already in your Tango',
+  failed: 'Could not save. Try again',
+};
+
+/** "How it grew" events on the Tango page. */
+const history = {
+  caught: 'Caught',
+  seenAgain: 'Seen again',
+  seenWithCamera: 'camera',
+  missedInReview: 'Missed in review',
+  gotItInReview: 'Got it in review',
+};
+
+/** Review stage and question names. */
+const reviewLabels = {
+  stages: {
+    flashcard: 'Flashcard',
+    mcq_photo: 'Photo MCQ',
+    mcq: 'Multiple choice',
+    fill: 'Fill in the blank',
+  },
+  questionTypes: {
+    flashcard_text: 'Flashcard · Text',
+    flashcard_object: 'Flashcard · Object',
+    mcq_text_reading: 'Reading · Multiple choice',
+    mcq_text_translate: 'Translate · Multiple choice',
+    mcq_text_reverse: 'Reverse translate · Multiple choice',
+    mcq_object_name: 'Object name · Multiple choice',
+    fill_text_reading: 'Reading · Type the answer',
+    fill_text_translate: 'Meaning · Type the answer',
+    fill_text_reverse: 'Reverse translate · Type the answer',
+    fill_object_name: 'Object name · Type the answer',
+  },
+};
+
+/** Error messages people can see. */
+const errors = {
+  dailyLimit: 'Daily limit reached. Try again tomorrow.',
+  requestFailed: (method: string, path: string, status: number) =>
+    `${method} ${path} failed with HTTP ${status}`,
+  timedOut: 'Request timed out. Please try again.',
+  nothingToCatch: 'Nothing to catch.',
+  listNotFound: 'List not found',
+  noRehearsalSession: 'This rehearsal has no session.',
+  authNotConfigured: 'Firebase Authentication is not configured.',
+  emailPasswordRequired: 'Email and password are required.',
+  testEmailPasswordRequired: 'Test email and password are required.',
+  wrongPasswordForExistingUser: 'User exists but with a different password.',
+  emailSignInDisabled:
+    'Email/Password sign-in is disabled in Firebase Console. Enable it under Authentication > Sign-in method.',
+};
+
+const captureToday = {
+  loadingLines: ["Counting today's catch…"],
+  title: "Today's catch",
+  summary: (tango: number, places: number) =>
+    `${tango} Tango · ${places} places`,
+  empty: 'Nothing caught yet today.',
+  reviewed: 'Reviewed',
+};
+
+const plans = {
+  title: 'Plans',
+  titleJp: { text: '予定', reading: 'よてい', romaji: 'yotei' },
+  searchPlaceholder: 'どこへ行く？',
+  searchA11y: 'Search places to visit',
+  empty: 'No visits planned yet.',
+  cancelVisit: (place: string) => `Cancel visit to ${place}`,
+  placeLine: (category: string, area: string, tango: number) =>
+    `${category} · ${area} · ${tango} Tango`,
+  prepare: 'Prepare',
+};
+
+const rehearseResults = {
+  loadingLines: [
+    'Looking back at your conversation…',
+    'Picking out what went well…',
+  ],
+  rehearseAgain: 'Rehearse again',
+  title: 'Results',
+  niceWork: 'Nice work!',
+  hintsUsed: (n: number) => `· used ${n} hint${n === 1 ? '' : 's'}`,
+  feedbackBy: 'Feedback by Gemini',
+  staff: 'Staff:',
+  /** Marks for each of your lines: ○ natural, △ could be better. */
+  okMark: '○',
+  notQuiteMark: '△',
+  geminiSuggests: 'Gemini suggests',
+  playSuggestion: 'Play suggestion (coming soon)',
+};
+
+const allTango = {
+  loadingLines: ['Laying out your Tango…'],
+  title: 'All Tango',
+  titleJp: { text: '単語', reading: 'たんご', romaji: 'tango' },
+  searchPlaceholder: 'Search',
+  searchA11y: 'Search Tango or places',
+  noMatches: 'No matches',
+};
+
+const lists = {
+  couldNotSave: 'Could not save',
+  namePlaceholder: 'e.g. Ramen shop words',
+  nameA11y: 'List name',
+  addToList: 'Add to a list',
+  newList: 'New list',
+  loadingLines: ['Opening your list…'],
+  gone: 'This list no longer exists.',
+  deleteTitle: (name: string) => `Delete "${name}"?`,
+  deleteBody: 'The Tango themselves stay.',
+  reviewThisList: 'Review this list',
+  rename: 'Rename list',
+  deleteList: 'Delete list',
+  count: (n: number) => `${n} Tango`,
+  empty: 'Add Tango from their detail page.',
+  remove: (text: string) => `Remove ${text}`,
+};
+
+/** Tango rows in lists: the first place it was seen. */
+const tangoRow = {
+  place: (name: string) => ` · ${name}`,
+};
+
+const meSections = {
+  profile: 'Profile',
+  display: 'Japanese display',
+  practice: 'Practice',
+  languages: 'Languages',
+  privacy: 'Privacy & location',
+  developer: 'Developer',
+};
+
+const review = {
+  loadingLines: ['Counting what is due…', 'Sorting your collections…'],
+  title: 'Review',
+  titleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
+  quickReview: 'Quick review',
+  dueSummary: (due: number, minutes: number) => `${due} due · ${minutes} min`,
+  start: 'Start',
+  collections: 'Collections',
+  collectionChip: (label: string, count: number) => `${label} · ${count}`,
+  recentTango: 'Recent Tango',
+  allTango: (total?: number) =>
+    `All Tango${total !== undefined ? ` · ${total}` : ''}`,
+  nothingCaught: 'Nothing caught yet',
+};
+
+const mapScreen = {
+  locationUnavailableTitle: 'Location unavailable',
+  locationUnavailableBody:
+    'Turn on location and allow Tankengo to use it, then try again.',
+  searchPlaceholder: 'どこへ行く？',
+  searchA11y: 'Search places to visit',
+  filterAll: 'All Tango',
+  filterStamps: 'Hanamaru',
+  filterPlanned: 'Planned',
+  noPlaces: 'No places found.',
+  closeAreaCard: 'Close area card',
+  areaSummary: (tango: number, places: number) =>
+    `${tango} Tango · ${places} places`,
+  reviewThese: 'Review these',
+  planVisit: 'Plan a visit',
+};
+
+const me = {
+  loadingLines: ['Tallying your Tango…', 'Counting your hanamaru…'],
+  title: 'Me',
+  mapOn: 'Map on',
+  mapOff: 'Map off',
+  statTango: 'Tango',
+  statStamps: 'Hanamaru',
+  statPlaces: 'Places',
+  statDue: 'Due today',
+  logOut: 'Log out of this device',
+  credits:
+    'Dictionary data: JMdict, © Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0.',
+};
+
+const prepare = {
+  loadingLines: [
+    'Reading what visitors say about this place…',
+    "Picking the words you'll hear at the counter…",
+    'Planning your first moves inside…',
+  ],
+  couldNotSave: 'Could not save',
+  rehearse: 'Rehearse with staff · 2 min',
+  aiNote: 'AI suggestion from reviews; may be out of date.',
+  title: 'Prepare',
+  titleJp: { text: '準備', reading: 'じゅんび', romaji: 'junbi' },
+  placeNote: (note: string) => ` · ${note}`,
+  addToPlans: 'Add to your plans',
+  plannedFor: (label: string) => `Planned for ${label.toLowerCase()}`,
+  whatToExpect: 'What to expect',
+  whatToExpectJp: {
+    text: 'お店の流れ',
+    reading: 'おみせのながれ',
+    romaji: 'omise no nagare',
+  },
+  tangoForVisit: 'Tango for this visit',
+  historyHere: 'History here',
+  firstVisit: 'Your first visit',
+  tipsSubtitle: 'Anonymous tips from other learners',
+  noTips: 'No tips for this place yet.',
+  tipQuote: (quote: string) => `"${quote}"`,
+  tipMeta: (learners: number, when: string) => `${learners} learners · ${when}`,
+  inRehearsal: 'In your rehearsal',
+  planToday: 'Today',
+  planTomorrow: 'Tomorrow',
+  planWeekend: 'This weekend',
+};
+
+const rehearse = {
+  loadingLines: [
+    'Your staff member is getting ready…',
+    'Setting the scene…',
+    'Warming up the counter…',
+  ],
+  aiRolePlay: 'AI role-play',
+  slower: 'Slower',
+  natural: 'Natural',
+  couldNotCheck: 'Could not check that reply.',
+  noMicrophone: 'No microphone access, so choose a reply instead.',
+  recordingUnavailable:
+    'Recording is not available here. Choose a reply instead.',
+  holdWhileSpeaking: 'Hold the button while you speak.',
+  recordingFailed: 'Recording failed. Choose a reply instead.',
+  staffAi: 'STAFF · AI',
+  tapForEnglish: 'Tap to see English',
+  playAgain: 'Play again',
+  you: (spoken: boolean) => `You${spoken ? ' · spoken' : ''}`,
+  yourTurn: 'Your turn',
+  hint: 'Hint',
+  needHint: 'Need a hint?',
+  seeResults: 'See results',
+  holdToSpeak: 'Hold to speak',
+  checking: 'Checking your reply…',
+  listening: 'Listening… release to send',
+  chooseReply: "Can't speak right now? Choose a reply",
+};
+
+const tangoDetail = {
+  loadingLines: ['Opening your Tango…'],
+  unknownPlace: 'Unknown place',
+  deleteTitle: 'Delete Tango',
+  deleteBody: 'Are you sure you want to delete this word?',
+  couldNotDeleteTitle: 'Could not delete',
+  couldNotDeleteBody: 'Failed to delete this Tango. Please try again.',
+  couldNotExpand: 'Could not generate related vocabulary. Please try again.',
+  removeFavorite: 'Remove from favourites',
+  favorite: 'Favourite',
+  addToList: 'Add to a list',
+  deleteTango: 'Delete Tango',
+  toStamp: (steps: number) => `${steps} to hanamaru`,
+  phrases: 'Phrases',
+  writingPhrases: 'Writing example phrases…',
+  noPhrases: 'No example phrases yet',
+  registerEasy: 'Easy',
+  registerKeigo: 'Keigo',
+  history: 'History',
+  stage: (label: string) => `Stage: ${label}`,
+  relatedVocab: 'Related vocabulary',
+  gemini: 'Gemini',
+  generatingRelated: 'Generating related words…',
+  expandRelated: 'Expand with related vocabulary',
+  whereYouSawIt: 'Where you saw it',
+  timesSeen: (n: number) => ` · ${n}×`,
+};
+
+const welcome = {
+  readingLevels: {
+    none: { title: 'Not yet', help: 'Romaji and English help everywhere' },
+    kana: { title: 'Hiragana and katakana', help: 'Furigana on every kanji' },
+    some_kanji: {
+      title: 'Some everyday kanji',
+      help: 'Furigana only on new kanji',
+    },
+    most: {
+      title: 'Most signs and menus',
+      help: 'Japanese first, help on request',
+    },
+  },
+  privacy: {
+    pins: {
+      title: 'Only you see your pins',
+      body: 'No profile, no followers, nothing public.',
+    },
+    home: {
+      title: 'Home stays blank',
+      body: "Pins near where you live are never placed. You pick the area once; we don't guess it.",
+    },
+    tips: {
+      title: 'Tips you share are anonymous',
+      body: 'Only the tip and the shop. No name, no account, no exact time.',
+    },
+  },
+  continue: 'Continue',
+  allowLocation: 'Allow location while using the app',
+  notNow: 'Not now, use the camera without places',
+  readTitle: 'What can you read so far?',
+  readBody:
+    "Just a starting point. Tankengo adjusts as you catch and review, so there's no wrong answer.",
+  explanationsIn: (language: string) =>
+    `Explanations in ${language} · change it later in Me`,
+  mapTitle: 'Your map stays yours',
+  mapBody:
+    "Location lets each Tango remember where you found it. Here's what that means.",
+};
+
+const login = {
+  unknownError: 'An unknown error occurred.',
+  wrongCredentials: 'Incorrect email or password. Please try again.',
+  emailInUse:
+    'An account with this email already exists. Please sign in instead.',
+  weakPassword: 'Password should be at least 6 characters.',
+  invalidEmail: 'Please enter a valid email address.',
+  signInDisabled: 'Email/Password sign-in is not enabled in Firebase Console.',
+  networkFailed:
+    'Network request failed. Please check your internet connection.',
+  missingFields: 'Please enter both email and password.',
+  badge: '単語をキャッチする',
+  welcomeBack: 'Welcome back',
+  createAccountTitle: 'Create an account',
+  signInBody: 'Sign in to access your saved words, places, and study progress.',
+  signUpBody: 'Sign up to keep your vocabulary synchronized across devices.',
+  email: 'Email address',
+  emailPlaceholder: 'name@example.com',
+  password: 'Password',
+  passwordPlaceholder: 'Password (minimum 6 characters)',
+  signingIn: 'Signing in…',
+  signIn: 'Sign in',
+  createAccount: 'Create account',
+  toSignUp: "Don't have an account? Create one",
+  toSignIn: 'Already have an account? Sign in',
+};
+
+const today = {
+  loadingLines: [
+    "Gathering today's words…",
+    "Checking what's due…",
+    'Choosing your word of the day…',
+  ],
+  greeting: {
+    text: 'こんにちは',
+    reading: 'こんにちは',
+    romaji: 'konnichiwa',
+    meaning: 'Hello',
+  },
+  welcomeJp: {
+    text: 'ようこそ',
+    reading: 'ようこそ',
+    romaji: 'yōkoso',
+    meaning: 'Welcome',
+  },
+  nameSan: (name: string) => ({
+    text: `${name}さん`,
+    romaji: `${name}-san`,
+    meaning: `${name} (with the polite さん)`,
+  }),
+  statTango: 'Tango',
+  statToReview: 'to review',
+  statAreas: (n: number) => (n === 1 ? 'area' : 'areas'),
+  neighbourhoods: 'Your neighbourhoods',
+  neighbourhoodsJp: { text: '近所', reading: 'きんじょ', romaji: 'kinjo' },
+  /** Separates the sample words on a neighbourhood card. */
+  sampleSeparator: '・',
+  openMap: 'Open your Tango map',
+  tangoMap: 'Your Tango map',
+  explore: 'Explore',
+  upNext: (when: string) => `Up next · ${when}`,
+  visitLine: (category: string, area: string, tango: number) =>
+    `${category} · ${area} · ${tango} Tango`,
+  prepare: 'Prepare',
+  allPlans: 'All plans',
+  yourPlans: 'Your plans',
+  nothingPlanned: 'Nothing planned yet',
+  wordOfDay: 'Word of the day',
+  reviewTitle: 'Review',
+  reviewTitleJp: { text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' },
+  reviewSummary: (due: number, minutes: number) =>
+    `${due} due · about ${minutes} min`,
+  reviewFrom: (areas: string[]) => `From ${areas.join(', ')}`,
+  start: 'Start',
+  more: (n: number) => `+${n}`,
+  firstOuting: 'Your first outing',
+  aboutTenMin: 'About 10 min',
+  stepCatch: 'Catch 3 Tango around the station',
+  stepRehearse: 'Rehearse buying a ticket',
+  stepRehearseNote: '1 min with Gemini, at your own pace',
+  go: 'Go',
+  stepReview: 'Your first review tonight',
+  stepReviewNote: 'Opens after you catch 3',
+  starterTango: "Tango you'll likely see around Koenji Station",
+  finishDayOne: 'Finish day one (show the regular Today screen)',
+};
+
+const reviewSession = {
+  loadingLines: ['Picking your weakest Tango…', 'Setting up your questions…'],
+  nothingDue: 'Nothing due right now.',
+  endReview: 'End review',
+  hintButton: 'Where did I see this Tango?',
+  continue: 'Continue',
+  /** Toast after rating a flashcard. */
+  toast: {
+    levelUp: (word: string) => `Level up for ${word}!`,
+    stronger: (word: string) => `${word} is getting stronger`,
+    backAStep: (word: string) => `Back a step for ${word}`,
+    comeBackSoon: (word: string) => `${word} will come back soon`,
+    stale: "Didn't count: practiced elsewhere",
+  },
+  photoA11y: 'Your capture photo with the target highlighted',
+  noPlace: 'No place saved',
+  flipA11y: 'Flip flashcard',
+  flashcardTextPrompt: 'Do you remember how to read and translate this?',
+  flashcardObjectPrompt: 'Do you remember the Japanese word for this object?',
+  tapToFlip: 'Tap to flip',
+  flip: 'Flip card',
+  howWell: 'How well did you know it?',
+  again: 'Again',
+  good: 'Good',
+  easy: 'Easy',
+  mcqHeading: {
+    reading: 'How do you read this?',
+    translatePhoto: 'What does the highlighted text mean?',
+    translate: 'What does this mean?',
+    reverse: 'How do you say this in Japanese?',
+    objectName: 'What is this called in Japanese?',
+  },
+  /** What to type (read out by screen readers as the input's label). */
+  fillInstruction: {
+    fill_text_reading: 'Type the reading in kana',
+    fill_text_translate: 'Type the meaning',
+    fill_text_reverse: 'Type the Japanese word (kanji or kana)',
+    fill_object_name: 'Type the Japanese name for this object (kanji or kana)',
+  },
+  typePlaceholder: 'Type your answer here',
+  keyboardKana: 'Japanese keyboard · hiragana and katakana both count',
+  keyboardKanjiOrKana: 'Japanese keyboard · kanji or kana accepted (no romaji)',
+  answerInKana: 'Please answer in kana',
+  showAnswer: 'Show answer',
+  check: 'Check',
+  flashcardAnswer: (text: string, reading: string, meaning: string) =>
+    `${text} (${reading}) · ${meaning}`,
+  revealed: "Here's the answer",
+  correct: 'Correct!',
+  wrong: 'Not quite',
+  theAnswerWas: (answer: string) => `The answer was “${answer}”.`,
+  alsoAccepted: (synonyms: string) => `Also accepted: ${synonyms}`,
+  stale:
+    "This one didn't count: you practiced this Tango elsewhere since starting.",
+  levelUp: 'Level up!',
+  backAStep: 'Back a step',
+};
+
+const sessionResults = {
+  excellent: 'Excellent work!',
+  summary: (reviewed: number, minutes: number) =>
+    `${reviewed} Tango reviewed · ${minutes} min`,
+  biggestWin: 'Biggest win today',
+  practiced: 'Tango practiced',
+  tangoCount: (n: number) => `${n} Tango`,
+  nextOn: (day: string) => `on ${day}.`,
+  backToToday: 'Back to Today',
+  prepareNext: 'Prepare next',
+};
+
+const capture = {
+  /**
+   * Place pill text when there is no real place. The backend also ignores these
+   * names in older data (PLACEHOLDER_PLACE_NAMES in backend/app/services/tango_rules.py),
+   * so update that list too if you rename them.
+   */
+  placeFinding: 'Finding your place…',
+  placeUnknown: 'Unknown place',
+  placeLocationOff: 'Location off',
+  placeNearYou: 'Near you',
+  liveHint: {
+    text: 'Aim at a Japanese word',
+    objects: 'Aim at an object',
+  },
+  centerAWord: 'Center a word to catch it.',
+  somethingWrong: 'Something went wrong',
+  caughtHere: 'caught here',
+  seenAgainHere: 'seen again, added here',
+  savedPinnedHere: 'saved, pinned here',
+  noTextFound:
+    'No Japanese text here. Try again closer, or with the text straight on.',
+  noObjectFound:
+    'No object recognized here. Try again with it filling the frame.',
+  noCamera: 'No camera available. Use the photo import button instead.',
+  couldNotReadPhoto: 'Could not read that photo.',
+  recognizedYes: 'nice. Review pushed later.',
+  recognizedNo: 'okay. It will come back sooner.',
+  noPreview:
+    'Camera preview unavailable (no camera or no permission). Mock detection still runs.',
+  allowCamera: 'Allow camera',
+  lookUp: (text: string) => `Look up ${text}`,
+  youKnowThis: '· you know this',
+  saved: 'Saved',
+  newTango: 'New Tango',
+  frozenA11y: 'Tap what you want to catch, or drag across words to join them',
+  closeCamera: 'Close camera',
+  caughtToday: (n: number) => `${n} caught today. Open today's catch`,
+  photoReading: 'Photo taken · reading…',
+  photoFound: (n: number) => `Photo taken · ${n} found`,
+  photoNothing: 'Photo taken · nothing was detected',
+  details: 'Details',
+  undo: 'Undo',
+  tapToDismiss: (error: string) => `${error} (tap to dismiss)`,
+  partsJoined: (n: number) => `${n} parts joined · `,
+  pickOrJoin: 'tap a box to pick it, or drag across boxes to join them',
+  pick: 'tap a box to pick it',
+  retake: 'Retake',
+  reading: 'Reading…',
+  catch: 'Catch',
+  saving: 'Saving…',
+  dragBox:
+    'Drag the box around what you want, and the corner to resize. Handwriting, odd fonts and blurry signs all work.',
+  readThis: 'Read this',
+  modeText: 'Text',
+  modeObjects: 'Objects',
+  importPhotos: 'Import from photos',
+  caught: 'Caught!',
+  catchWord: (text: string) => `Catch ${text}`,
+  shutter: 'Shutter',
+  explainedBy: 'Explained by Gemini',
+  waysToHear: 'Ways you might hear it',
+  registerEasy: 'Easy',
+  registerKeigo: 'Keigo',
+  practice: 'Practice',
+  saveTango: 'Save Tango',
+  learned: "You've learned this one",
+  firstSaved: (where: string, timesSeen: number) =>
+    `First saved: ${where}. You've seen it ${timesSeen} times since.`,
+  unknown: 'unknown',
+  recognizeQuestion: 'Did you recognize this Tango?',
+  notReally: 'Not really',
+  yes: 'Yes',
+  tailorNote: "We'll tailor your review schedule based on your answer.",
+  foundInPhoto: 'Found in this photo',
+  nothingReadable:
+    'Nothing readable was found. Try again closer, or with the text straight on.',
+  geminiRead: 'Gemini read your selection',
+  adjustBox: 'Not quite? Adjust the box',
+  selectionBoxA11y: 'Selection box. Drag to move, drag the corner to resize.',
+};
+
+/** Me > settings sections. */
+const settings = {
+  couldNotSave: 'Could not save',
+  name: 'Name',
+  nameA11y: 'Your name',
+  readingLevel: 'Reading level',
+  account: 'Account',
+  signedInAs: (email: string) => `Signed in as ${email}`,
+  signedInGuest: 'Signed in as Guest (Anonymous)',
+  signedIn: 'Signed in',
+  uid: (uid: string) => `UID: ${uid}`,
+  logOut: 'Log out of this device',
+  homeArea: 'Home area',
+  notSet: 'Not set',
+  homeRadius: (meters: number) => `Nothing within ${meters} m is pinned`,
+  cancel: 'Cancel',
+  change: 'Change',
+  set: 'Set',
+  homeSearchPlaceholder: 'A station or place near home',
+  homeSearchA11y: 'Search for your home area',
+  showJapaneseAs: 'Show Japanese as',
+  kanji: 'Kanji',
+  hiragana: 'Hiragana',
+  romaji: 'Romaji',
+  furigana: 'Furigana over kanji',
+  /** Sample word shown under the display settings. */
+  preview: {
+    text: '食券',
+    reading: 'しょっけん',
+    romaji: 'shokken',
+    meaning: 'meal ticket',
+  },
+  japaneseInApp: 'Japanese in the app',
+  aLittle: 'A little',
+  some: 'Some',
+  aLot: 'A lot',
+  staffSpeed: 'Staff speaking speed',
+  slower: 'Slower',
+  natural: 'Natural',
+  phrasesFirst: 'Phrases shown first',
+  easy: 'Easy',
+  keigo: 'Keigo',
+  englishAfterLine: 'English after each role-play line',
+  languageLabel: 'Meanings, hints and feedback in',
+  mapAndLocation: 'Map and location',
+  mapOn: 'On',
+  mapOff: 'Off: no map, and Tankengo never reads your location',
+  howLocationIsUsed: 'How your location is used',
+  locationUses: {
+    pins: 'Pins each Tango to the place you caught it, so reviews can remind you where you saw it.',
+    search:
+      'Finds places near you when you search, and centres the map on you.',
+    home: 'Your home area is never pinned or shown on the map.',
+    sharing:
+      "Your locations aren't shared with other learners. Shared tips carry only the tip and the place.",
+    foreground:
+      'Location is read only while you use the app, never in the background.',
+  },
+  locationFooter:
+    "Saved locations stay in your account. You can turn the map and location off at any time; catches made while it's off have no place.",
+};
+
+export const copy = {
+  common,
+  strength,
+  tabs,
+  map,
+  jp,
+  saveWord,
+  history,
+  reviewLabels,
+  errors,
+  captureToday,
+  plans,
+  rehearseResults,
+  allTango,
+  lists,
+  tangoRow,
+  meSections,
+  review,
+  mapScreen,
+  me,
+  prepare,
+  rehearse,
+  tangoDetail,
+  welcome,
+  login,
+  today,
+  reviewSession,
+  sessionResults,
+  capture,
+  settings,
+};

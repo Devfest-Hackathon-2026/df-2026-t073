@@ -12,6 +12,7 @@ import type {
   TangoKind,
 } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
+import { copy } from '../copy';
 
 /** Sighting as stored by the backend (app/schemas/flashcard.py). */
 export interface SightingResponse {
@@ -84,11 +85,9 @@ export interface FlashcardCatchResponse {
   sighting_id: string;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 function dayLabel(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : DAYS[date.getDay()];
+  return Number.isNaN(date.getTime()) ? '' : copy.common.weekdays[date.getDay()];
 }
 
 function toEvent(
@@ -101,16 +100,18 @@ function toEvent(
   if (event.type === 'caught') {
     return {
       type: 'caught',
-      label: 'Caught',
+      label: copy.history.caught,
       detail: [event.detail, when].filter(Boolean).join(' · '),
-      badge: 'New',
+      badge: copy.common.new,
     };
   }
   if (event.type === 'seen_again') {
     return {
       type: 'seen_again',
-      label: 'Seen again',
-      detail: [event.detail, when, 'camera'].filter(Boolean).join(' · '),
+      label: copy.history.seenAgain,
+      detail: [event.detail, when, copy.history.seenWithCamera]
+        .filter(Boolean)
+        .join(' · '),
       badge,
     };
   }
@@ -127,7 +128,7 @@ function toEvent(
       : '';
   return {
     type: 'reviewed',
-    label: missed ? 'Missed in review' : 'Got it in review',
+    label: missed ? copy.history.missedInReview : copy.history.gotItInReview,
     detail: [qLabel, when].filter(Boolean).join(' · '),
     badge,
   };

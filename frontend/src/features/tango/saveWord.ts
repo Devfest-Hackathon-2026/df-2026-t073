@@ -3,6 +3,7 @@ import { catchTango } from '../../api/capture';
 import { getStaffAudio } from '../../api/rehearse';
 import { playUrl } from '../../audio/audio';
 import { useSettings } from '../../state/SettingsContext';
+import { copy } from '../../copy';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'owned' | 'failed';
 
@@ -18,13 +19,7 @@ export const SAVE_ICON: Record<
   failed: 'retry',
 };
 
-export const SAVE_LABEL: Record<SaveState, string> = {
-  idle: 'Save as Tango',
-  saving: 'Saving…',
-  saved: 'Saved to your Tango',
-  owned: 'Already in your Tango',
-  failed: 'Could not save. Try again',
-};
+export const SAVE_LABEL: Record<SaveState, string> = copy.saveWord;
 
 /** Says a word aloud (cached Japanese voice). Silent if audio is unavailable. */
 export async function playWord(text: string): Promise<void> {

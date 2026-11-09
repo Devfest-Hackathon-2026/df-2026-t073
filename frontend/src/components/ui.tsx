@@ -28,6 +28,7 @@ import type { AppJapanese, JpText, Strength } from '../types';
 import { Hanamaru } from './Hanamaru';
 import { Icon, type IconName } from './Icon';
 import { Jp } from './Jp';
+import { copy } from '../copy';
 
 // ---------- Button ----------
 
@@ -388,7 +389,7 @@ export function StrengthBar({
   return (
     <View
       style={base.row}
-      accessibilityLabel={`Strength ${strength} of 4`}
+      accessibilityLabel={copy.strength.a11y(strength)}
       accessibilityRole="progressbar"
     >
       {[1, 2, 3, 4].map(step => (
@@ -409,9 +410,7 @@ export function StrengthBar({
 }
 
 export function strengthLabel(strength: Strength): string {
-  return ['New', 'Warming up', 'Warming up', 'Almost there', 'Hanamaru'][
-    strength
-  ];
+  return copy.strength.levels[strength];
 }
 
 // ---------- Progress bar ----------
@@ -453,11 +452,7 @@ export function NumberedStep({
 // ---------- Loading / error wrapper ----------
 
 /** Light, upbeat lines shown while something loads. */
-export const LOADING_LINES = [
-  'Gathering your words…',
-  'Lining things up…',
-  'Almost there…',
-];
+export const LOADING_LINES = copy.common.loadingLines;
 
 const LINE_MS = 1600;
 
@@ -512,9 +507,13 @@ export function Loadable<T>({
   if (state.error) {
     return (
       <View style={[base.card, styles.center]}>
-        <Text style={base.heading}>Couldn't load this</Text>
+        <Text style={base.heading}>{copy.common.couldNotLoad}</Text>
         <Text style={base.caption}>{state.error.message}</Text>
-        <Button label="Try again" variant="secondary" onPress={state.reload} />
+        <Button
+          label={copy.common.tryAgain}
+          variant="secondary"
+          onPress={state.reload}
+        />
       </View>
     );
   }

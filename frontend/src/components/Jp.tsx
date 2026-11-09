@@ -18,6 +18,7 @@ import {
   space,
 } from '../styles/tokens';
 import type { JpText } from '../types';
+import { copy } from '../copy';
 
 type Size = keyof typeof fontSizes;
 type Tone = 'default' | 'muted' | 'inverse' | 'accent';
@@ -97,7 +98,7 @@ export function Jp({
         onPress={() => setOpen(true)}
         onLongPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityHint="Shows the meaning, plays it, and lets you save it"
+        accessibilityHint={copy.jp.peekHint}
       >
         {body}
       </Pressable>
@@ -112,12 +113,12 @@ export function Jp({
           <Pressable style={styles.peek} onPress={() => {}}>
             <View style={base.rowBetween}>
               <Text style={styles.peekMeaning}>
-                {meaning ?? 'No meaning yet'}
+                {meaning ?? copy.jp.noMeaning}
               </Text>
               <Pressable
                 style={styles.audio}
                 onPress={() => playWord(text)}
-                accessibilityLabel={`Play ${text}`}
+                accessibilityLabel={copy.common.play(text)}
               >
                 <Icon name="play" color={colors.textInverse} />
               </Pressable>

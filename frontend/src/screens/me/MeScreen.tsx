@@ -20,8 +20,9 @@ import {
   sizes,
   space,
 } from '../../styles/tokens';
+import { copy } from '../../copy';
 
-const LINES = ['Tallying your Tango…', 'Counting your hanamaru…'];
+const LINES = copy.me.loadingLines;
 
 /** Me: who you are and how you're doing at a glance; settings one tap away. */
 export function MeScreen(): React.JSX.Element {
@@ -38,26 +39,26 @@ export function MeScreen(): React.JSX.Element {
     title: string;
     value?: string;
   }[] = [
-    { id: 'profile', icon: 'me', title: 'Profile' },
-    { id: 'display', icon: 'display', title: 'Japanese display' },
-    { id: 'practice', icon: 'learn', title: 'Practice' },
+    { id: 'profile', icon: 'me', title: copy.meSections.profile },
+    { id: 'display', icon: 'display', title: copy.meSections.display },
+    { id: 'practice', icon: 'learn', title: copy.meSections.practice },
     {
       id: 'languages',
       icon: 'translate',
-      title: 'Languages',
+      title: copy.meSections.languages,
       value: settings.explanationsLanguage,
     },
     {
       id: 'privacy',
       icon: 'privacy',
-      title: 'Privacy & location',
-      value: settings.mapFeatures ? 'Map on' : 'Map off',
+      title: copy.meSections.privacy,
+      value: settings.mapFeatures ? copy.me.mapOn : copy.me.mapOff,
     },
   ];
 
   return (
     <Screen edges={['top']}>
-      <SectionTitle en="Me" size="title" />
+      <SectionTitle en={copy.me.title} size="title" />
       <Loadable state={profile} messages={LINES}>
         {p => (
           <View style={base.stack}>
@@ -81,16 +82,16 @@ export function MeScreen(): React.JSX.Element {
             </Pressable>
 
             <View style={styles.grid}>
-              <Metric value={p.stats.tango} label="Tango" />
+              <Metric value={p.stats.tango} label={copy.me.statTango} />
               <Metric
                 value={p.stats.stars}
-                label="Hanamaru"
+                label={copy.me.statStamps}
                 mark={<Hanamaru size={fontSizes.lg} />}
               />
-              <Metric value={p.stats.places} label="Places" />
+              <Metric value={p.stats.places} label={copy.me.statPlaces} />
               <Metric
                 value={review.data?.dueCount ?? '–'}
-                label="Due today"
+                label={copy.me.statDue}
                 accent
               />
             </View>
@@ -133,7 +134,7 @@ export function MeScreen(): React.JSX.Element {
             <Text
               style={[styles.rowLabel, { color: colors.caution }, base.grow]}
             >
-              Log out of this device
+              {copy.me.logOut}
             </Text>
             <Icon name="forward" color={colors.textMuted} />
           </Pressable>
@@ -147,15 +148,14 @@ export function MeScreen(): React.JSX.Element {
           style={styles.row}
         >
           <Icon name="developer" color={colors.textMuted} />
-          <Text style={[base.caption, base.grow]}>Developer</Text>
+          <Text style={[base.caption, base.grow]}>
+            {copy.meSections.developer}
+          </Text>
           <Icon name="forward" color={colors.textMuted} />
         </Pressable>
       ) : null}
 
-      <Text style={base.caption}>
-        Dictionary data: JMdict, © Electronic Dictionary Research and
-        Development Group, used under CC BY-SA 4.0.
-      </Text>
+      <Text style={base.caption}>{copy.me.credits}</Text>
     </Screen>
   );
 }

@@ -46,20 +46,12 @@ import type {
 } from '../../types';
 import { formatVisitTime } from '../../utils/format';
 import { Icon } from '../../components/Icon';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
-const TODAY_LINES = [
-  "Gathering today's words…",
-  "Checking what's due…",
-  'Choosing your word of the day…',
-];
+const TODAY_LINES = copy.today.loadingLines;
 
-const GREETING = {
-  text: 'こんにちは',
-  reading: 'こんにちは',
-  romaji: 'konnichiwa',
-  meaning: 'Hello',
-};
+const GREETING = copy.today.greeting;
 
 /** Share of the screen the map gets while the sheet is open (slide 5). */
 const MAP_CARD_HEIGHT = 168;
@@ -128,9 +120,9 @@ function StatsRow({
   areas: number;
 }): React.JSX.Element {
   const items = [
-    { value: stats.totalTango, label: 'Tango' },
-    { value: stats.dueCount, label: 'to review' },
-    { value: areas, label: areas === 1 ? 'area' : 'areas' },
+    { value: stats.totalTango, label: copy.today.statTango },
+    { value: stats.dueCount, label: copy.today.statToReview },
+    { value: areas, label: copy.today.statAreas(areas) },
   ];
   return (
     <View style={styles.stats}>
@@ -155,8 +147,8 @@ function Neighbourhoods({
   return (
     <View style={base.stackSm}>
       <SectionTitle
-        en="Your neighbourhoods"
-        jp={{ text: '近所', reading: 'きんじょ', romaji: 'kinjo' }}
+        en={copy.today.neighbourhoods}
+        jp={copy.today.neighbourhoodsJp}
       />
       <ScrollView
         horizontal
@@ -180,7 +172,7 @@ function Neighbourhoods({
               {area.sample
                 .slice(0, 3)
                 .map(t => t.text)
-                .join('・')}
+                .join(copy.today.sampleSeparator)}
             </Text>
           </Pressable>
         ))}
@@ -202,7 +194,7 @@ function MapCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Open your Tango map"
+      accessibilityLabel={copy.today.openMap}
       onPress={onOpen}
       style={styles.mapCard}
     >
@@ -210,9 +202,9 @@ function MapCard({
         <TangoMap pins={pins} focus={here} interactive={false} compact />
       </View>
       <View style={styles.mapCaption}>
-        <Text style={base.heading}>Your Tango map</Text>
+        <Text style={base.heading}>{copy.today.tangoMap}</Text>
         <View style={base.row}>
-          <Text style={styles.mapOpen}>Explore</Text>
+          <Text style={styles.mapOpen}>{copy.today.explore}</Text>
           <Icon name="forward" color={colors.accent} />
         </View>
       </View>
@@ -231,13 +223,7 @@ function Greeting({ name }: { name: string }): React.JSX.Element {
 
 function NameSan({ name }: { name: string }): React.JSX.Element {
   return (
-    <Jp
-      text={`${name}さん`}
-      romaji={`${name}-san`}
-      meaning={`${name} (with the polite さん)`}
-      bold
-      size="xl"
-    />
+    <Jp {...copy.today.nameSan(name)} bold size="xl" />
   );
 }
 
@@ -277,18 +263,21 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   return (
     <Card variant="accent">
       <Text style={styles.eyebrowInverse}>
-        Up next · {formatVisitTime(visit.when)}
+        {copy.today.upNext(formatVisitTime(visit.when))}
       </Text>
       <View style={base.rowBetween}>
         <View style={base.grow}>
           <Jp {...visit.place.name} bold size="lg" tone="inverse" />
           <Text style={styles.captionInverse}>
-            {visit.place.category} · {visit.place.area} · {visit.tangoCount}{' '}
-            Tango
+            {copy.today.visitLine(
+              visit.place.category,
+              visit.place.area,
+              visit.tangoCount,
+            )}
           </Text>
         </View>
         <Button
-          label="Prepare"
+          label={copy.today.prepare}
           variant="light"
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
@@ -298,7 +287,7 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
         onPress={() => nav.navigate('Plans')}
         style={styles.plansLink}
       >
-        <Text style={styles.plansLinkInverse}>All plans</Text>
+        <Text style={styles.plansLinkInverse}>{copy.today.allPlans}</Text>
         <Icon name="forward" size={fontSizes.md} color={colors.textInverse} />
       </Pressable>
     </Card>
@@ -315,8 +304,8 @@ function PlansRow(): React.JSX.Element {
       style={styles.plansRow}
     >
       <View style={base.grow}>
-        <Text style={base.heading}>Your plans</Text>
-        <Text style={base.caption}>Nothing planned yet</Text>
+        <Text style={base.heading}>{copy.today.yourPlans}</Text>
+        <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
       </View>
       <Icon name="forward" color={colors.accent} />
     </Pressable>
@@ -327,7 +316,7 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   const saver = useSaveWord(word);
   return (
     <Card>
-      <Text style={styles.eyebrow}>Word of the day</Text>
+      <Text style={styles.eyebrow}>{copy.today.wordOfDay}</Text>
       <Text style={base.caption}>{word.reason}</Text>
       <View style={base.rowBetween}>
         <View style={base.grow}>
@@ -342,7 +331,7 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
         </View>
         <IconButton
           icon="play"
-          label={`Play ${word.text}`}
+          label={copy.common.play(word.text)}
           onPress={() => playWord(word.text)}
         />
       </View>
@@ -364,16 +353,18 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
       <View style={base.rowBetween}>
         <View style={base.grow}>
           <SectionTitle
-            en="Review"
-            jp={{ text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' }}
+            en={copy.today.reviewTitle}
+            jp={copy.today.reviewTitleJp}
           />
           <Text style={base.caption}>
-            {card.dueCount} due · about {card.minutes} min
+            {copy.today.reviewSummary(card.dueCount, card.minutes)}
           </Text>
-          <Text style={base.caption}>From {card.areas.join(', ')}</Text>
+          <Text style={base.caption}>
+            {copy.today.reviewFrom(card.areas)}
+          </Text>
         </View>
         <Button
-          label="Start"
+          label={copy.today.start}
           variant="dark"
           onPress={() => nav.navigate('ReviewSession')}
         />
@@ -388,7 +379,7 @@ function ReviewCardView({ card }: { card: ReviewCard }): React.JSX.Element {
           />
         ))}
         {card.moreCount > 0 ? (
-          <Text style={base.caption}>+{card.moreCount}</Text>
+          <Text style={base.caption}>{copy.today.more(card.moreCount)}</Text>
         ) : null}
       </View>
     </Card>
@@ -401,42 +392,35 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
   return (
     <>
       <View style={base.row}>
-        <Jp
-          text="ようこそ"
-          reading="ようこそ"
-          romaji="yōkoso"
-          meaning="Welcome"
-          peek
-          bold
-          size="xl"
-        />
+        <Jp {...copy.today.welcomeJp} peek bold size="xl" />
         <NameSan name={summary.userName} />
       </View>
       <Card>
         <View style={base.rowBetween}>
-          <Text style={base.heading}>Your first outing</Text>
-          <Text style={base.caption}>About 10 min</Text>
+          <Text style={base.heading}>{copy.today.firstOuting}</Text>
+          <Text style={base.caption}>{copy.today.aboutTenMin}</Text>
         </View>
         <NumberedStep index={1}>
           <View style={base.rowBetween}>
             <View style={base.grow}>
-              <Text style={styles.stepTitle}>
-                Catch 3 Tango around the station
-              </Text>
+              <Text style={styles.stepTitle}>{copy.today.stepCatch}</Text>
             </View>
-            <Button label="Start" onPress={() => nav.navigate('Capture')} />
+            <Button
+              label={copy.today.start}
+              onPress={() => nav.navigate('Capture')}
+            />
           </View>
         </NumberedStep>
         <NumberedStep index={2}>
           <View style={base.rowBetween}>
             <View style={base.grow}>
-              <Text style={styles.stepTitle}>Rehearse buying a ticket</Text>
-              <Text style={base.caption}>
-                1 min with Gemini, at your own pace
+              <Text style={styles.stepTitle}>
+                {copy.today.stepRehearse}
               </Text>
+              <Text style={base.caption}>{copy.today.stepRehearseNote}</Text>
             </View>
             <Button
-              label="Go"
+              label={copy.today.go}
               variant="secondary"
               onPress={() =>
                 nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })
@@ -447,27 +431,25 @@ function DayOne({ summary }: { summary: TodaySummary }): React.JSX.Element {
         <NumberedStep index={3}>
           <View style={base.rowBetween}>
             <View style={base.grow}>
-              <Text style={styles.stepTitle}>Your first review tonight</Text>
-              <Text style={base.caption}>Opens after you catch 3</Text>
+              <Text style={styles.stepTitle}>{copy.today.stepReview}</Text>
+              <Text style={base.caption}>{copy.today.stepReviewNote}</Text>
             </View>
             <Button
-              label="Go"
+              label={copy.today.go}
               variant="secondary"
               onPress={() => nav.navigate('ReviewSession')}
             />
           </View>
         </NumberedStep>
       </Card>
-      <Text style={styles.eyebrow}>
-        Tango you'll likely see around Koenji Station
-      </Text>
+      <Text style={styles.eyebrow}>{copy.today.starterTango}</Text>
       <View style={base.wrap}>
         {summary.starterTango.map(jp => (
           <Chip key={jp.text} jp={jp} label={jp.meaning} dashed />
         ))}
       </View>
       <Button
-        label="Finish day one (show the regular Today screen)"
+        label={copy.today.finishDayOne}
         variant="ghost"
         onPress={() => update({ dayOne: false })}
       />

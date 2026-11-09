@@ -1,5 +1,6 @@
 import type { TangoList } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
+import { copy } from '../copy';
 
 /** Backend shape (backend/app/schemas/lists.py). */
 interface TangoListResponse {
@@ -54,7 +55,7 @@ export const updateList = pick(
   (id: string, change: ListChange) => {
     const found = mockLists.find(l => l.id === id);
     if (!found) {
-      throw new Error('List not found');
+      throw new Error(copy.errors.listNotFound);
     }
     if (change.name) {
       found.name = change.name;

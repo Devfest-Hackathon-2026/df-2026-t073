@@ -36,9 +36,10 @@ import {
 import type { MapPin, RelatedVocab, Tango, TangoEvent } from '../../types';
 import { orderExamples } from '../../utils/format';
 import { AddToListSheet } from '../review/ListSheets';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
-const DETAIL_LINES = ['Opening your Tango…'];
+const DETAIL_LINES = copy.tangoDetail.loadingLines;
 
 /** Checks for phrases written after the catch: every 4 s, at most 4 times. */
 const PHRASES_RETRY_MS = 4000;
@@ -75,7 +76,7 @@ function groupByPlace(tango: Tango): PlaceGroup[] {
     } else {
       groups.set(key, {
         key,
-        name: s.placeName || 'Unknown place',
+        name: s.placeName || copy.tangoDetail.unknownPlace,
         count: 1,
         lastSeen: s.seenAt,
         lat: s.lat,
@@ -157,10 +158,10 @@ export function TangoDetailScreen({
     if (deleting) {
       return;
     }
-    Alert.alert('Delete Tango', 'Are you sure you want to delete this word?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(copy.tangoDetail.deleteTitle, copy.tangoDetail.deleteBody, [
+      { text: copy.common.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: copy.common.delete,
         style: 'destructive',
         onPress: async () => {
           setDeleting(true);
@@ -170,8 +171,8 @@ export function TangoDetailScreen({
           } catch {
             setDeleting(false);
             Alert.alert(
-              'Could not delete',
-              'Failed to delete this Tango. Please try again.',
+              copy.tangoDetail.couldNotDeleteTitle,
+              copy.tangoDetail.couldNotDeleteBody,
             );
           }
         },
@@ -189,7 +190,7 @@ export function TangoDetailScreen({
       setExpandError(
         err instanceof Error && err.message
           ? err.message
-          : 'Could not generate related vocabulary. Please try again.',
+          : copy.tangoDetail.couldNotExpand,
       );
     } finally {
       setExpanding(false);
@@ -212,24 +213,28 @@ export function TangoDetailScreen({
               <View style={styles.actions}>
                 <IconButton
                   icon="play"
-                  label={`Play ${t.text}`}
+                  label={copy.common.play(t.text)}
                   onPress={() => playWord(t.text)}
                 />
                 <IconButton
                   icon="heart"
-                  label={isFavorite ? 'Remove from favourites' : 'Favourite'}
+                  label={
+                    isFavorite
+                      ? copy.tangoDetail.removeFavorite
+                      : copy.tangoDetail.favorite
+                  }
                   filled={isFavorite}
                   color={isFavorite ? colors.hanamaru : undefined}
                   onPress={toggleFavorite}
                 />
                 <IconButton
                   icon="addToList"
-                  label="Add to a list"
+                  label={copy.tangoDetail.addToList}
                   onPress={() => setAddingToList(true)}
                 />
                 <IconButton
                   icon="delete"
-                  label="Delete Tango"
+                  label={copy.tangoDetail.deleteTango}
                   onPress={handleDelete}
                 />
               </View>
@@ -242,7 +247,7 @@ export function TangoDetailScreen({
               <Text style={styles.strengthLabel}>
                 {t.strength >= 4
                   ? strengthLabel(t.strength)
-                  : `${4 - t.strength} to hanamaru`}
+                  : copy.tangoDetail.toStamp(4 - t.strength)}
               </Text>
             </View>
 
@@ -251,26 +256,28 @@ export function TangoDetailScreen({
             ) : null}
 
             <Card>
-              <Text style={base.heading}>Phrases</Text>
+              <Text style={base.heading}>{copy.tangoDetail.phrases}</Text>
               {t.examples.length === 0 ? (
                 <Text style={base.caption}>
                   {waitingForPhrases
-                    ? 'Writing example phrases…'
-                    : 'No example phrases yet'}
+                    ? copy.tangoDetail.writingPhrases
+                    : copy.tangoDetail.noPhrases}
                 </Text>
               ) : null}
               {orderExamples(t.examples, settings.phrasesFirst).map(example => (
                 <View key={example.jp.text} style={styles.phrase}>
                   <View style={base.grow}>
                     <Text style={base.label}>
-                      {example.register === 'easy' ? 'Easy' : 'Keigo'}
+                      {example.register === 'easy'
+                        ? copy.tangoDetail.registerEasy
+                        : copy.tangoDetail.registerKeigo}
                     </Text>
                     <Jp {...example.jp} />
                     <Text style={base.caption}>{example.jp.meaning}</Text>
                   </View>
                   <IconButton
                     icon="play"
-                    label={`Play ${example.jp.text}`}
+                    label={copy.common.play(example.jp.text)}
                     onPress={() => playWord(example.jp.text)}
                   />
                 </View>
@@ -281,9 +288,9 @@ export function TangoDetailScreen({
 
             <Card>
               <View style={base.rowBetween}>
-                <Text style={base.heading}>History</Text>
+                <Text style={base.heading}>{copy.tangoDetail.history}</Text>
                 <Text style={styles.badge}>
-                  Stage: {STAGE_LABEL[t.stage]}
+                  {copy.tangoDetail.stage(STAGE_LABEL[t.stage])}
                 </Text>
               </View>
               {t.history.map((event, i) => (
@@ -312,9 +319,11 @@ export function TangoDetailScreen({
 
             <Card>
               <View style={base.rowBetween}>
-                <Text style={base.heading}>Related vocabulary</Text>
+                <Text style={base.heading}>
+                  {copy.tangoDetail.relatedVocab}
+                </Text>
                 <IconLabel icon="ai" style={base.caption}>
-                  Gemini
+                  {copy.tangoDetail.gemini}
                 </IconLabel>
               </View>
               {relatedWords.length > 0 ? (
@@ -337,7 +346,7 @@ export function TangoDetailScreen({
                     </View>
                     <IconButton
                       icon="play"
-                      label={`Play ${rw.kanji}`}
+                      label={copy.common.play(rw.kanji)}
                       onPress={() => playWord(rw.kanji)}
                     />
                   </View>
@@ -347,8 +356,8 @@ export function TangoDetailScreen({
                   <Button
                     label={
                       expanding
-                        ? 'Generating related words…'
-                        : 'Expand with related vocabulary'
+                        ? copy.tangoDetail.generatingRelated
+                        : copy.tangoDetail.expandRelated
                     }
                     variant="secondary"
                     disabled={expanding}
@@ -381,7 +390,7 @@ function PlacesCard({ tango }: { tango: Tango }): React.JSX.Element | null {
   const pins = pinsFor(groups);
   return (
     <Card>
-      <Text style={base.heading}>Where you saw it</Text>
+      <Text style={base.heading}>{copy.tangoDetail.whereYouSawIt}</Text>
       {pins.length > 0 ? (
         <View style={styles.miniMap}>
           <TangoMap pins={pins} compact interactive={false} />
@@ -395,7 +404,8 @@ function PlacesCard({ tango }: { tango: Tango }): React.JSX.Element | null {
           numberOfLines={1}
         >
           {g.name}
-          {g.count > 1 ? ` · ${g.count}×` : ''} · {formatDay(g.lastSeen)}
+          {g.count > 1 ? copy.tangoDetail.timesSeen(g.count) : ''} ·{' '}
+          {formatDay(g.lastSeen)}
         </IconLabel>
       ))}
     </Card>

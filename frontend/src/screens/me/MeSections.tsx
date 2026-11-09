@@ -29,6 +29,7 @@ import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import type { HomeArea, Place } from '../../types';
 import { READING_LEVELS } from '../welcome/WelcomeScreen';
+import { copy } from '../../copy';
 
 export const LANGUAGES = [
   { value: 'English', native: 'English' },
@@ -48,12 +49,7 @@ const AUTH_LABEL: Record<AuthStatus, string> = {
   error: 'failed',
 };
 
-const PREVIEW = {
-  text: '食券',
-  reading: 'しょっけん',
-  romaji: 'shokken',
-  meaning: 'meal ticket',
-};
+const PREVIEW = copy.settings.preview;
 
 const HOME_RADIUS_M = 500;
 
@@ -78,7 +74,7 @@ export function ProfileSection(): React.JSX.Element {
       setError(null);
       profile.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? err.message : copy.settings.couldNotSave);
     }
   };
 
@@ -87,7 +83,7 @@ export function ProfileSection(): React.JSX.Element {
       {p => (
         <View style={base.stack}>
           <Card>
-            <Text style={base.label}>Name</Text>
+            <Text style={base.label}>{copy.settings.name}</Text>
             <TextInput
               value={name ?? p.name}
               onChangeText={setName}
@@ -96,13 +92,13 @@ export function ProfileSection(): React.JSX.Element {
               maxLength={40}
               returnKeyType="done"
               style={styles.input}
-              accessibilityLabel="Your name"
+              accessibilityLabel={copy.settings.nameA11y}
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </Card>
 
           <Card>
-            <Text style={base.label}>Reading level</Text>
+            <Text style={base.label}>{copy.settings.readingLevel}</Text>
             {READING_LEVELS.map(level => {
               const selected = settings.readingLevel === level.value;
               return (
@@ -132,17 +128,17 @@ export function ProfileSection(): React.JSX.Element {
 
           {auth.user ? (
             <Card>
-              <Text style={base.label}>Account</Text>
+              <Text style={base.label}>{copy.settings.account}</Text>
               <Text style={base.caption}>
                 {auth.user.email
-                  ? `Signed in as ${auth.user.email}`
+                  ? copy.settings.signedInAs(auth.user.email)
                   : auth.user.isAnonymous
-                  ? 'Signed in as Guest (Anonymous)'
-                  : 'Signed in'}
+                  ? copy.settings.signedInGuest
+                  : copy.settings.signedIn}
               </Text>
-              <Text style={base.caption}>UID: {auth.user.uid}</Text>
+              <Text style={base.caption}>{copy.settings.uid(auth.user.uid)}</Text>
               <Button
-                label="Log out of this device"
+                label={copy.settings.logOut}
                 variant="ghost"
                 onPress={() => {
                   auth.signOut().catch(() => {});
@@ -188,7 +184,7 @@ function HomeAreaCard({
       setQuery('');
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? err.message : copy.settings.couldNotSave);
     }
   };
 
@@ -196,18 +192,18 @@ function HomeAreaCard({
     <Card>
       <View style={base.rowBetween}>
         <View style={base.grow}>
-          <Text style={base.label}>Home area</Text>
+          <Text style={base.label}>{copy.settings.homeArea}</Text>
           <Text style={styles.rowLabel}>
-            {current ? current.label : 'Not set'}
+            {current ? current.label : copy.settings.notSet}
           </Text>
           {current ? (
             <Text style={base.caption}>
-              Nothing within {current.radiusM} m is pinned
+              {copy.settings.homeRadius(current.radiusM)}
             </Text>
           ) : null}
         </View>
         <Button
-          label={open ? 'Cancel' : current ? 'Change' : 'Set'}
+          label={open ? copy.settings.cancel : current ? copy.settings.change : copy.settings.set}
           variant="secondary"
           onPress={() => setOpen(o => !o)}
         />
@@ -219,11 +215,11 @@ function HomeAreaCard({
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="A station or place near home"
+              placeholder={copy.settings.homeSearchPlaceholder}
               placeholderTextColor={colors.textMuted}
               style={styles.searchInput}
               autoFocus
-              accessibilityLabel="Search for your home area"
+              accessibilityLabel={copy.settings.homeSearchA11y}
             />
           </View>
           {(results.data ?? []).map(place => (
@@ -257,18 +253,18 @@ export function DisplaySection(): React.JSX.Element {
   return (
     <View style={base.stack}>
       <Card>
-        <Text style={base.label}>Show Japanese as</Text>
+        <Text style={base.label}>{copy.settings.showJapaneseAs}</Text>
         <SegmentedControl
           options={[
-            { value: 'kanji', label: 'Kanji' },
-            { value: 'hiragana', label: 'Hiragana' },
-            { value: 'romaji', label: 'Romaji' },
+            { value: 'kanji', label: copy.settings.kanji },
+            { value: 'hiragana', label: copy.settings.hiragana },
+            { value: 'romaji', label: copy.settings.romaji },
           ]}
           value={settings.showJapaneseAs}
           onChange={value => update({ showJapaneseAs: value })}
         />
         <ToggleRow
-          label="Furigana over kanji"
+          label={copy.settings.furigana}
           value={settings.furigana}
           onValueChange={value => update({ furigana: value })}
         />
@@ -277,12 +273,12 @@ export function DisplaySection(): React.JSX.Element {
         </View>
       </Card>
       <Card>
-        <Text style={base.label}>Japanese in the app</Text>
+        <Text style={base.label}>{copy.settings.japaneseInApp}</Text>
         <SegmentedControl
           options={[
-            { value: 'little', label: 'A little' },
-            { value: 'some', label: 'Some' },
-            { value: 'lot', label: 'A lot' },
+            { value: 'little', label: copy.settings.aLittle },
+            { value: 'some', label: copy.settings.some },
+            { value: 'lot', label: copy.settings.aLot },
           ]}
           value={settings.appJapanese}
           onChange={value => update({ appJapanese: value })}
@@ -298,26 +294,26 @@ export function PracticeSection(): React.JSX.Element {
   const { settings, update } = useSettings();
   return (
     <Card>
-      <Text style={base.label}>Staff speaking speed</Text>
+      <Text style={base.label}>{copy.settings.staffSpeed}</Text>
       <SegmentedControl
         options={[
-          { value: 'slower', label: 'Slower' },
-          { value: 'natural', label: 'Natural' },
+          { value: 'slower', label: copy.settings.slower },
+          { value: 'natural', label: copy.settings.natural },
         ]}
         value={settings.staffSpeed}
         onChange={value => update({ staffSpeed: value })}
       />
-      <Text style={base.label}>Phrases shown first</Text>
+      <Text style={base.label}>{copy.settings.phrasesFirst}</Text>
       <SegmentedControl
         options={[
-          { value: 'easy', label: 'Easy' },
-          { value: 'keigo', label: 'Keigo' },
+          { value: 'easy', label: copy.settings.easy },
+          { value: 'keigo', label: copy.settings.keigo },
         ]}
         value={settings.phrasesFirst}
         onChange={value => update({ phrasesFirst: value })}
       />
       <ToggleRow
-        label="English after each role-play line"
+        label={copy.settings.englishAfterLine}
         value={settings.englishAfterRoleplayLine}
         onValueChange={value => update({ englishAfterRoleplayLine: value })}
       />
@@ -331,7 +327,7 @@ export function LanguagesSection(): React.JSX.Element {
   const { settings, update } = useSettings();
   return (
     <Card>
-      <Text style={base.label}>Meanings, hints and feedback in</Text>
+      <Text style={base.label}>{copy.settings.languageLabel}</Text>
       {LANGUAGES.map(lang => {
         const selected = settings.explanationsLanguage === lang.value;
         return (
@@ -359,23 +355,23 @@ export function LanguagesSection(): React.JSX.Element {
 const LOCATION_USES = [
   {
     icon: 'pin' as const,
-    text: 'Pins each Tango to the place you caught it, so reviews can remind you where you saw it.',
+    text: copy.settings.locationUses.pins,
   },
   {
     icon: 'search' as const,
-    text: 'Finds places near you when you search, and centres the map on you.',
+    text: copy.settings.locationUses.search,
   },
   {
     icon: 'home' as const,
-    text: 'Your home area is never pinned or shown on the map.',
+    text: copy.settings.locationUses.home,
   },
   {
     icon: 'people' as const,
-    text: "Your locations aren't shared with other learners. Shared tips carry only the tip and the place.",
+    text: copy.settings.locationUses.sharing,
   },
   {
     icon: 'time' as const,
-    text: 'Location is read only while you use the app, never in the background.',
+    text: copy.settings.locationUses.foreground,
   },
 ];
 
@@ -385,28 +381,23 @@ export function PrivacySection(): React.JSX.Element {
     <View style={base.stack}>
       <Card>
         <ToggleRow
-          label="Map and location"
+          label={copy.settings.mapAndLocation}
           description={
-            settings.mapFeatures
-              ? 'On'
-              : 'Off: no map, and Tankengo never reads your location'
+            settings.mapFeatures ? copy.settings.mapOn : copy.settings.mapOff
           }
           value={settings.mapFeatures}
           onValueChange={value => update({ mapFeatures: value })}
         />
       </Card>
       <Card>
-        <Text style={base.heading}>How your location is used</Text>
+        <Text style={base.heading}>{copy.settings.howLocationIsUsed}</Text>
         {LOCATION_USES.map(use => (
           <View key={use.text} style={styles.use}>
             <Icon name={use.icon} color={colors.accent} />
             <Text style={[base.text, base.grow]}>{use.text}</Text>
           </View>
         ))}
-        <Text style={base.caption}>
-          Saved locations stay in your account. You can turn the map and
-          location off at any time; catches made while it's off have no place.
-        </Text>
+        <Text style={base.caption}>{copy.settings.locationFooter}</Text>
       </Card>
     </View>
   );

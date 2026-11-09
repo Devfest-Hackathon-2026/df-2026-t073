@@ -10,8 +10,9 @@ import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, radii, sizes, space } from '../../styles/tokens';
 import { TangoRow } from './TangoRow';
+import { copy } from '../../copy';
 
-const LINES = ['Laying out your Tango…'];
+const LINES = copy.allTango.loadingLines;
 
 /** Every Tango, newest first, searchable by word, meaning or place. */
 export function AllTangoScreen({
@@ -25,8 +26,8 @@ export function AllTangoScreen({
     <Screen>
       <ScreenHeader onBack={() => navigation.goBack()}>
         <SectionTitle
-          en="All Tango"
-          jp={{ text: '単語', reading: 'たんご', romaji: 'tango' }}
+          en={copy.allTango.title}
+          jp={copy.allTango.titleJp}
         />
       </ScreenHeader>
       <View style={styles.search}>
@@ -34,17 +35,17 @@ export function AllTangoScreen({
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search"
+          placeholder={copy.allTango.searchPlaceholder}
           placeholderTextColor={colors.textMuted}
           style={styles.input}
-          accessibilityLabel="Search Tango or places"
+          accessibilityLabel={copy.allTango.searchA11y}
         />
       </View>
       <Loadable state={tango} messages={LINES}>
         {list => (
           <View style={base.stackSm}>
             {list.length === 0 ? (
-              <Text style={base.caption}>No matches</Text>
+              <Text style={base.caption}>{copy.allTango.noMatches}</Text>
             ) : null}
             {list.map(t => (
               <TangoRow

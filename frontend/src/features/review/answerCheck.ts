@@ -1,4 +1,5 @@
 import type { QuestionType, ReviewStage } from '../../types';
+import { copy } from '../../copy';
 
 const KANJI_OR_LATIN_RE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff々a-zA-Z]/;
 const LATIN_RE = /[a-zA-Z]/;
@@ -71,23 +72,9 @@ export function checkFillAnswer(
   );
 }
 
-export const STAGE_LABEL: Record<ReviewStage, string> = {
-  flashcard: 'Flashcard',
-  mcq_photo: 'Photo MCQ',
-  mcq: 'Multiple choice',
-  fill: 'Fill in the blank',
-};
+// The type annotations make sure every stage and question type has a label.
+export const STAGE_LABEL: Record<ReviewStage, string> = copy.reviewLabels.stages;
 
-export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
-  flashcard_text: 'Flashcard · Text',
-  flashcard_object: 'Flashcard · Object',
-  mcq_text_reading: 'Reading · Multiple choice',
-  mcq_text_translate: 'Translate · Multiple choice',
-  mcq_text_reverse: 'Reverse translate · Multiple choice',
-  mcq_object_name: 'Object name · Multiple choice',
-  fill_text_reading: 'Reading · Type the answer',
-  fill_text_translate: 'Meaning · Type the answer',
-  fill_text_reverse: 'Reverse translate · Type the answer',
-  fill_object_name: 'Object name · Type the answer',
-};
+export const QUESTION_TYPE_LABEL: Record<QuestionType, string> =
+  copy.reviewLabels.questionTypes;
 

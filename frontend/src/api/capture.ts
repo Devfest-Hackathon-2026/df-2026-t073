@@ -21,6 +21,7 @@ import {
   flashcardToTango,
   type FlashcardResponse,
 } from './tango';
+import { copy } from '../copy';
 
 /** Shape returned by the existing backend (app/schemas/capture.py). */
 export interface CaptureResponse {
@@ -59,7 +60,12 @@ export const getCurrentPlace = pick(
   async (): Promise<CurrentPlace> => {
     const coords = await getCurrentCoords();
     if (!coords) {
-      return { name: 'Location off', placeId: null, lat: null, lng: null };
+      return {
+        name: copy.capture.placeLocationOff,
+        placeId: null,
+        lat: null,
+        lng: null,
+      };
     }
     try {
       const place = await request<PlaceResponse | null>(
@@ -78,7 +84,7 @@ export const getCurrentPlace = pick(
     } catch {
       // Lookup failed: keep the coordinates so the catch still gets a pin.
     }
-    return { name: 'Near you', placeId: null, ...coords };
+    return { name: copy.capture.placeNearYou, placeId: null, ...coords };
   },
 );
 
@@ -195,7 +201,7 @@ export const catchTango = pick(
     onlyIfNew,
   }: CatchInput) => {
     if (!captureId && !detection?.japanese_text) {
-      throw new ApiError('Nothing to catch.');
+      throw new ApiError(copy.errors.nothingToCatch);
     }
     const result = await request<FlashcardCatchResponse>(
       `${API_V1}/flashcards/generate`,

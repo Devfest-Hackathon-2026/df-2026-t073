@@ -20,8 +20,9 @@ import { colors, fontWeights, space } from '../../styles/tokens';
 import type { Collection } from '../../types';
 import { NameListSheet } from './ListSheets';
 import { TangoRow } from './TangoRow';
+import { copy } from '../../copy';
 
-const LINES = ['Counting what is due…', 'Sorting your collections…'];
+const LINES = copy.review.loadingLines;
 const RECENT = 5;
 
 function collectionIcon(c: Collection) {
@@ -52,8 +53,8 @@ export function ReviewScreen(): React.JSX.Element {
   return (
     <Screen edges={['top']}>
       <SectionTitle
-        en="Review"
-        jp={{ text: '復習', reading: 'ふくしゅう', romaji: 'fukushū' }}
+        en={copy.review.title}
+        jp={copy.review.titleJp}
         size="title"
       />
       <Loadable state={summary} messages={LINES}>
@@ -62,32 +63,32 @@ export function ReviewScreen(): React.JSX.Element {
             <Card variant="dark">
               <View style={base.rowBetween}>
                 <View style={base.grow}>
-                  <Text style={styles.eyebrow}>Quick review</Text>
+                  <Text style={styles.eyebrow}>{copy.review.quickReview}</Text>
                   <Text style={styles.bigInverse}>
-                    {s.dueCount} due · {s.minutes} min
+                    {copy.review.dueSummary(s.dueCount, s.minutes)}
                   </Text>
                 </View>
                 <Button
-                  label="Start"
+                  label={copy.review.start}
                   variant="light"
                   onPress={() => nav.navigate('ReviewSession')}
                 />
               </View>
             </Card>
 
-            <Text style={base.heading}>Collections</Text>
+            <Text style={base.heading}>{copy.review.collections}</Text>
             <View style={base.wrap}>
               {s.collections.map(c => (
                 <Chip
                   key={c.id}
-                  label={`${c.label} · ${c.count}`}
+                  label={copy.review.collectionChip(c.label, c.count)}
                   icon={collectionIcon(c)}
                   tone={c.isPlaceCue || c.isFavorites ? 'accent' : 'outline'}
                   onPress={() => openCollection(c)}
                 />
               ))}
               <Chip
-                label="New list"
+                label={copy.lists.newList}
                 icon="add"
                 tone="outline"
                 dashed
@@ -99,14 +100,14 @@ export function ReviewScreen(): React.JSX.Element {
       </Loadable>
 
       <View style={base.rowBetween}>
-        <Text style={base.heading}>Recent Tango</Text>
+        <Text style={base.heading}>{copy.review.recentTango}</Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => nav.navigate('AllTango')}
           style={styles.link}
         >
           <Text style={styles.linkText}>
-            All Tango{summary.data ? ` · ${summary.data.totalTango}` : ''}
+            {copy.review.allTango(summary.data?.totalTango)}
           </Text>
           <Icon name="forward" color={colors.accent} />
         </Pressable>
@@ -115,7 +116,7 @@ export function ReviewScreen(): React.JSX.Element {
         {list => (
           <View style={base.stackSm}>
             {list.length === 0 ? (
-              <Text style={base.caption}>Nothing caught yet</Text>
+              <Text style={base.caption}>{copy.review.nothingCaught}</Text>
             ) : null}
             {list.slice(0, RECENT).map(t => (
               <TangoRow
@@ -130,7 +131,7 @@ export function ReviewScreen(): React.JSX.Element {
 
       <NameListSheet
         visible={naming}
-        title="New list"
+        title={copy.lists.newList}
         onClose={() => setNaming(false)}
         onSave={async name => {
           const created = await createList(name);

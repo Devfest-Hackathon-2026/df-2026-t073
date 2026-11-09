@@ -10,9 +10,10 @@ import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, sizes, space } from '../../styles/tokens';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
-const CATCH_LINES = ["Counting today's catch…"];
+const CATCH_LINES = copy.captureToday.loadingLines;
 
 /** Opened from the camera's counter: back returns to the camera. */
 export function CaptureTodayScreen({
@@ -25,7 +26,7 @@ export function CaptureTodayScreen({
     <Screen
       footer={
         <Button
-          label="Done"
+          label={copy.common.done}
           variant="dark"
           onPress={() => navigation.popToTop()}
         />
@@ -40,19 +41,19 @@ export function CaptureTodayScreen({
           return (
             <Card>
               <View style={base.rowBetween}>
-                <Text style={base.heading}>Today's catch</Text>
+                <Text style={base.heading}>{copy.captureToday.title}</Text>
                 <Text style={base.caption}>
-                  {list.length} Tango · {places} places
+                  {copy.captureToday.summary(list.length, places)}
                 </Text>
               </View>
               {list.length === 0 ? (
-                <Text style={base.caption}>Nothing caught yet today.</Text>
+                <Text style={base.caption}>{copy.captureToday.empty}</Text>
               ) : null}
               {list.map((entry, i) => (
                 <Pressable
                   key={`${entry.tango.id}-${i}`}
                   accessibilityRole="button"
-                  accessibilityLabel={`Open ${entry.tango.text}`}
+                  accessibilityLabel={copy.common.open(entry.tango.text)}
                   onPress={() =>
                     navigation.navigate('TangoDetail', { id: entry.tango.id })
                   }
@@ -67,7 +68,11 @@ export function CaptureTodayScreen({
                       .join(' · ')}
                   </Text>
                   <Chip
-                    label={entry.status === 'new' ? 'New' : 'Reviewed'}
+                    label={
+                      entry.status === 'new'
+                        ? copy.common.new
+                        : copy.captureToday.reviewed
+                    }
                     tone={entry.status === 'new' ? 'accent' : 'outline'}
                   />
                   <Icon name="forward" color={colors.textMuted} />

@@ -20,6 +20,7 @@ import type { MapPin } from '../types';
 import { Hanamaru } from './Hanamaru';
 import { TANGO_MAP_STYLE } from './mapStyle';
 import { IconButton } from './ui';
+import { copy } from '../copy';
 
 const MARKER_SETTLE_MS = 600;
 const FIT_MS = 300;
@@ -191,7 +192,7 @@ export function TangoMap({
         pitchEnabled={false}
         toolbarEnabled={false}
         showsPointsOfInterests={false}
-        accessibilityLabel="Map of your Tango"
+        accessibilityLabel={copy.map.a11y}
       >
         {pins.map(pin => (
           <Marker
@@ -212,7 +213,7 @@ export function TangoMap({
         <View style={[styles.locate, { bottom: bottomInset + space.lg }]}>
           <IconButton
             icon="locate"
-            label="Go to my location"
+            label={copy.map.goToMyLocation}
             onPress={locate}
           />
         </View>
@@ -235,7 +236,7 @@ function PinBadge({
     // A filled tag: 次 = next.
     return (
       <View style={[styles.pin, styles.next]}>
-        <Text style={styles.nextGlyph}>次</Text>
+        <Text style={styles.nextGlyph}>{copy.map.nextGlyph}</Text>
         <Text style={styles.text}>{pin.label}</Text>
       </View>
     );
@@ -248,7 +249,7 @@ function PinBadge({
         {showStars ? (
           <Hanamaru size={fontSizes.md} />
         ) : (
-          <Text style={styles.stampGlyph}>単</Text>
+          <Text style={styles.stampGlyph}>{copy.map.tangoGlyph}</Text>
         )}
         <Text style={[styles.stampCount, showStars && styles.stampTextStar]}>
           {showStars ? pin.stars ?? 0 : pin.count}

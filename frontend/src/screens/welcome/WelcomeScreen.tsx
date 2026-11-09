@@ -12,50 +12,23 @@ import { base } from '../../styles/base';
 import { colors, fontWeights, radii, sizes, space } from '../../styles/tokens';
 import type { ReadingLevel } from '../../types';
 import { Icon } from '../../components/Icon';
+import { copy } from '../../copy';
 
 export const READING_LEVELS: {
   value: ReadingLevel;
   title: string;
   help: string;
 }[] = [
-  {
-    value: 'none',
-    title: 'Not yet',
-    help: 'Romaji and English help everywhere',
-  },
-  {
-    value: 'kana',
-    title: 'Hiragana and katakana',
-    help: 'Furigana on every kanji',
-  },
-  {
-    value: 'some_kanji',
-    title: 'Some everyday kanji',
-    help: 'Furigana only on new kanji',
-  },
-  {
-    value: 'most',
-    title: 'Most signs and menus',
-    help: 'Japanese first, help on request',
-  },
+  { value: 'none', ...copy.welcome.readingLevels.none },
+  { value: 'kana', ...copy.welcome.readingLevels.kana },
+  { value: 'some_kanji', ...copy.welcome.readingLevels.some_kanji },
+  { value: 'most', ...copy.welcome.readingLevels.most },
 ];
 
 const PRIVACY = [
-  {
-    icon: 'lock' as const,
-    title: 'Only you see your pins',
-    body: 'No profile, no followers, nothing public.',
-  },
-  {
-    icon: 'remove' as const,
-    title: 'Home stays blank',
-    body: "Pins near where you live are never placed. You pick the area once; we don't guess it.",
-  },
-  {
-    icon: 'people' as const,
-    title: 'Tips you share are anonymous',
-    body: 'Only the tip and the shop. No name, no account, no exact time.',
-  },
+  { icon: 'lock' as const, ...copy.welcome.privacy.pins },
+  { icon: 'remove' as const, ...copy.welcome.privacy.home },
+  { icon: 'people' as const, ...copy.welcome.privacy.tips },
 ];
 
 export function WelcomeScreen(): React.JSX.Element {
@@ -76,15 +49,18 @@ export function WelcomeScreen(): React.JSX.Element {
     <Screen
       footer={
         step === 0 ? (
-          <Button label="Continue" onPress={() => setStep(1)} />
+          <Button
+            label={copy.welcome.continue}
+            onPress={() => setStep(1)}
+          />
         ) : (
           <>
             <Button
-              label="Allow location while using the app"
+              label={copy.welcome.allowLocation}
               onPress={() => finish(true)}
             />
             <Button
-              label="Not now, use the camera without places"
+              label={copy.welcome.notNow}
               variant="ghost"
               onPress={() => finish(false)}
             />
@@ -100,11 +76,8 @@ export function WelcomeScreen(): React.JSX.Element {
 
       {step === 0 ? (
         <>
-          <Text style={base.title}>What can you read so far?</Text>
-          <Text style={base.caption}>
-            Just a starting point. Tankengo adjusts as you catch and review, so
-            there's no wrong answer.
-          </Text>
+          <Text style={base.title}>{copy.welcome.readTitle}</Text>
+          <Text style={base.caption}>{copy.welcome.readBody}</Text>
           {READING_LEVELS.map(level => {
             const selected = settings.readingLevel === level.value;
             return (
@@ -121,18 +94,14 @@ export function WelcomeScreen(): React.JSX.Element {
             );
           })}
           <Text style={base.caption}>
-            Explanations in {settings.explanationsLanguage} · change it later in
-            Me
+            {copy.welcome.explanationsIn(settings.explanationsLanguage)}
           </Text>
         </>
       ) : (
         <>
           <MapPlaceholder height={sizes.mapHeight / 2} />
-          <Text style={base.title}>Your map stays yours</Text>
-          <Text style={base.caption}>
-            Location lets each Tango remember where you found it. Here's what
-            that means.
-          </Text>
+          <Text style={base.title}>{copy.welcome.mapTitle}</Text>
+          <Text style={base.caption}>{copy.welcome.mapBody}</Text>
           {PRIVACY.map(item => (
             <View key={item.title} style={styles.privacyRow}>
               <View style={styles.privacyIcon}>

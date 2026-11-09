@@ -19,6 +19,7 @@ import { base } from '../../styles/base';
 import { colors, radii, sizes, space } from '../../styles/tokens';
 import { SearchResults } from '../map/MapScreen';
 import { formatVisitTime } from '../../utils/format';
+import { copy } from '../../copy';
 
 export function PlansScreen(): React.JSX.Element {
   const nav = useRootNav();
@@ -33,8 +34,8 @@ export function PlansScreen(): React.JSX.Element {
     <Screen>
       <ScreenHeader onBack={() => nav.goBack()}>
         <SectionTitle
-          en="Plans"
-          jp={{ text: '予定', reading: 'よてい', romaji: 'yotei' }}
+          en={copy.plans.title}
+          jp={copy.plans.titleJp}
         />
       </ScreenHeader>
       {!settings.mapFeatures ? (
@@ -44,10 +45,10 @@ export function PlansScreen(): React.JSX.Element {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="どこへ行く？"
+              placeholder={copy.plans.searchPlaceholder}
               placeholderTextColor={colors.textMuted}
               style={styles.searchInput}
-              accessibilityLabel="Search places to visit"
+              accessibilityLabel={copy.plans.searchA11y}
             />
           </View>
           {query.trim() ? (
@@ -64,7 +65,7 @@ export function PlansScreen(): React.JSX.Element {
           <View style={base.stack}>
             {list.length === 0 ? (
               <Card>
-                <Text style={base.caption}>No visits planned yet.</Text>
+                <Text style={base.caption}>{copy.plans.empty}</Text>
               </Card>
             ) : null}
             {list.map(visit => (
@@ -73,7 +74,7 @@ export function PlansScreen(): React.JSX.Element {
                   <Text style={base.label}>{formatVisitTime(visit.when)}</Text>
                   <IconButton
                     icon="close"
-                    label={`Cancel visit to ${visit.place.name.text}`}
+                    label={copy.plans.cancelVisit(visit.place.name.text)}
                     onPress={async () => {
                       try {
                         await deleteVisit(visit.id);
@@ -88,12 +89,15 @@ export function PlansScreen(): React.JSX.Element {
                   <View style={base.grow}>
                     <Jp {...visit.place.name} bold size="lg" />
                     <Text style={base.caption}>
-                      {visit.place.category} · {visit.place.area} ·{' '}
-                      {visit.tangoCount} Tango
+                      {copy.plans.placeLine(
+                        visit.place.category,
+                        visit.place.area,
+                        visit.tangoCount,
+                      )}
                     </Text>
                   </View>
                   <Button
-                    label="Prepare"
+                    label={copy.plans.prepare}
                     onPress={() =>
                       nav.navigate('Prepare', { placeId: visit.place.id })
                     }

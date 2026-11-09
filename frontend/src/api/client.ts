@@ -1,5 +1,6 @@
 import { getIdToken } from '../auth/firebase';
 import { API_BASE_URL, type ApiArea, isLive } from '../config';
+import { copy } from '../copy';
 
 export class ApiError extends Error {
   status?: number;
@@ -72,12 +73,12 @@ export async function request<T>(
         throw new ApiError(
           typeof detail === 'string'
             ? detail
-            : 'Daily limit reached. Try again tomorrow.',
+            : copy.errors.dailyLimit,
           429,
         );
       }
       throw new ApiError(
-        `${method} ${path} failed with HTTP ${response.status}`,
+        copy.errors.requestFailed(method, path, response.status),
         response.status,
       );
     }
@@ -87,7 +88,7 @@ export async function request<T>(
     return (await response.json()) as T;
   } catch (err: unknown) {
     if ((err as { name?: string })?.name === 'AbortError') {
-      throw new ApiError('Request timed out. Please try again.', 408);
+      throw new ApiError(copy.errors.timedOut, 408);
     }
     throw err;
   } finally {

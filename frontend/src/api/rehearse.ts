@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
 import { type PlaceResponse, toPlace } from './places';
+import { copy } from '../copy';
 
 // ---- Backend shapes (backend/app/schemas/rehearsal.py) ----
 
@@ -217,7 +218,7 @@ export const answerTurn = pick(
     reply: ReplyInput,
   ) => {
     if (!rehearsalId) {
-      throw new Error('This rehearsal has no session.');
+      throw new Error(copy.errors.noRehearsalSession);
     }
     const body =
       'choiceIndex' in reply

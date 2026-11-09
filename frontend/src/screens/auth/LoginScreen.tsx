@@ -20,10 +20,11 @@ import {
   sizes,
   space,
 } from '../../styles/tokens';
+import { copy } from '../../copy';
 
 function formatAuthError(err: unknown): string {
   if (!err) {
-    return 'An unknown error occurred.';
+    return copy.login.unknownError;
   }
   const msg = err instanceof Error ? err.message : String(err);
   const code = (err as { code?: string })?.code;
@@ -34,22 +35,22 @@ function formatAuthError(err: unknown): string {
     code === 'auth/invalid-credential' ||
     code === 'auth/invalid-login-credentials'
   ) {
-    return 'Incorrect email or password. Please try again.';
+    return copy.login.wrongCredentials;
   }
   if (code === 'auth/email-already-in-use') {
-    return 'An account with this email already exists. Please sign in instead.';
+    return copy.login.emailInUse;
   }
   if (code === 'auth/weak-password') {
-    return 'Password should be at least 6 characters.';
+    return copy.login.weakPassword;
   }
   if (code === 'auth/invalid-email') {
-    return 'Please enter a valid email address.';
+    return copy.login.invalidEmail;
   }
   if (code === 'auth/operation-not-allowed') {
-    return 'Email/Password sign-in is not enabled in Firebase Console.';
+    return copy.login.signInDisabled;
   }
   if (code === 'auth/network-request-failed') {
-    return 'Network request failed. Please check your internet connection.';
+    return copy.login.networkFailed;
   }
   return msg;
 }
@@ -66,7 +67,7 @@ export function LoginScreen(): React.JSX.Element {
     const trimmedEmail = email.trim();
     const trimmedPass = password.trim();
     if (!trimmedEmail || !trimmedPass) {
-      setError('Please enter both email and password.');
+      setError(copy.login.missingFields);
       return;
     }
     setError(null);
@@ -91,23 +92,25 @@ export function LoginScreen(): React.JSX.Element {
         style={base.stack}
       >
         <View style={styles.header}>
-          <Text style={styles.appBadge}>単語をキャッチする</Text>
+          <Text style={styles.appBadge}>{copy.login.badge}</Text>
           <Text style={base.title}>
-            {mode === 'signin' ? 'Welcome back' : 'Create an account'}
+            {mode === 'signin'
+              ? copy.login.welcomeBack
+              : copy.login.createAccountTitle}
           </Text>
           <Text style={base.caption}>
             {mode === 'signin'
-              ? 'Sign in to access your saved words, places, and study progress.'
-              : 'Sign up to keep your vocabulary synchronized across devices.'}
+              ? copy.login.signInBody
+              : copy.login.signUpBody}
           </Text>
         </View>
 
         <Card>
-          <Text style={base.label}>Email address</Text>
+          <Text style={base.label}>{copy.login.email}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="name@example.com"
+            placeholder={copy.login.emailPlaceholder}
             placeholderTextColor={colors.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -116,11 +119,11 @@ export function LoginScreen(): React.JSX.Element {
             style={styles.input}
           />
 
-          <Text style={base.label}>Password</Text>
+          <Text style={base.label}>{copy.login.password}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password (minimum 6 characters)"
+            placeholder={copy.login.passwordPlaceholder}
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             autoCapitalize="none"
@@ -138,10 +141,10 @@ export function LoginScreen(): React.JSX.Element {
           <Button
             label={
               busy
-                ? 'Signing in…'
+                ? copy.login.signingIn
                 : mode === 'signin'
-                ? 'Sign in'
-                : 'Create account'
+                ? copy.login.signIn
+                : copy.login.createAccount
             }
             onPress={handleSubmit}
             disabled={busy}
@@ -159,8 +162,8 @@ export function LoginScreen(): React.JSX.Element {
           >
             <Text style={styles.switchModeText}>
               {mode === 'signin'
-                ? "Don't have an account? Create one"
-                : 'Already have an account? Sign in'}
+                ? copy.login.toSignUp
+                : copy.login.toSignIn}
             </Text>
           </Pressable>
         </Card>

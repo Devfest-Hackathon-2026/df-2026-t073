@@ -22,6 +22,7 @@ import {
 } from '../styles/tokens';
 import type { MapPin } from '../types';
 import { IconButton } from './ui';
+import { copy } from '../copy';
 
 // ---------- Screen ----------
 
@@ -72,7 +73,7 @@ export function ScreenHeader({
     <View style={styles.header}>
       <IconButton
         icon={close ? 'close' : 'back'}
-        label={close ? 'Close' : 'Back'}
+        label={close ? copy.common.close : copy.common.back}
         onPress={onBack}
       />
       <View style={styles.headerCenter}>{children}</View>
@@ -103,16 +104,16 @@ export function MapPlaceholder({
   return (
     <View
       style={full ? [styles.map, styles.mapFull] : [styles.map, { height }]}
-      accessibilityLabel="Map placeholder"
+      accessibilityLabel={copy.map.placeholder}
     >
       <View style={styles.mapRoadH} />
       <View style={styles.mapRoadV} />
       <View style={styles.mapRail} />
-      <Text style={styles.mapLabel}>Map placeholder</Text>
+      <Text style={styles.mapLabel}>{copy.map.placeholder}</Text>
       {pins.map(pin => (
         <Pressable
           key={pin.id}
-          accessibilityLabel={`${pin.label || 'Pin'} ${pin.count || ''}`}
+          accessibilityLabel={copy.map.placeholderPin(pin.label, pin.count)}
           onPress={onPinPress ? () => onPinPress(pin) : undefined}
           style={[
             styles.pin,
@@ -125,7 +126,7 @@ export function MapPlaceholder({
         >
           {pin.kind === 'tango' ? (
             <Text style={styles.pinText}>
-              {showStars ? `花${pin.stars ?? 0}` : pin.count}
+              {showStars ? copy.map.placeholderStars(pin.stars ?? 0) : pin.count}
             </Text>
           ) : null}
           {pin.kind === 'next' ? (
@@ -180,7 +181,7 @@ export function BottomSheet({
         <Pressable
           style={styles.sheetScrim}
           onPress={onClose}
-          accessibilityLabel="Close"
+          accessibilityLabel={copy.common.close}
         />
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />

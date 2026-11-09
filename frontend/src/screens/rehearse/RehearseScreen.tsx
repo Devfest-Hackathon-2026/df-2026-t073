@@ -44,13 +44,10 @@ import {
   space,
 } from '../../styles/tokens';
 import type { RehearsalScript, RehearsalTurn, TurnAnswer } from '../../types';
+import { copy } from '../../copy';
 
 /** Shown while loading: build anticipation, not impatience. */
-const REHEARSE_LINES = [
-  'Your staff member is getting ready…',
-  'Setting the scene…',
-  'Warming up the counter…',
-];
+const REHEARSE_LINES = copy.rehearse.loadingLines;
 
 const STAFF_DELAY_MS = { slower: 1400, natural: 700 } as const;
 
@@ -72,14 +69,14 @@ export function RehearseScreen({
       <View style={styles.top}>
         <ScreenHeader onBack={() => navigation.goBack()} close>
           <IconLabel icon="ai" style={styles.eyebrow}>
-            AI role-play
+            {copy.rehearse.aiRolePlay}
           </IconLabel>
           {script.data ? <Jp {...script.data.place.name} bold /> : null}
         </ScreenHeader>
         <SegmentedControl
           options={[
-            { value: 'slower', label: 'Slower' },
-            { value: 'natural', label: 'Natural' },
+            { value: 'slower', label: copy.rehearse.slower },
+            { value: 'natural', label: copy.rehearse.natural },
           ]}
           value={speed}
           onChange={setSpeed}
@@ -183,7 +180,7 @@ function Conversation({
       record(next, await answerTurn(script.rehearsalId, next, reply));
     } catch (err) {
       setMessage(
-        err instanceof Error ? err.message : 'Could not check that reply.',
+        err instanceof Error ? err.message : copy.rehearse.couldNotCheck,
       );
     } finally {
       setChecking(false);
@@ -197,7 +194,7 @@ function Conversation({
     setMessage(null);
     if (!(await requestMicPermission())) {
       setChoosing(true);
-      setMessage('No microphone access, so choose a reply instead.');
+      setMessage(copy.rehearse.noMicrophone);
       return;
     }
     try {
@@ -205,7 +202,7 @@ function Conversation({
       setListening(true);
     } catch {
       setChoosing(true);
-      setMessage('Recording is not available here. Choose a reply instead.');
+      setMessage(copy.rehearse.recordingUnavailable);
     }
   };
 
@@ -217,13 +214,13 @@ function Conversation({
     try {
       const clip = await stopRecording();
       if (!clip) {
-        setMessage('Hold the button while you speak.');
+        setMessage(copy.rehearse.holdWhileSpeaking);
         return;
       }
       await submit({ audioBase64: clip.base64, mimeType: clip.mimeType });
     } catch {
       setChoosing(true);
-      setMessage('Recording failed. Choose a reply instead.');
+      setMessage(copy.rehearse.recordingFailed);
     }
   };
 
@@ -249,7 +246,7 @@ function Conversation({
             return (
               <View key={turn.id} style={styles.staffBlock}>
                 <IconLabel icon="ai" style={styles.eyebrow}>
-                  STAFF · AI
+                  {copy.rehearse.staffAi}
                 </IconLabel>
                 <View style={styles.staffRow}>
                   <Pressable
@@ -257,18 +254,20 @@ function Conversation({
                     onPress={() =>
                       setRevealed(r => ({ ...r, [turn.id]: true }))
                     }
-                    accessibilityHint="Tap to see English"
+                    accessibilityHint={copy.rehearse.tapForEnglish}
                   >
                     <Jp {...turn.jp} size="lg" />
                     {englishVisible(turn, index) ? (
                       <Text style={base.caption}>{turn.en}</Text>
                     ) : (
-                      <Text style={styles.tapChip}>Tap to see English</Text>
+                      <Text style={styles.tapChip}>
+                        {copy.rehearse.tapForEnglish}
+                      </Text>
                     )}
                   </Pressable>
                   <IconButton
                     icon="play"
-                    label="Play again"
+                    label={copy.rehearse.playAgain}
                     onPress={() => speak(turn)}
                   />
                 </View>
@@ -279,7 +278,7 @@ function Conversation({
           return (
             <View key={turn.id} style={styles.userBlock}>
               <Text style={base.label}>
-                You{said?.spoken ? ' · spoken' : ''}
+                {copy.rehearse.you(!!said?.spoken)}
               </Text>
               <View style={styles.userBubble}>
                 <Jp {...(said?.said ?? turn.jp)} size="lg" tone="inverse" />
@@ -300,11 +299,11 @@ function Conversation({
 
         {userTurnNow && next ? (
           <View style={styles.userBlock}>
-            <Text style={base.caption}>Your turn</Text>
+            <Text style={base.caption}>{copy.rehearse.yourTurn}</Text>
             {hintOpen && next.hint ? (
               <View style={styles.hint}>
                 <IconLabel icon="hint" style={styles.eyebrow}>
-                  Hint
+                  {copy.rehearse.hint}
                 </IconLabel>
                 <Text style={base.caption}>{next.hint.explanation}</Text>
                 <Jp {...next.hint.model} size="lg" bold />
@@ -318,7 +317,9 @@ function Conversation({
                   setHintsUsed(n => n + 1);
                 }}
               >
-                <Text style={styles.hintButtonText}>Need a hint?</Text>
+                <Text style={styles.hintButtonText}>
+                  {copy.rehearse.needHint}
+                </Text>
               </Pressable>
             )}
             {choosing && next.choices?.length ? (
@@ -343,12 +344,15 @@ function Conversation({
       <View style={styles.bottom}>
         {message ? <Text style={styles.message}>{message}</Text> : null}
         {finished ? (
-          <Button label="See results" onPress={() => onFinish(hintsUsed)} />
+          <Button
+            label={copy.rehearse.seeResults}
+            onPress={() => onFinish(hintsUsed)}
+          />
         ) : (
           <>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Hold to speak"
+              accessibilityLabel={copy.rehearse.holdToSpeak}
               disabled={!userTurnNow || checking}
               onPressIn={startSpeaking}
               onPressOut={stopSpeaking}
@@ -366,10 +370,10 @@ function Conversation({
             </Pressable>
             <Text style={base.caption}>
               {checking
-                ? 'Checking your reply…'
+                ? copy.rehearse.checking
                 : listening
-                ? 'Listening… release to send'
-                : 'Hold to speak'}
+                ? copy.rehearse.listening
+                : copy.rehearse.holdToSpeak}
             </Text>
             {userTurnNow && !choosing ? (
               <Text
@@ -377,7 +381,7 @@ function Conversation({
                 style={styles.chooseLink}
                 onPress={() => setChoosing(true)}
               >
-                {"Can't speak right now? Choose a reply"}
+                {copy.rehearse.chooseReply}
               </Text>
             ) : null}
           </>

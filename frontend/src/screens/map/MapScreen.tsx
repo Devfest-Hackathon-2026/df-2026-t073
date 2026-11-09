@@ -20,6 +20,7 @@ import { type TabParamList, useRootNav } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { colors, fontSizes, radii, sizes, space } from '../../styles/tokens';
 import type { MapArea, MapPin, Place } from '../../types';
+import { copy } from '../../copy';
 
 type MapFilter = 'all' | 'stars' | 'planned';
 
@@ -85,8 +86,8 @@ export function MapScreen({
             setHere(coords);
           } else {
             Alert.alert(
-              'Location unavailable',
-              'Turn on location and allow Tankengo to use it, then try again.',
+              copy.mapScreen.locationUnavailableTitle,
+              copy.mapScreen.locationUnavailableBody,
             );
           }
           return coords;
@@ -99,10 +100,10 @@ export function MapScreen({
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="どこへ行く？"
+            placeholder={copy.mapScreen.searchPlaceholder}
             placeholderTextColor={colors.textMuted}
             style={styles.searchInput}
-            accessibilityLabel="Search places to visit"
+            accessibilityLabel={copy.mapScreen.searchA11y}
           />
         </View>
         {query.trim() ? (
@@ -114,20 +115,20 @@ export function MapScreen({
         ) : null}
         <View style={base.row}>
           <Chip
-            label="All Tango"
+            label={copy.mapScreen.filterAll}
             selected={filter === 'all'}
             tone="outline"
             onPress={() => setFilter('all')}
           />
           <Chip
             icon="hanamaru"
-            label="Hanamaru"
+            label={copy.mapScreen.filterStamps}
             selected={filter === 'stars'}
             tone="outline"
             onPress={() => setFilter('stars')}
           />
           <Chip
-            label="Planned"
+            label={copy.mapScreen.filterPlanned}
             selected={filter === 'planned'}
             tone="outline"
             onPress={() => setFilter('planned')}
@@ -154,7 +155,7 @@ export function SearchResults({
   return (
     <View style={styles.results}>
       {!loading && places.length === 0 ? (
-        <Text style={base.caption}>No places found.</Text>
+        <Text style={base.caption}>{copy.mapScreen.noPlaces}</Text>
       ) : null}
       {places.map(place => (
         <Pressable
@@ -194,11 +195,11 @@ export function AreaCard({
         <Pressable
           onPress={onClose}
           disabled={!onClose}
-          accessibilityLabel="Close area card"
+          accessibilityLabel={copy.mapScreen.closeAreaCard}
         >
           <View style={base.row}>
             <Text style={base.caption}>
-              {area.tangoCount} Tango · {area.placeCount} places
+              {copy.mapScreen.areaSummary(area.tangoCount, area.placeCount)}
             </Text>
             {onClose ? (
               <Icon name="close" size={fontSizes.md} color={colors.textMuted} />
@@ -222,7 +223,7 @@ export function AreaCard({
       </View>
       <View style={base.row}>
         <Button
-          label="Review these"
+          label={copy.mapScreen.reviewThese}
           variant="secondary"
           style={base.grow}
           onPress={() =>
@@ -231,7 +232,7 @@ export function AreaCard({
         />
         {area.planPlaceId ? (
           <Button
-            label="Plan a visit"
+            label={copy.mapScreen.planVisit}
             style={base.grow}
             onPress={() =>
               area.planPlaceId &&

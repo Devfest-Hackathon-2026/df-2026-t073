@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PanResponder, StyleSheet, View } from 'react-native';
 import { colors, radii, sizes } from '../../styles/tokens';
 import type { NormalizedBox } from '../../types';
+import { copy } from '../../copy';
 
 interface Rect {
   x: number;
@@ -100,7 +101,7 @@ export function SelectionBox({
   return (
     <View
       style={[styles.box, { left: rect.x, top: rect.y, width: rect.w, height: rect.h }]}
-      accessibilityLabel="Selection box. Drag to move, drag the corner to resize."
+      accessibilityLabel={copy.capture.selectionBoxA11y}
       {...moveResponder.panHandlers}
     >
       <View style={styles.handle} {...resizeResponder.panHandlers} />

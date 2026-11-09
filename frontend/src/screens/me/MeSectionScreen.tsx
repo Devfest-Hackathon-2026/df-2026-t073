@@ -11,17 +11,18 @@ import {
   PrivacySection,
   ProfileSection,
 } from './MeSections';
+import { copy } from '../../copy';
 
 const SECTIONS: Record<
   MeSectionId,
   { title: string; Body: () => React.JSX.Element }
 > = {
-  profile: { title: 'Profile', Body: ProfileSection },
-  display: { title: 'Japanese display', Body: DisplaySection },
-  practice: { title: 'Practice', Body: PracticeSection },
-  languages: { title: 'Languages', Body: LanguagesSection },
-  privacy: { title: 'Privacy & location', Body: PrivacySection },
-  developer: { title: 'Developer', Body: DeveloperSection },
+  profile: { title: copy.meSections.profile, Body: ProfileSection },
+  display: { title: copy.meSections.display, Body: DisplaySection },
+  practice: { title: copy.meSections.practice, Body: PracticeSection },
+  languages: { title: copy.meSections.languages, Body: LanguagesSection },
+  privacy: { title: copy.meSections.privacy, Body: PrivacySection },
+  developer: { title: copy.meSections.developer, Body: DeveloperSection },
 };
 
 /** One settings area from Me. */
@@ -39,7 +40,7 @@ export function MeSectionScreen({
     return (
       <Screen>
         <ScreenHeader onBack={() => navigation.goBack()}>
-          <SectionTitle en="Developer" />
+          <SectionTitle en={copy.meSections.developer} />
         </ScreenHeader>
       </Screen>
     );

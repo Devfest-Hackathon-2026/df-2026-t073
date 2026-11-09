@@ -16,6 +16,7 @@ import {
   TEST_USER_EMAIL,
   TEST_USER_PASSWORD,
 } from '../config';
+import { copy } from '../copy';
 
 // Firebase Authentication. Supports persistent test user credentials
 // (keeps the same UID and data across runs) or anonymous sign-in.
@@ -57,12 +58,12 @@ export async function signInWithEmail(
 ): Promise<User> {
   const instance = getAuthInstance();
   if (!instance) {
-    throw new Error('Firebase Authentication is not configured.');
+    throw new Error(copy.errors.authNotConfigured);
   }
   const cleanEmail = email.trim();
   const cleanPass = password.trim();
   if (!cleanEmail || !cleanPass) {
-    throw new Error('Email and password are required.');
+    throw new Error(copy.errors.emailPasswordRequired);
   }
   await instance.authStateReady();
   const cred = await signInWithEmailAndPassword(
@@ -80,12 +81,12 @@ export async function signUpWithEmail(
 ): Promise<User> {
   const instance = getAuthInstance();
   if (!instance) {
-    throw new Error('Firebase Authentication is not configured.');
+    throw new Error(copy.errors.authNotConfigured);
   }
   const cleanEmail = email.trim();
   const cleanPass = password.trim();
   if (!cleanEmail || !cleanPass) {
-    throw new Error('Email and password are required.');
+    throw new Error(copy.errors.emailPasswordRequired);
   }
   await instance.authStateReady();
   const cred = await createUserWithEmailAndPassword(
@@ -108,7 +109,7 @@ export async function signInWithTestCredentials(
   const cleanEmail = email.trim();
   const cleanPass = password.trim();
   if (!cleanEmail || !cleanPass) {
-    throw new Error('Test email and password are required.');
+    throw new Error(copy.errors.testEmailPasswordRequired);
   }
   await instance.authStateReady();
 
@@ -142,20 +143,16 @@ export async function signInWithTestCredentials(
       } catch (createErr: unknown) {
         const createCode = (createErr as { code?: string })?.code;
         if (createCode === 'auth/email-already-in-use') {
-          throw new Error('User exists but with a different password.');
+          throw new Error(copy.errors.wrongPasswordForExistingUser);
         }
         if (createCode === 'auth/operation-not-allowed') {
-          throw new Error(
-            'Email/Password sign-in is disabled in Firebase Console. Enable it under Authentication > Sign-in method.',
-          );
+          throw new Error(copy.errors.emailSignInDisabled);
         }
         throw createErr;
       }
     }
     if (code === 'auth/operation-not-allowed') {
-      throw new Error(
-        'Email/Password sign-in is disabled in Firebase Console. Enable it under Authentication > Sign-in method.',
-      );
+      throw new Error(copy.errors.emailSignInDisabled);
     }
     throw err;
   }

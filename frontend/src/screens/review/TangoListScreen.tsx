@@ -15,8 +15,9 @@ import type { RootScreenProps } from '../../navigation/types';
 import { base } from '../../styles/base';
 import { NameListSheet } from './ListSheets';
 import { TangoRow } from './TangoRow';
+import { copy } from '../../copy';
 
-const LINES = ['Opening your list…'];
+const LINES = copy.lists.loadingLines;
 
 /** A user-made list: its Tango, rename, remove, review, delete. */
 export function TangoListScreen({
@@ -28,7 +29,7 @@ export function TangoListScreen({
     const [lists, tango] = await Promise.all([listLists(), listTango()]);
     const list = lists.find(l => l.id === listId);
     if (!list) {
-      throw new Error('This list no longer exists.');
+      throw new Error(copy.lists.gone);
     }
     const byId = new Map(tango.map(t => [t.id, t]));
     return {
@@ -44,10 +45,10 @@ export function TangoListScreen({
     data.reload();
   };
   const confirmDelete = (name: string) =>
-    Alert.alert(`Delete "${name}"?`, 'The Tango themselves stay.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(copy.lists.deleteTitle(name), copy.lists.deleteBody, [
+      { text: copy.common.cancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: copy.common.delete,
         style: 'destructive',
         onPress: async () => {
           await deleteList(listId);
@@ -61,7 +62,7 @@ export function TangoListScreen({
       footer={
         data.data && data.data.items.length > 0 ? (
           <Button
-            label="Review this list"
+            label={copy.lists.reviewThisList}
             onPress={() =>
               navigation.navigate('ReviewSession', {
                 collectionId: listCollectionId(listId),
@@ -80,12 +81,12 @@ export function TangoListScreen({
                 <View style={base.row}>
                   <IconButton
                     icon="edit"
-                    label="Rename list"
+                    label={copy.lists.rename}
                     onPress={() => setRenaming(true)}
                   />
                   <IconButton
                     icon="delete"
-                    label="Delete list"
+                    label={copy.lists.deleteList}
                     onPress={() => confirmDelete(list.name)}
                   />
                 </View>
@@ -95,11 +96,9 @@ export function TangoListScreen({
                 {list.name}
               </Text>
             </ScreenHeader>
-            <Text style={base.caption}>{items.length} Tango</Text>
+            <Text style={base.caption}>{copy.lists.count(items.length)}</Text>
             {items.length === 0 ? (
-              <Text style={base.caption}>
-                Add Tango from their detail page.
-              </Text>
+              <Text style={base.caption}>{copy.lists.empty}</Text>
             ) : null}
             {items.map(t => (
               <TangoRow
@@ -109,7 +108,7 @@ export function TangoListScreen({
                 action={
                   <IconButton
                     icon="remove"
-                    label={`Remove ${t.text}`}
+                    label={copy.lists.remove(t.text)}
                     onPress={() => remove(t.id)}
                   />
                 }
@@ -118,7 +117,7 @@ export function TangoListScreen({
             <NameListSheet
               visible={renaming}
               initial={list.name}
-              title="Rename list"
+              title={copy.lists.rename}
               onClose={() => setRenaming(false)}
               onSave={async name => {
                 await updateList(listId, { name });
