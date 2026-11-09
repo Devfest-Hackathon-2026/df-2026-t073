@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { getReviewSession, submitAnswer } from '../src/api/review';
 import { SESSION } from '../src/mocks/review';
@@ -125,11 +125,11 @@ describe('session answers and the server verdict', () => {
     await press(tree, 'meal ticket');
     await press(tree, 'Continue');
     await press(tree, 'Show answer');
-    expect(allTexts(tree)).toContain('Not quite');
+    expect(allTexts(tree)).toContain("Here's the answer");
     await ReactTestRenderer.act(async () => {
       resolveFirst({ exerciseId: 'ex-3', correct: false, stale: true });
     });
-    expect(allTexts(tree)).toContain('Not quite');
+    expect(allTexts(tree)).toContain("Here's the answer");
     expect(allTexts(tree)).not.toContain("This one didn't count");
   });
 
@@ -197,5 +197,69 @@ describe('flashcards skip the feedback screen', () => {
     });
     const tree = await rateFirstFlashcard('Again');
     expect(allTexts(tree)).toContain('Excellent work!');
+  });
+});
+
+describe('review session wording', () => {
+  beforeEach(() => {
+    submitMock.mockReset();
+    submitMock.mockResolvedValue(null);
+  });
+
+  async function toFillQuestion() {
+    const tree = await renderSession();
+    await press(tree, 'meal ticket');
+    await press(tree, 'Continue');
+    return tree;
+  }
+
+  test('"Show answer" shows the answer without a right/wrong mark', async () => {
+    const tree = await toFillQuestion();
+    await press(tree, 'Show answer');
+    expect(allTexts(tree)).toContain("Here's the answer");
+    expect(allTexts(tree)).not.toContain('Not quite');
+    expect(allTexts(tree)).not.toContain('Correct!');
+  });
+
+  test('a wrong typed answer says "Not quite"', async () => {
+    const tree = await toFillQuestion();
+    const input = tree.root.findByType(TextInput);
+    await ReactTestRenderer.act(async () => {
+      input.props.onChangeText('ちがう');
+    });
+    await press(tree, 'Check');
+    expect(allTexts(tree)).toContain('Not quite');
+  });
+
+  test('the level banner never names the next stage', async () => {
+    const tree = await renderSession();
+    await press(tree, 'meal ticket');
+    expect(allTexts(tree)).toContain('Level up!');
+    expect(allTexts(tree)).not.toMatch(/Level up →|Photo MCQ/);
+  });
+
+  test('fill questions use one placeholder and no instruction under the word', async () => {
+    const tree = await toFillQuestion();
+    expect(tree.root.findByType(TextInput).props.placeholder).toBe(
+      'Type your answer here',
+    );
+    expect(allTexts(tree)).not.toContain('Type the reading in kana');
+    expect(allTexts(tree)).not.toContain('Synonyms are accepted');
+  });
+
+  test('the place shows only after pressing the hint button, as a short label', async () => {
+    const tree = await renderSession();
+    expect(allTexts(tree)).not.toContain('Where did I see this Tango?');
+    const hint = tree.root.findAll(
+      n =>
+        n.props.accessibilityLabel === 'Where did I see this Tango?' &&
+        typeof n.props.onPress === 'function',
+    )[0];
+    expect(hint).toBeDefined();
+    await ReactTestRenderer.act(async () => {
+      hint!.props.onPress();
+    });
+    expect(allTexts(tree)).toContain(SESSION[2].placeHint);
+    expect(allTexts(tree)).not.toContain('You saved this at');
   });
 });

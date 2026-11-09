@@ -1,5 +1,8 @@
+import pytest
+
 from app.schemas.capture import Vertex
 from app.schemas.flashcard import (
+    Distractors,
     JpOption,
 )
 from app.schemas.review import (
@@ -90,3 +93,21 @@ class TestExercises:
         ]
         summary = {t.id: t.count for t in exercise_types_summary(cards)}
         assert summary == {"flashcard": 1, "mcq": 2, "fill": 1}
+
+
+class TestShortLabels:
+    def test_place_hint_is_just_the_area(self) -> None:
+        ex = build_exercise(card("a", places=("Koenji",)), Distractors(), 0, "rs")
+        assert ex.place_hint == "Koenji"
+
+    def test_no_place_gives_an_empty_hint(self) -> None:
+        ex = build_exercise(card("a", places=()), Distractors(), 0, "rs")
+        assert ex.place_hint == ""
+
+    @pytest.mark.parametrize(
+        ("strength", "label"),
+        [(0, "4 to Stamp"), (3, "1 to Stamp"), (4, "Stamp earned")],
+    )
+    def test_next_step_counts_down_to_a_stamp(self, strength: int, label: str) -> None:
+        ex = build_exercise(card("a", strength=strength), Distractors(), 0, "rs")
+        assert ex.next_step == label

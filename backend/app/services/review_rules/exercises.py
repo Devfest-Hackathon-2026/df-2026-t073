@@ -127,12 +127,9 @@ def _photo_layer(
 
 
 def _next_step_text(card: FlashcardResponse) -> str:
+    """A short label, e.g. "2 to Stamp" (a Stamp is a Tango at full strength)."""
     steps_left = MAX_STRENGTH - card.strength
-    return (
-        f"{steps_left} more step{'s' if steps_left != 1 else ''} until it's a star on your map."
-        if steps_left > 0
-        else "It's already a star on your map."
-    )
+    return f"{steps_left} to Stamp" if steps_left > 0 else "Stamp earned"
 
 
 def _stage_transitions(
@@ -306,9 +303,7 @@ def build_exercise(
         stage=stage,
         photo=_photo_layer(card, stage, area),
         example=_pick_example(card),
-        place_hint=(
-            f"You saved this at {area}." if area else "No place saved for this one."
-        ),
+        place_hint=area,
         next_step=_next_step_text(card),
         promoted_to=promoted_to,
         demoted_to=demoted_to,

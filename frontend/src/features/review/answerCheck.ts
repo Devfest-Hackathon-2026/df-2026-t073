@@ -85,9 +85,9 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   mcq_text_translate: 'Translate · Multiple choice',
   mcq_text_reverse: 'Reverse translate · Multiple choice',
   mcq_object_name: 'Object name · Multiple choice',
-  fill_text_reading: 'Reading · Fill in the blank',
-  fill_text_translate: 'Translate · Fill in the blank',
-  fill_text_reverse: 'Reverse translate · Fill in the blank',
-  fill_object_name: 'Object name · Fill in the blank',
+  fill_text_reading: 'Reading · Type the answer',
+  fill_text_translate: 'Meaning · Type the answer',
+  fill_text_reverse: 'Reverse translate · Type the answer',
+  fill_object_name: 'Object name · Type the answer',
 };
 

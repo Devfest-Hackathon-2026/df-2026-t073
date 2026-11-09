@@ -295,7 +295,7 @@ describe('SESSION mock coverage', () => {
       pressByText('meal ticket');
     });
     expect(allTexts()).toContain('Correct!');
-    expect(allTexts()).toContain('Level up → Multiple choice');
+    expect(allTexts()).toContain('Level up!');
 
     // Advance past ex-4, ex-5, ex-6 to ex-7 (fill_text_reading)
     for (const answerLabel of ['おおもり', '替え玉', '立入禁止']) {
@@ -311,7 +311,7 @@ describe('SESSION mock coverage', () => {
     });
 
     // 3. Now on ex-7 (fill_text_reading)
-    expect(allTexts()).toContain('Reading · Fill in the blank');
+    expect(allTexts()).toContain('Reading · Type the answer');
     const input = tree.root.findByType(TextInput);
 
     // Typing kanji triggers "Please answer in kana" instead of grading wrong

@@ -30,7 +30,6 @@ import {
   checkFillAnswer,
   hasNonKanaForReading,
   QUESTION_TYPE_LABEL,
-  STAGE_LABEL,
 } from '../../features/review/answerCheck';
 import { playWord } from '../../features/tango/saveWord';
 import { useAsync } from '../../hooks/useAsync';
@@ -70,6 +69,8 @@ const TOAST_MS = 2500;
 interface Outcome {
   exerciseId: string;
   correct: boolean;
+  /** "Show answer": nothing was attempted, so no right/wrong mark. */
+  revealed: boolean;
   /** The server didn't count the answer: the card moved on since the session started. */
   stale: boolean;
 }
@@ -155,7 +156,12 @@ function Session({
   // replaces it if they differ, while that exercise is still on screen.
   const recordOutcome = (correct: boolean, answer: SessionAnswerInput) => {
     const exerciseId = exercise.id;
-    setOutcome({ exerciseId, correct, stale: false });
+    setOutcome({
+      exerciseId,
+      correct,
+      revealed: answer.kind === 'reveal',
+      stale: false,
+    });
     submit(answer).then(verdict => {
       if (verdict) {
         setOutcome(current =>
@@ -207,11 +213,6 @@ function Session({
         <ProgressBar
           value={(index + (outcome === null ? 0 : 1)) / exercises.length}
         />
-        <View style={styles.stageBadge} accessibilityRole="text">
-          <Text style={styles.stageBadgeText}>
-            {STAGE_LABEL[exercise.stage]}
-          </Text>
-        </View>
         {outcome === null ? (
           <IconButton
             icon="hint"
@@ -233,7 +234,6 @@ function Session({
               total={exercises.length}
               showPlace={showPlace}
               onRate={rating => rateFlashcard(exercise, rating)}
-              onShowPlace={() => setShowPlace(true)}
             />
           ) : exercise.type === 'mcq' ? (
             <Mcq
@@ -248,7 +248,6 @@ function Session({
                   index: pickedIndex,
                 })
               }
-              onShowPlace={() => setShowPlace(true)}
             />
           ) : (
             <FillBlank
@@ -266,13 +265,13 @@ function Session({
                     : { kind: 'typed', text: typed },
                 )
               }
-              onShowPlace={() => setShowPlace(true)}
             />
           )
         ) : (
           <Feedback
             exercise={exercise}
             correct={outcome.correct}
+            revealed={outcome.revealed}
             stale={outcome.stale}
           />
         )}
@@ -417,26 +416,26 @@ export function PhotoLayerView({
   );
 }
 
-function PlaceCueLink({
+/** The area where the Tango was saved, as a short label. */
+function placeLabel(placeHint: string): string {
+  return placeHint || 'No place saved';
+}
+
+/** Where the Tango was saved, once the hint (lightbulb) button is pressed. */
+function PlaceCue({
   placeHint,
   showPlace,
-  onShowPlace,
 }: {
   placeHint: string;
   showPlace: boolean;
-  onShowPlace: () => void;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   return showPlace ? (
     <View style={styles.centerRow}>
       <IconLabel icon="pin" style={base.caption}>
-        {placeHint}
+        {placeLabel(placeHint)}
       </IconLabel>
     </View>
-  ) : (
-    <Text style={[styles.link, styles.center]} onPress={onShowPlace}>
-      Where did I see this Tango?
-    </Text>
-  );
+  ) : null;
 }
 
 function Flashcard({
@@ -445,14 +444,12 @@ function Flashcard({
   total,
   showPlace,
   onRate,
-  onShowPlace,
 }: {
   exercise: FlashcardExercise;
   index: number;
   total: number;
   showPlace: boolean;
   onRate: (rating: 'again' | 'good' | 'easy') => void;
-  onShowPlace: () => void;
 }): React.JSX.Element {
   const [flipped, setFlipped] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -576,11 +573,7 @@ function Flashcard({
         </View>
       )}
 
-      <PlaceCueLink
-        placeHint={exercise.placeHint}
-        showPlace={showPlace}
-        onShowPlace={onShowPlace}
-      />
+      <PlaceCue placeHint={exercise.placeHint} showPlace={showPlace} />
     </View>
   );
 }
@@ -606,14 +599,12 @@ function Mcq({
   total,
   showPlace,
   onPick,
-  onShowPlace,
 }: {
   exercise: McqExercise;
   index: number;
   total: number;
   showPlace: boolean;
   onPick: (option: number) => void;
-  onShowPlace: () => void;
 }): React.JSX.Element {
   return (
     <View style={base.stack}>
@@ -665,15 +656,12 @@ function Mcq({
         );
       })}
 
-      <PlaceCueLink
-        placeHint={exercise.placeHint}
-        showPlace={showPlace}
-        onShowPlace={onShowPlace}
-      />
+      <PlaceCue placeHint={exercise.placeHint} showPlace={showPlace} />
     </View>
   );
 }
 
+/** What to type; read out by screen readers as the input's label. */
 function fillInstruction(exercise: FillBlankExercise): string {
   switch (exercise.questionType) {
     case 'fill_text_reading':
@@ -687,32 +675,18 @@ function fillInstruction(exercise: FillBlankExercise): string {
   }
 }
 
-function fillPlaceholder(exercise: FillBlankExercise): string {
-  switch (exercise.questionType) {
-    case 'fill_text_reading':
-      return 'かな (hiragana or katakana)…';
-    case 'fill_text_translate':
-      return 'Meaning…';
-    case 'fill_text_reverse':
-    case 'fill_object_name':
-      return '日本語 (kanji or kana)…';
-  }
-}
-
 function FillBlank({
   exercise,
   index,
   total,
   showPlace,
   onAnswer,
-  onShowPlace,
 }: {
   exercise: FillBlankExercise;
   index: number;
   total: number;
   showPlace: boolean;
   onAnswer: (correct: boolean, typedAnswer?: string) => void;
-  onShowPlace: () => void;
 }): React.JSX.Element {
   const [text, setText] = useState('');
   const [kanaWarning, setKanaWarning] = useState(false);
@@ -759,7 +733,6 @@ function FillBlank({
         ) : exercise.questionType === 'fill_text_reverse' ? (
           <Text style={styles.meaningPrompt}>{exercise.meaningPrompt}</Text>
         ) : null}
-        <Text style={base.caption}>{fillInstruction(exercise)}</Text>
       </View>
 
       {exercise.cloze ? (
@@ -786,7 +759,7 @@ function FillBlank({
               setKanaWarning(false);
             }
           }}
-          placeholder={fillPlaceholder(exercise)}
+          placeholder="Type your answer here"
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -795,13 +768,13 @@ function FillBlank({
           style={styles.input}
           accessibilityLabel={fillInstruction(exercise)}
         />
-        <Text style={base.caption}>
-          {exercise.answerKind === 'kana'
-            ? exercise.questionType === 'fill_text_reading'
+        {exercise.answerKind === 'kana' ? (
+          <Text style={base.caption}>
+            {exercise.questionType === 'fill_text_reading'
               ? 'Japanese keyboard · hiragana and katakana both count'
-              : 'Japanese keyboard · kanji or kana accepted (no romaji)'
-            : 'Synonyms are accepted'}
-        </Text>
+              : 'Japanese keyboard · kanji or kana accepted (no romaji)'}
+          </Text>
+        ) : null}
         {kanaWarning ? (
           <Text style={styles.kanaWarning} accessibilityRole="alert">
             Please answer in kana
@@ -825,11 +798,7 @@ function FillBlank({
         />
       </View>
 
-      <PlaceCueLink
-        placeHint={exercise.placeHint}
-        showPlace={showPlace}
-        onShowPlace={onShowPlace}
-      />
+      <PlaceCue placeHint={exercise.placeHint} showPlace={showPlace} />
     </View>
   );
 }
@@ -848,10 +817,12 @@ function answerTextFor(exercise: Exercise): string {
 function Feedback({
   exercise,
   correct,
+  revealed,
   stale,
 }: {
   exercise: Exercise;
   correct: boolean;
+  revealed: boolean;
   stale: boolean;
 }): React.JSX.Element {
   const answer = answerTextFor(exercise);
@@ -885,19 +856,30 @@ function Feedback({
   return (
     <View style={base.stack}>
       <View style={styles.prompt}>
-        <View style={[styles.badge, !correct && styles.badgeWrong]}>
-          <Icon
-            name={correct ? 'done' : 'close'}
-            size={fontSizes.xxl}
-            color={correct ? colors.positive : colors.caution}
-          />
-        </View>
-        <Text style={[styles.verdict, !correct && styles.wrong]}>
-          {correct ? 'Correct!' : 'Not quite'}
-        </Text>
-        {!correct ? (
-          <Text style={base.caption}>The answer was “{answer}”.</Text>
-        ) : null}
+        {revealed ? (
+          <>
+            <Text style={[styles.verdict, styles.neutral]}>
+              Here's the answer
+            </Text>
+            <Text style={styles.revealedAnswer}>{answer}</Text>
+          </>
+        ) : (
+          <>
+            <View style={[styles.badge, !correct && styles.badgeWrong]}>
+              <Icon
+                name={correct ? 'done' : 'triangle'}
+                size={fontSizes.xxl}
+                color={correct ? colors.positive : colors.caution}
+              />
+            </View>
+            <Text style={[styles.verdict, !correct && styles.wrong]}>
+              {correct ? 'Correct!' : 'Not quite'}
+            </Text>
+            {!correct ? (
+              <Text style={base.caption}>The answer was “{answer}”.</Text>
+            ) : null}
+          </>
+        )}
         {synonyms ? (
           <Text style={base.caption}>Also accepted: {synonyms}</Text>
         ) : null}
@@ -922,9 +904,7 @@ function Feedback({
               !correct && styles.stageBannerTextDemote,
             ]}
           >
-            {correct
-              ? `Level up → ${STAGE_LABEL[stageChange]}`
-              : `Back to ${STAGE_LABEL[stageChange]}`}
+            {correct ? 'Level up!' : 'Back a step'}
           </Text>
         </View>
       ) : null}
@@ -954,7 +934,7 @@ function Feedback({
           </View>
         ) : null}
         <IconLabel icon="pin" style={base.caption}>
-          {exercise.placeHint}
+          {placeLabel(exercise.placeHint)}
         </IconLabel>
       </Card>
 
@@ -1081,17 +1061,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
   },
-  stageBadge: {
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: space.sm,
-    paddingVertical: space.xxs,
-    borderRadius: radii.pill,
-  },
-  stageBadgeText: {
-    ...base.caption,
-    color: colors.accent,
-    fontWeight: fontWeights.bold,
-  },
   footer: {
     padding: space.lg,
   },
@@ -1187,12 +1156,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  revealedAnswer: {
+    ...base.text,
+    fontSize: fontSizes.xl,
+    fontWeight: fontWeights.bold,
+    textAlign: 'center',
+  },
   verdict: {
     ...base.title,
     color: colors.positive,
   },
   wrong: {
     color: colors.caution,
+  },
+  neutral: {
+    color: colors.text,
   },
   stageBanner: {
     backgroundColor: colors.accentSoft,

@@ -91,6 +91,7 @@ class FlashcardExercise(BaseModel):
     photo: PhotoLayer | None = None
     front: JpOption | None = None
     back: FlashcardBack
+    # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str
     next_step: str
     promoted_to: ReviewStage | None = None
@@ -114,6 +115,7 @@ class McqExercise(BaseModel):
     meaning_prompt: str = ""
     options: list[JpOption | str]
     answer_index: int
+    # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str
     example: Example | None = None
     next_step: str
@@ -139,6 +141,7 @@ class FillBlankExercise(BaseModel):
     answer_kind: Literal["kana", "meaning"]
     accepted_answers: list[str]
     answer_display: str
+    # Where the Tango was saved (an area name), or "" when no place was saved.
     place_hint: str = ""
     example: Example | None = None
     next_step: str = ""
