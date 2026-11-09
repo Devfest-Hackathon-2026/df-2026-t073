@@ -68,9 +68,9 @@ async function tabLabels(mapOn: boolean) {
 }
 
 test('with the map on: Home, Map, camera, Tango, Me', async () => {
-  expect(await tabLabels(true)).toEqual(['Home', 'Map', 'Tango', 'Me']);
+  expect(await tabLabels(true)).toEqual(['Home', 'Map', 'My Tango', 'Me']);
 });
 
 test('with the map off, Plans takes the Map slot so the camera stays centered', async () => {
-  expect(await tabLabels(false)).toEqual(['Home', 'Plans', 'Tango', 'Me']);
+  expect(await tabLabels(false)).toEqual(['Home', 'Plans', 'My Tango', 'Me']);
 });

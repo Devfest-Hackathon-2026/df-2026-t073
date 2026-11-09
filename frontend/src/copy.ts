@@ -78,7 +78,7 @@ const tabs = {
   map: 'Map',
   plans: 'Plans',
   capture: 'Capture',
-  review: 'Tango',
+  review: 'My Tango',
   me: 'Me',
   openCamera: 'Open camera',
 };
@@ -88,8 +88,6 @@ const map = {
   goToMyLocation: 'Go to my location',
   /** Glyph on the "up next" pin: 次 = next. */
   nextGlyph: '次',
-  /** Glyph on Tango pins: 単 is from 単語 (word). */
-  tangoGlyph: '単',
   placeholder: 'Map placeholder',
   placeholderPin: (label: string, count: number | string) =>
     `${label || 'Pin'} ${count || ''}`,
@@ -258,7 +256,7 @@ const allTango = {
   place: 'Place',
   anyPlace: 'Any place',
   list: 'List',
-  anyList: 'Any list',
+  anyList: 'All lists',
   prevPage: 'Previous page',
   nextPage: 'Next page',
   pageA11y: (n: number) => `Page ${n}`,
@@ -296,7 +294,7 @@ const meSections = {
 
 const review = {
   loadingLines: ['Counting what is due…', 'Sorting your collections…'],
-  title: 'Tango',
+  title: 'My Tango',
   quickReview: 'Quick review',
   collections: 'Collections',
   nothingCaught: 'Nothing caught yet',
@@ -337,7 +335,7 @@ const mapScreen = {
 
 const me = {
   loadingLines: ['Tallying your Tango…', 'Counting your Stamps…'],
-  title: 'Me',
+  title: '',
   mapOn: 'Map on',
   mapOff: 'Map off',
   statTango: 'Tango',
@@ -544,9 +542,6 @@ const today = {
     romaji: `${name}-san`,
     meaning: `${name} (with the polite さん)`,
   }),
-  statTango: 'Tango',
-  statToReview: 'to review',
-  statAreas: (n: number) => (n === 1 ? 'area' : 'areas'),
   neighborhoods: 'Your neighborhoods',
   neighborhoodsJp: { text: '近所', reading: 'きんじょ', romaji: 'kinjo' },
   /** Separates the sample words on a neighborhood card. */

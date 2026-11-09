@@ -95,7 +95,6 @@ function TabBar({ state, navigation }: BottomTabBarProps): React.JSX.Element {
               name={meta.icon}
               size={fontSizes.xl}
               color={focused ? colors.accent : colors.textMuted}
-              strokeWidth={focused ? 2.4 : 2}
             />
             <Text style={[styles.label, focused && styles.active]}>
               {meta.label}

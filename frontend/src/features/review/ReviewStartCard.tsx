@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   caughtUp: {
     ...base.text,
-    color: colors.textInverse,
+    color: colors.gold,
     fontWeight: fontWeights.bold,
   },
   caughtUpBody: {

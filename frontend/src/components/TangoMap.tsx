@@ -202,9 +202,7 @@ export function TangoMap({
             onPress={onPinPress ? () => onPinPress(pin) : undefined}
             tracksViewChanges={tracking}
             // Labeled pins: keep the badge (not the badge+label block) on the spot.
-            anchor={
-              pin.kind === 'tango' && pin.label ? LABELED_ANCHOR : CENTER
-            }
+            anchor={pin.kind === 'tango' && pin.label ? LABELED_ANCHOR : CENTER}
           >
             <PinBadge pin={pin} showStars={showStars} />
           </Marker>
@@ -246,24 +244,35 @@ function PinBadge({
     // A heart tag with the place name.
     return (
       <View style={[styles.pin, styles.favorite]}>
-        <Icon name="heart" filled size={fontSizes.sm} color={colors.textInverse} />
+        <Icon
+          name="heart"
+          filled
+          size={fontSizes.sm}
+          color={colors.textInverse}
+        />
         <Text style={styles.text}>{pin.label}</Text>
       </View>
     );
   }
-  // Tango: a stamp, like the seals and station stamps collected in Japan.
-  // 単 is from 単語 (word); the hanamaru filter turns it into a red 花丸 stamp.
+  // Tango: a stamp, like the seals and station stamps collected in Japan, with
+  // the Tango card mark; the hanamaru filter turns it into a red 花丸 stamp.
   return (
     <View style={styles.tangoWrap}>
       <View style={[styles.stamp, showStars && styles.stampStar]}>
         {showStars ? (
-          <Hanamaru size={fontSizes.md} />
+          // Hana Stamps: the count, then the hanamaru (as on the Me screen).
+          <>
+            <Text style={[styles.stampCount, styles.stampTextStar]}>
+              {pin.stars ?? 0}
+            </Text>
+            <Hanamaru size={fontSizes.md} />
+          </>
         ) : (
-          <Text style={styles.stampGlyph}>{copy.map.tangoGlyph}</Text>
+          <>
+            <Icon name="tango" size={fontSizes.md} color={colors.accent} />
+            <Text style={styles.stampCount}>{pin.count}</Text>
+          </>
         )}
-        <Text style={[styles.stampCount, showStars && styles.stampTextStar]}>
-          {showStars ? pin.stars ?? 0 : pin.count}
-        </Text>
       </View>
       {pin.label ? (
         <View style={styles.areaTag}>
@@ -288,8 +297,10 @@ const styles = StyleSheet.create({
     borderWidth: sizes.border,
     borderColor: colors.surface,
   },
+  // Room for the tilted stamp's corners, which the map would cut off.
   tangoWrap: {
     alignItems: 'center',
+    padding: space.xs,
   },
   stamp: {
     flexDirection: 'row',
@@ -307,12 +318,6 @@ const styles = StyleSheet.create({
   },
   stampStar: {
     borderColor: colors.hanamaru,
-  },
-  stampGlyph: {
-    ...base.text,
-    fontSize: fontSizes.sm,
-    fontWeight: fontWeights.bold,
-    color: colors.accent,
   },
   stampCount: {
     ...base.text,

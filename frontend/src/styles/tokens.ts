@@ -4,15 +4,16 @@ import { Platform } from 'react-native';
 // Every color, font and size in the app comes from this file.
 
 export const colors = {
-  // Neutrals
-  bg: '#F2F2EF',
-  surface: '#FFFFFF',
-  surfaceMuted: '#E7E7E3',
-  border: '#D4D4CF',
-  text: '#1B1B1B',
-  textMuted: '#6A6A66',
+  // Neutrals, warm like the app icon: cream paper cards on a warm page,
+  // warm black ink.
+  bg: '#F1EDE6',
+  surface: '#FBF8F3',
+  surfaceMuted: '#E8E3DB',
+  border: '#D9D2C7',
+  text: '#1E1B18',
+  textMuted: '#6B655E',
   textInverse: '#FFFFFF',
-  dark: '#1B1B1B',
+  dark: '#1E1B18',
   /** The card peeking out behind the ink Review card (the Review deck). */
   deckBack: '#3B4A66',
   camera: '#202326',
@@ -32,6 +33,8 @@ export const colors = {
   caution: '#A35C00',
   // 花丸 (mastered Tango): a teacher's red pen.
   hanamaru: '#D2452B',
+  /** The icon's sparkles: for celebrating, on dark cards (too light for text on cream). */
+  gold: '#F2C14E',
 } as const;
 
 // Android bundles Murecho (res/font, registered in MainApplication.kt). iOS

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isLive } from '../../config';
 import { getToday, listVisits } from '../../api/places';
 import { type Coords, getCurrentCoords } from '../../location/location';
-import { getReviewCard, getReviewSummary } from '../../api/review';
+import { getReviewCard } from '../../api/review';
 import { Jp } from '../../components/Jp';
 import { TangoMap } from '../../components/TangoMap';
 import {
@@ -47,7 +47,6 @@ import type {
   MapArea,
   MapPin,
   ReviewCard,
-  ReviewSummary,
   TodaySummary,
   Visit,
   WordOfDay,
@@ -74,8 +73,7 @@ export function TodayScreen(): React.JSX.Element {
   const nav = useRootNav();
   const today = useAsync(getToday);
   const review = useAsync(getReviewCard);
-  const stats = useAsync(getReviewSummary);
-  useReloadOnFocus(today.reload, review.reload, stats.reload);
+  useReloadOnFocus(today.reload, review.reload);
   // Device position: the map preview centers on it.
   const [here, setHere] = useState<Coords | null>(null);
   useEffect(() => {
@@ -101,7 +99,6 @@ export function TodayScreen(): React.JSX.Element {
           <Regular
             summary={summary}
             review={review.data}
-            stats={stats.data}
             here={here}
             showFirstOuting={settings.dayOne}
             onOpenMap={areaId =>
@@ -115,31 +112,6 @@ export function TodayScreen(): React.JSX.Element {
         )}
       </Loadable>
     </ScrollView>
-  );
-}
-
-/** Tango, reviews due and neighborhoods at a glance. */
-function StatsRow({
-  stats,
-  areas,
-}: {
-  stats: ReviewSummary;
-  areas: number;
-}): React.JSX.Element {
-  const items = [
-    { value: stats.totalTango, label: copy.today.statTango },
-    { value: stats.dueCount, label: copy.today.statToReview },
-    { value: areas, label: copy.today.statAreas(areas) },
-  ];
-  return (
-    <View style={styles.stats}>
-      {items.map(item => (
-        <View key={item.label} style={styles.stat}>
-          <Text style={styles.statValue}>{item.value}</Text>
-          <Text style={base.caption}>{item.label}</Text>
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -233,15 +205,12 @@ function Greeting({ name }: { name: string }): React.JSX.Element {
 }
 
 function NameSan({ name }: { name: string }): React.JSX.Element {
-  return (
-    <Jp {...copy.today.nameSan(name)} bold size="xl" />
-  );
+  return <Jp {...copy.today.nameSan(name)} bold size="xl" />;
 }
 
 function Regular({
   summary,
   review,
-  stats,
   here,
   showFirstOuting,
   onOpenMap,
@@ -249,7 +218,6 @@ function Regular({
 }: {
   summary: TodaySummary;
   review: ReviewCard | undefined;
-  stats: ReviewSummary | undefined;
   here: Coords | null;
   showFirstOuting: boolean;
   onOpenMap: (areaId?: string) => void;
@@ -268,7 +236,6 @@ function Regular({
           onDismiss={() => update({ dayOne: false })}
         />
       ) : null}
-      {stats ? <StatsRow stats={stats} areas={summary.areas.length} /> : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {review ? (
         <ReviewStartCard card={review} title={copy.today.reviewTitle} />
@@ -302,26 +269,16 @@ function UpNextCard({ visit }: { visit: Visit }): React.JSX.Element {
   const nav = useRootNav();
   return (
     <TicketCard
-      ink
       stub={
         <Button
           label={copy.today.prepare}
-          variant="light"
-          onColor={colors.ink}
           onPress={() => nav.navigate('Prepare', { placeId: visit.place.id })}
         />
       }
     >
-      <Text style={styles.titleInverse}>{copy.today.upNext}</Text>
-      <Jp
-        {...visit.place.name}
-        bold
-        size="lg"
-        tone="inverse"
-        furigana={false}
-      />
+      <Text style={base.heading}>{copy.today.upNext}</Text>
+      <Jp {...visit.place.name} bold size="lg" furigana={false} />
       <Facts
-        inverse
         items={[
           { icon: 'calendar', text: formatVisitTime(visit.when) },
           { icon: 'category', text: visit.place.category },
@@ -440,17 +397,13 @@ function FirstOutingCard({
       <NumberedStep index={2}>
         <View style={base.rowBetween}>
           <View style={base.grow}>
-            <Text style={styles.stepTitle}>
-              {copy.today.stepRehearse}
-            </Text>
+            <Text style={styles.stepTitle}>{copy.today.stepRehearse}</Text>
             <Text style={base.caption}>{copy.today.stepRehearseNote}</Text>
           </View>
           <Button
             label={copy.today.go}
             variant="secondary"
-            onPress={() =>
-              nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })
-            }
+            onPress={() => nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })}
           />
         </View>
       </NumberedStep>
@@ -489,22 +442,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingBottom: space.xxl,
     gap: space.md,
-  },
-  stats: {
-    flexDirection: 'row',
-    gap: space.sm,
-  },
-  stat: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    padding: space.md,
-    gap: space.xxs,
-  },
-  statValue: {
-    ...base.text,
-    fontSize: fontSizes.xl,
-    fontWeight: fontWeights.bold,
   },
   wordMeaning: {
     ...base.text,
@@ -573,10 +510,6 @@ const styles = StyleSheet.create({
   eyebrow: {
     ...base.label,
     color: colors.accent,
-  },
-  titleInverse: {
-    ...base.heading,
-    color: colors.textInverse,
   },
   stepTitle: {
     ...base.text,
