@@ -30,7 +30,7 @@ Tankengo is a camera-first vocabulary app built around place. You catch words fr
 - **Review.** Multiple choice, plus **fill the gap** on your own photo with the caught word covered. Questions are cued by the place you saw the word. Favourites and your own lists are reviewable collections.
 - **Prepare.** A briefing for a place: what to expect (from Google Maps reviews, written by Gemini), Tango for the visit, and anonymous tips.
 - **Rehearse.** A spoken role-play with the staff at that place. The staff voice is text-to-speech, your reply is transcribed by Speech-to-Text and rated by Gemini, or you can pick a reply instead.
-- **Privacy.** Anonymous sign-in, no public profile, and a home area you choose that is never pinned on the map.
+- **Privacy.** Sign in with Google or email, no public profile, and a home area you choose that is never pinned on the map.
 
 ## Team
 
@@ -43,7 +43,7 @@ Tankengo is a camera-first vocabulary app built around place. You catch words fr
 
 | Layer | What we use |
 | :--- | :--- |
-| Mobile app | React Native 0.88 (Android), VisionCamera with ML Kit text recognition, react-native-maps, Firebase Auth (anonymous) |
+| Mobile app | React Native 0.88 (Android), VisionCamera with ML Kit text recognition, react-native-maps, Firebase Auth (Google and email) |
 | Backend | FastAPI on Python 3.12, managed with `uv`; Docker image for Cloud Run |
 | Data | Cloud Firestore (user data, place and briefing caches), Cloud Storage (photos, cached speech) |
 | Google APIs | Cloud Vision, Cloud Speech-to-Text, Cloud Text-to-Speech, Places API (New), Gemini |

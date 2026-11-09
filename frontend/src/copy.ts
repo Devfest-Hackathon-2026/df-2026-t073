@@ -154,6 +154,9 @@ const errors = {
   listNotFound: 'List not found',
   noRehearsalSession: 'This rehearsal has no session.',
   authNotConfigured: 'Firebase Authentication is not configured.',
+  googleNotConfigured:
+    'Google sign-in is not set up. Add GOOGLE_WEB_CLIENT_ID to frontend/.env.',
+  googleNoToken: 'Google did not return a sign-in token. Please try again.',
   emailPasswordRequired: 'Email and password are required.',
   testEmailPasswordRequired: 'Test email and password are required.',
   wrongPasswordForExistingUser: 'User exists but with a different password.',
@@ -482,6 +485,12 @@ const login = {
   createAccount: 'Create account',
   toSignUp: "Don't have an account? Create one",
   toSignIn: 'Already have an account? Sign in',
+  continueWithGoogle: 'Continue with Google',
+  or: 'or',
+  googlePlayServices:
+    'Google Play services is missing or out of date on this device.',
+  accountExistsOtherMethod:
+    'An account with this email already exists with a different sign-in method.',
 };
 
 const today = {

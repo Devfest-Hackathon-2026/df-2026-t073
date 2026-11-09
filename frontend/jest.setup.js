@@ -92,9 +92,27 @@ jest.mock('firebase/auth', () => ({
     return () => {};
   },
   signInAnonymously: async () => ({ user: null }),
+  signInWithCredential: async () => ({ user: { uid: 'test-user-uid' } }),
+  linkWithCredential: async () => ({ user: { uid: 'test-user-uid' } }),
+  GoogleAuthProvider: { credential: () => ({}) },
   signInWithEmailAndPassword: async () => ({ user: { uid: 'test-user-uid', email: 'test@tankengo.com' } }),
   createUserWithEmailAndPassword: async () => ({ user: { uid: 'test-user-uid', email: 'test@tankengo.com' } }),
   signOut: async () => {},
+}));
+
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: () => {},
+    hasPlayServices: async () => true,
+    signIn: async () => ({ type: 'cancelled', data: null }),
+    signOut: async () => null,
+  },
+  isSuccessResponse: response => response?.type === 'success',
+  isErrorWithCode: () => false,
+  statusCodes: {
+    SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED',
+    PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+  },
 }));
 
 jest.mock('react-native-maps', () => {

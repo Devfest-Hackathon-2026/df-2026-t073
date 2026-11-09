@@ -55,7 +55,7 @@ cd frontend
 npm install
 ```
 
-**After pulling changes that add native libraries** (anything in `android/`, or new packages such as the camera text reader `react-native-vision-camera-mlkit`, `react-native-worklets` `react-native-nitro-sound`, or `react-native-svg` for the Lucide icons): run `npm install`, rebuild the app (`npm run android`), and start Metro once with a clean cache (`npm start -- --reset-cache`). A stale cache after a Babel plugin change shows up as `Cannot read property 'createWorkletRuntime' of undefined` when the camera opens.
+**After pulling changes that add native libraries** (anything in `android/`, or new packages such as the camera text reader `react-native-vision-camera-mlkit`, `react-native-worklets` `react-native-nitro-sound`, `@react-native-google-signin/google-signin`, or `react-native-svg` for the Lucide icons): run `npm install`, rebuild the app (`npm run android`), and start Metro once with a clean cache (`npm start -- --reset-cache`). A stale cache after a Babel plugin change shows up as `Cannot read property 'createWorkletRuntime' of undefined` when the camera opens.
 
 ---
 
@@ -99,7 +99,12 @@ The app runs on mock data by default (`src/mocks/`), so every screen works witho
    LIVE_APIS=capture,tango,review,user,places,prepare,rehearse
    ```
 3. Set `API_BASE_URL` (see below).
-4. Restart Metro with a clean cache so the new values are picked up: `npm start -- --reset-cache`.
+4. Fill in the `FIREBASE_*` values from Firebase console › Project settings › Your apps › Web app. The app signs in with email and password or with Google.
+5. For **Google sign-in**, also:
+   - turn on Google under Authentication › Sign-in method;
+   - register the Android app (`com.devfestapp`) in Firebase with your **SHA-1** and **SHA-256** fingerprints. Debug and release builds both use the committed `android/app/debug.keystore`, so one registration covers the team. From `frontend/`: `keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android`;
+   - set `GOOGLE_WEB_CLIENT_ID` in `frontend/.env` to the Web client ID from Authentication › Sign-in method › Google › Web SDK configuration.
+6. Restart Metro with a clean cache so the new values are picked up: `npm start -- --reset-cache`.
 
 `API_BASE_URL` defaults to `http://10.0.2.2:8000`, which only works in the emulator:
 - **Android emulator:** `10.0.2.2` routes to `localhost` on your computer. Start the backend on port `8000` (`cd ../backend && uv run uvicorn main:app --port 8000`).
@@ -120,6 +125,8 @@ The app runs on mock data by default (`src/mocks/`), so every screen works witho
 | No USB debugging prompt | Settings → About phone → tap Build number 7 times, then Developer options → USB debugging; unlock the phone when plugging in. |
 | Rehearse spoken reply → `HTTP 503` | Cloud Speech-to-Text API not enabled (backend README, Step 4b). |
 | Prepare/Rehearse look like mock data | `prepare,rehearse` missing from `LIVE_APIS`. |
+| Google sign-in fails with `DEVELOPER_ERROR` | The SHA-1 or package name isn't registered for the Android app in Firebase, or `GOOGLE_WEB_CLIENT_ID` is the wrong client. Check both, then rebuild. |
+| Google sign-in says Play services is missing | Use an emulator image with Google Play, or update Google Play services on the phone. |
 
 Me › Developer shows which mode is active and has a **Check backend health** button (`GET /healthz`).
 

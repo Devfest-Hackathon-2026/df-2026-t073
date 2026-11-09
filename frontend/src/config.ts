@@ -4,6 +4,7 @@ import {
   FIREBASE_APP_ID,
   FIREBASE_AUTH_DOMAIN,
   FIREBASE_PROJECT_ID,
+  GOOGLE_WEB_CLIENT_ID as RAW_GOOGLE_WEB_CLIENT_ID,
   LIVE_APIS as RAW_LIVE_APIS,
   TEST_USER_EMAIL as RAW_TEST_USER_EMAIL,
   TEST_USER_PASSWORD as RAW_TEST_USER_PASSWORD,
@@ -62,3 +63,9 @@ export const FIREBASE_CONFIG = {
   projectId: FIREBASE_PROJECT_ID ?? '',
   appId: FIREBASE_APP_ID ?? '',
 };
+
+/**
+ * Web client ID for Google sign-in (Firebase console › Authentication ›
+ * Sign-in method › Google › Web SDK configuration). Not a secret.
+ */
+export const GOOGLE_WEB_CLIENT_ID = (RAW_GOOGLE_WEB_CLIENT_ID ?? '').trim();

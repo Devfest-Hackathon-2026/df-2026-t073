@@ -11,6 +11,7 @@ import {
   firebaseConfigured,
   signInAnonymousUser,
   signInWithEmail,
+  signInWithGoogle as firebaseSignInWithGoogle,
   signInWithTestCredentials,
   signOutUser,
   signUpWithEmail,
@@ -35,6 +36,8 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<User>;
   signInWithTest: (email?: string, password?: string) => Promise<User | null>;
   signInAnonymous: () => Promise<User | null>;
+  /** Opens the Google account dialog. Resolves to null if it is closed. */
+  signInWithGoogle: () => Promise<User | null>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -141,6 +144,21 @@ export function AuthProvider({
     }
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    setError(null);
+    try {
+      const u = await firebaseSignInWithGoogle();
+      if (u) {
+        setUser(u);
+      }
+      return u;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      throw err;
+    }
+  }, []);
+
   const handleSignOut = useCallback(async () => {
     setError(null);
     try {
@@ -177,6 +195,7 @@ export function AuthProvider({
       signUp: handleSignUp,
       signInWithTest,
       signInAnonymous,
+      signInWithGoogle,
       signOut: handleSignOut,
       clearError,
     };
@@ -188,6 +207,7 @@ export function AuthProvider({
     handleSignUp,
     signInWithTest,
     signInAnonymous,
+    signInWithGoogle,
     handleSignOut,
     clearError,
   ]);

@@ -1,18 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { type FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import {
   type Auth,
   createUserWithEmailAndPassword,
   getReactNativePersistence,
+  GoogleAuthProvider,
   initializeAuth,
+  linkWithCredential,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
   type User,
 } from 'firebase/auth';
 import {
   FIREBASE_CONFIG,
+  GOOGLE_WEB_CLIENT_ID,
   TEST_USER_EMAIL,
   TEST_USER_PASSWORD,
 } from '../config';
@@ -172,11 +182,93 @@ export async function signInAnonymousUser(): Promise<User | null> {
   return credential.user;
 }
 
+let googleConfigured = false;
+
+/** Sets up the Google sign-in library once, if the Web client ID is set. */
+function configureGoogle(): boolean {
+  if (!GOOGLE_WEB_CLIENT_ID) {
+    return false;
+  }
+  if (!googleConfigured) {
+    GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
+    googleConfigured = true;
+  }
+  return true;
+}
+
+/**
+ * Signs in with a Google account. The Firebase JS SDK has no popup flow on
+ * React Native, so the native Google dialog gives an ID token and Firebase
+ * exchanges it for a session. Returns null if the person closes the dialog.
+ *
+ * An anonymous session is linked instead of replaced, so its data stays.
+ */
+export async function signInWithGoogle(): Promise<User | null> {
+  const instance = getAuthInstance();
+  if (!instance) {
+    throw new Error(copy.errors.authNotConfigured);
+  }
+  if (!configureGoogle()) {
+    throw new Error(copy.errors.googleNotConfigured);
+  }
+  await instance.authStateReady();
+
+  let idToken: string | null | undefined;
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+    if (!isSuccessResponse(response)) {
+      return null; // closed the dialog
+    }
+    idToken = response.data.idToken;
+  } catch (err: unknown) {
+    if (isErrorWithCode(err)) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        return null;
+      }
+      if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        throw new Error(copy.login.googlePlayServices);
+      }
+    }
+    throw err;
+  }
+  if (!idToken) {
+    throw new Error(copy.errors.googleNoToken);
+  }
+
+  const credential = GoogleAuthProvider.credential(idToken);
+  const current = instance.currentUser;
+  if (current?.isAnonymous) {
+    try {
+      const linked = await linkWithCredential(current, credential);
+      return linked.user;
+    } catch (err: unknown) {
+      // This Google account already has its own Firebase user: sign in to it.
+      // The anonymous account's data stays behind under the old user.
+      const code = (err as { code?: string })?.code;
+      if (code !== 'auth/credential-already-in-use') {
+        throw err;
+      }
+    }
+  }
+  const result = await signInWithCredential(instance, credential);
+  return result.user;
+}
+
 /** Signs out the current user session and removes persisted auth. */
 export async function signOutUser(): Promise<void> {
   const instance = getAuthInstance();
   if (!instance) {
     return;
+  }
+  try {
+    if (configureGoogle()) {
+      // So the account picker shows again next time.
+      await GoogleSignin.signOut();
+    }
+  } catch {
+    // Google sign-in isn't set up or isn't in this build; logging out of
+    // Firebase must still work.
   }
   await signOut(instance);
 }

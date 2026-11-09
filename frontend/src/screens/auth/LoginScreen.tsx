@@ -41,6 +41,9 @@ function formatAuthError(err: unknown): string {
   if (code === 'auth/email-already-in-use') {
     return copy.login.emailInUse;
   }
+  if (code === 'auth/account-exists-with-different-credential') {
+    return copy.login.accountExistsOtherMethod;
+  }
   if (code === 'auth/weak-password') {
     return copy.login.weakPassword;
   }
@@ -57,7 +60,7 @@ function formatAuthError(err: unknown): string {
 }
 
 export function LoginScreen(): React.JSX.Element {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const { update } = useSettings();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -81,6 +84,18 @@ export function LoginScreen(): React.JSX.Element {
         await signUp(trimmedEmail, trimmedPass);
         update({ dayOne: true });
       }
+    } catch (err: unknown) {
+      setError(formatAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await signInWithGoogle();
     } catch (err: unknown) {
       setError(formatAuthError(err));
     } finally {
@@ -154,6 +169,15 @@ export function LoginScreen(): React.JSX.Element {
             style={styles.submitBtn}
           />
 
+          <Text style={styles.orText}>{copy.login.or}</Text>
+
+          <Button
+            label={copy.login.continueWithGoogle}
+            variant="secondary"
+            onPress={handleGoogle}
+            disabled={busy}
+          />
+
           <Pressable
             accessibilityRole="button"
             disabled={busy}
@@ -209,6 +233,11 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: space.sm,
+  },
+  orText: {
+    ...base.caption,
+    textAlign: 'center',
+    marginVertical: space.sm,
   },
   switchMode: {
     alignItems: 'center',
