@@ -5,8 +5,8 @@ import random
 from app.schemas.flashcard import (
     FlashcardResponse,
     QuestionType,
-    ReviewStage,
 )
+from app.schemas.review_types import ReviewStage
 from app.services.review_rules.cards import effective_stage, uses_object_questions
 from app.services.review_rules.grading import is_kana_only
 

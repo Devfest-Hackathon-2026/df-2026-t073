@@ -1,6 +1,11 @@
-"""Review stage machine: the stage path per format, promotion and demotion."""
+"""Review stage machine: the stage path per format, promotion and demotion.
 
-from app.schemas.flashcard import (
+Imports only leaf schema modules, because the FlashcardResponse validator uses
+these rules to fill in and normalize each card's stage.
+"""
+
+from app.schemas.capture import Vertex
+from app.schemas.review_types import (
     CaptureFormat,
     QuestionType,
     ReviewStage,
@@ -87,3 +92,32 @@ def shows_photo(stage: ReviewStage, fmt: CaptureFormat, has_photo: bool = True) 
     if fmt == "object":
         return True
     return stage in ("flashcard", "mcq_photo")
+
+
+def has_usable_photo(image_url: str, bounding_box: list[Vertex]) -> bool:
+    """True when there is an uploaded capture photo and a usable bounding box."""
+    return bool(image_url) and len(bounding_box) >= 2
+
+
+def infer_stage(strength: int, fmt: CaptureFormat, photo: bool = True) -> "ReviewStage":
+    """Starting stage for older cards that have no stored stage."""
+    if strength <= 1:
+        return "flashcard"
+    if strength == 2:
+        return "mcq_photo" if (fmt == "text" and photo) else "mcq"
+    if strength == 3:
+        return "mcq"
+    return "fill"
+
+
+def normalize_stage(
+    stage: "ReviewStage", fmt: CaptureFormat, photo: bool
+) -> "ReviewStage":
+    """The photo MCQ stage only exists for text cards with a photo; otherwise it is plain mcq.
+
+    A photo added later (backfill) does not move a card back from mcq to mcq_photo:
+    mcq_photo is the easier stage, so progress already made is kept.
+    """
+    if stage == "mcq_photo" and (fmt == "object" or not photo):
+        return "mcq"
+    return stage

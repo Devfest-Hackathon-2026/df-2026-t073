@@ -2,9 +2,8 @@ from app.schemas.capture import Vertex
 from app.schemas.flashcard import (
     ReviewStats,
     Sighting,
-    card_has_photo,
 )
-from app.services.review_rules.cards import capture_format
+from app.services.review_rules.cards import capture_format, card_has_photo
 from app.services.review_rules.exercises import backfill_photo_fields
 from app.services.review_rules.grading import rating_for_answer
 from app.services.review_rules.stages import next_stage, shows_photo, stage_path

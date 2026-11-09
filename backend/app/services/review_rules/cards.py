@@ -3,9 +3,14 @@
 from app.schemas.flashcard import (
     CaptureFormat,
     FlashcardResponse,
-    ReviewStage,
-    card_has_photo,
 )
+from app.schemas.review_types import ReviewStage
+from app.services.review_rules.stages import has_usable_photo
+
+
+def card_has_photo(card: FlashcardResponse) -> bool:
+    """True when the card has an uploaded capture photo and a usable bounding box."""
+    return has_usable_photo(card.image_url, card.bounding_box)
 
 
 def capture_format(card: FlashcardResponse) -> CaptureFormat:

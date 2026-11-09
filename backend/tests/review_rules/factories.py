@@ -5,12 +5,12 @@ from app.schemas.flashcard import (
     CaptureFormat,
     FlashcardResponse,
     QuestionType,
-    ReviewStage,
     ReviewStats,
     Sighting,
     TangoKind,
     UseCaseExample,
 )
+from app.schemas.review_types import ReviewStage
 
 NOW = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
 

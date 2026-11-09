@@ -8,8 +8,8 @@ from app.schemas.flashcard import (
     FlashcardResponse,
     JpOption,
     QuestionType,
-    ReviewStage,
 )
+from app.schemas.review_types import ReviewStage
 
 
 class ReviewCardResponse(BaseModel):

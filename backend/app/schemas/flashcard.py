@@ -4,54 +4,15 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.capture import Vertex
+from app.schemas.review_types import CaptureFormat, QuestionType, Rating, ReviewStats
+from app.services.review_rules.stages import (
+    has_usable_photo,
+    infer_stage,
+    normalize_stage,
+)
 
 TangoKind = Literal["word", "phrase", "object", "menu_item"]
 Register = Literal["easy", "keigo"]
-CaptureFormat = Literal["object", "text"]
-ReviewStage = Literal["flashcard", "mcq_photo", "mcq", "fill"]
-QuestionType = Literal[
-    "flashcard_text",
-    "flashcard_object",
-    "mcq_text_reading",
-    "mcq_text_translate",
-    "mcq_text_reverse",
-    "mcq_object_name",
-    "fill_text_reading",
-    "fill_text_translate",
-    "fill_text_reverse",
-    "fill_object_name",
-]
-
-
-# Stage rules shared by the FlashcardResponse validator and review_rules.
-# They live here (not in review_rules) so the schema can use them without a circular import.
-
-
-def card_has_photo(card: "FlashcardResponse") -> bool:
-    """True when the card has an uploaded capture photo and a usable bounding box."""
-    return bool(card.image_url) and len(card.bounding_box) >= 2
-
-
-def infer_stage(strength: int, fmt: CaptureFormat, photo: bool = True) -> "ReviewStage":
-    """Starting stage for older cards that have no stored stage."""
-    if strength <= 1:
-        return "flashcard"
-    if strength == 2:
-        return "mcq_photo" if (fmt == "text" and photo) else "mcq"
-    if strength == 3:
-        return "mcq"
-    return "fill"
-
-
-def normalize_stage(stage: "ReviewStage", fmt: CaptureFormat, photo: bool) -> "ReviewStage":
-    """The photo MCQ stage only exists for text cards with a photo; otherwise it is plain mcq.
-
-    A photo added later (backfill) does not move a card back from mcq to mcq_photo:
-    mcq_photo is the easier stage, so progress already made is kept.
-    """
-    if stage == "mcq_photo" and (fmt == "object" or not photo):
-        return "mcq"
-    return stage
 
 
 class UseCaseExample(BaseModel):
@@ -82,17 +43,6 @@ class RelatedVocabItem(BaseModel):
     reading: str
     meaning: str
     relation_note: str
-
-
-class ReviewStats(BaseModel):
-    review_count: int = 0
-    last_reviewed_at: datetime | None = None
-    next_review_at: datetime
-    mastered: bool = False
-    stage: ReviewStage | None = None
-    stage_streak: int = 0
-    miss_streak: int = 0
-    last_question_type: QuestionType | None = None
 
 
 class Sighting(BaseModel):
@@ -146,7 +96,7 @@ class FlashcardCreateRequest(BaseModel):
 
 
 class FlashcardReviewRequest(BaseModel):
-    rating: Literal["again", "good", "easy"] | None = None
+    rating: Rating | None = None
     correct: bool | None = None
     answer: str | None = None
     question_type: QuestionType | None = None
@@ -219,7 +169,7 @@ class FlashcardResponse(GeneratedFlashcardContent):
     def populate_defaults(self) -> "FlashcardResponse":
         if self.capture_format is None:
             self.capture_format = "object" if self.kind == "object" else "text"
-        photo = card_has_photo(self)
+        photo = has_usable_photo(self.image_url, self.bounding_box)
         stage = self.review_stats.stage or infer_stage(self.strength, self.capture_format, photo)
         stage = normalize_stage(stage, self.capture_format, photo)
         if stage != self.review_stats.stage:

@@ -9,9 +9,7 @@ from app.schemas.flashcard import (
     FlashcardResponse,
     QuestionType,
 )
-
-Rating = Literal["again", "good", "easy"]
-
+from app.schemas.review_types import Rating
 
 _KANJI_OR_LATIN_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff々a-zA-Z]")
 

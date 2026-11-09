@@ -8,9 +8,7 @@ from app.schemas.flashcard import (
     Distractors,
     FlashcardResponse,
     JpOption,
-    ReviewStage,
     Sighting,
-    card_has_photo,
 )
 from app.schemas.review import (
     Example,
@@ -22,7 +20,12 @@ from app.schemas.review import (
     McqExercise,
     PhotoLayer,
 )
-from app.services.review_rules.cards import capture_format, effective_stage
+from app.schemas.review_types import ReviewStage
+from app.services.review_rules.cards import (
+    capture_format,
+    card_has_photo,
+    effective_stage,
+)
 from app.services.review_rules.distractors import WRONG_PER_QUESTION
 from app.services.review_rules.grading import accepted_answers_for
 from app.services.review_rules.questions import pick_question_type

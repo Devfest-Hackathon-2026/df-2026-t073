@@ -14,7 +14,11 @@ from fastapi import HTTPException
 from google.api_core.exceptions import ServiceUnavailable
 from google.cloud.firestore import ArrayUnion
 
-from app.schemas.flashcard import FlashcardResponse, QuestionType, ReviewStage
+from app.schemas.flashcard import (
+    FlashcardResponse,
+    QuestionType,
+)
+from app.schemas.review_types import ReviewStage
 from app.services import firestore
 
 UID = "u1"

@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import HTTPException, status
 from google.api_core.exceptions import GoogleAPICallError
@@ -18,9 +18,9 @@ from app.schemas.flashcard import (
     RelatedVocabItem,
     ReviewStats,
     Sighting,
-    card_has_photo,
 )
 from app.schemas.review import ReviewSessionRecord, SessionAnswer
+from app.schemas.review_types import Rating
 from app.schemas.user import UserProfile
 from app.services import tango_rules
 from app.services.review_rules import cards as review_cards
@@ -29,8 +29,6 @@ from app.services.review_rules.grading import grade_answer, rating_for_answer
 from app.services.review_rules.questions import is_stale_answer
 from app.services.review_rules.selection import area_of
 from app.services.review_rules.stages import next_stage
-
-Rating = Literal["again", "good", "easy"]
 
 logger = logging.getLogger(__name__)
 
@@ -506,7 +504,7 @@ async def update_flashcard_review(
     db: AsyncClient,
     uid: str,
     flashcard_id: str,
-    rating: Literal["again", "good", "easy"] | None = None,
+    rating: Rating | None = None,
     correct: bool | None = None,
     answer_text: str | None = None,
     question_type: QuestionType | None = None,
@@ -539,7 +537,7 @@ async def update_flashcard_review(
         scheduled_stats,
         review_cards.capture_format(card),
         is_correct,
-        has_photo=card_has_photo(card),
+        has_photo=review_cards.card_has_photo(card),
         question_type=question_type,
     )
     event = tango_rules.history_event(
