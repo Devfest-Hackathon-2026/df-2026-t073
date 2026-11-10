@@ -12,7 +12,6 @@ import { Hanamaru } from '../../components/Hanamaru';
 import { Icon, type IconName } from '../../components/Icon';
 import { Screen } from '../../components/layout';
 import { Button, Card, Loadable, SectionTitle } from '../../components/ui';
-import { useAsync } from '../../hooks/useAsync';
 import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { type MeSectionId, useRootNav } from '../../navigation/types';

@@ -300,6 +300,8 @@ export const addFavoritePlace = pick(
       `${API_V1}/me/favorite-places/${encodeURIComponent(placeId)}`,
       { method: 'PUT' },
     );
+    // Home's map shows favorite places as pins.
+    await clearCache('today:');
   },
 );
 
@@ -315,6 +317,8 @@ export const removeFavoritePlace = pick(
       `${API_V1}/me/favorite-places/${encodeURIComponent(placeId)}`,
       { method: 'DELETE' },
     );
+    // Home's map shows favorite places as pins.
+    await clearCache('today:');
   },
 );
 

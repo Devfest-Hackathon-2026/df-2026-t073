@@ -24,7 +24,6 @@ import {
 } from '../../components/ui';
 import { STAGE_LABEL } from '../../features/review/labels';
 import { playWord } from '../../features/tango/saveWord';
-import { useAsync } from '../../hooks/useAsync';
 import { useCachedAsync } from '../../hooks/useCachedAsync';
 import type { RootScreenProps } from '../../navigation/types';
 import { useSettings } from '../../state/SettingsContext';

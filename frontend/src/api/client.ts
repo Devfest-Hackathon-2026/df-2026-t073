@@ -82,11 +82,11 @@ export async function request<T>(
   }
 
   const fullUrl = `${API_BASE_URL}${path}${toQueryString(query)}`;
-  if (method === 'GET') {
-    const cached = etagCache.get(fullUrl);
-    if (cached) {
-      headers['If-None-Match'] = cached.etag;
-    }
+  // Kept for this request: a save elsewhere may clear the ETag cache before
+  // the "not modified" answer arrives.
+  const sentWith = method === 'GET' ? etagCache.get(fullUrl) : undefined;
+  if (sentWith) {
+    headers['If-None-Match'] = sentWith.etag;
   }
 
   const controller = new AbortController();
@@ -103,11 +103,8 @@ export async function request<T>(
       },
     );
 
-    if (response.status === 304) {
-      const cached = etagCache.get(fullUrl);
-      if (cached) {
-        return cached.data as T;
-      }
+    if (response.status === 304 && sentWith) {
+      return sentWith.data as T;
     }
 
     if (!response.ok) {

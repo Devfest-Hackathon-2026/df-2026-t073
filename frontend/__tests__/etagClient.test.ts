@@ -50,6 +50,29 @@ describe('ETag and 304 handling in request()', () => {
     expect(mockFetch.mock.calls[1][1].headers['If-None-Match']).toBe('"v1-hash"');
   });
 
+  it('a save clearing the ETag cache mid-request does not break a 304', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === 'etag' ? '"v1-hash"' : null,
+        },
+        json: async () => ({ hello: 'world' }),
+      })
+      // While the second GET is in flight, a save clears the cache.
+      .mockImplementationOnce(async () => {
+        clearEtagCache();
+        return { ok: false, status: 304, headers: { get: () => null } };
+      });
+    global.fetch = mockFetch;
+
+    await request('/today');
+    await expect(request('/today')).resolves.toEqual({ hello: 'world' });
+  });
+
   it('clears ETag cache when clearEtagCache() is called', async () => {
     const mockFetch = jest
       .fn()

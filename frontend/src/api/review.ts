@@ -1,3 +1,4 @@
+import { clearCache } from '../cache/storage';
 import {
   REVIEW_CARD,
   REVIEW_SUMMARY,
@@ -410,6 +411,12 @@ export const submitAnswer = pick(
         outboxFallback: fallbackVerdict,
       },
     );
+    // Strengths and what's due changed: Home and My Tango must refetch.
+    await Promise.all([
+      clearCache('review:'),
+      clearCache('tango:'),
+      clearCache('today:'),
+    ]);
     return { exerciseId: r.exercise_id, correct: r.correct, stale: r.stale };
   },
 );

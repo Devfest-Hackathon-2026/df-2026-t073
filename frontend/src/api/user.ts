@@ -1,3 +1,4 @@
+import { clearCache } from '../cache/storage';
 import { PROFILE } from '../mocks/user';
 import type { ProfileUpdate, ReadingLevel, UserProfile } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
@@ -51,8 +52,8 @@ export const updateProfile = pick(
       ...PROFILE,
       ...(patch.name ? { name: patch.name } : {}),
     }),
-  async (patch: ProfileUpdate) =>
-    toProfile(
+  async (patch: ProfileUpdate) => {
+    const profile = toProfile(
       await request<ProfileResponse>(`${API_V1}/me/profile`, {
         method: 'PUT',
         body: {
@@ -68,5 +69,9 @@ export const updateProfile = pick(
             : undefined,
         },
       }),
-    ),
+    );
+    // The Me tab and Home's greeting show the profile.
+    await Promise.all([clearCache('user:'), clearCache('today:')]);
+    return profile;
+  },
 );
