@@ -432,7 +432,8 @@ function FirstOutingCard({
   const progress = firstStepsProgress({
     totalTango: summary.totalTango ?? 0,
     hasPlan: !!summary.upNext,
-    rehearsed: settings.rehearsedOnce,
+    // Saved on the account; the local flag shows it right away.
+    rehearsed: !!summary.rehearsedOnce || settings.rehearsedOnce,
   });
   let status: string = copy.today.aboutTenMin;
   if (progress.allDone) {

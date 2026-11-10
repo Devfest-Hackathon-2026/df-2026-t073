@@ -160,6 +160,8 @@ export interface TodaySummary {
   wordOfDay: WordOfDay | null;
   reviewCard?: ReviewCard | null;
   totalTango?: number;
+  /** Finished a rehearsal (saved on the account). */
+  rehearsedOnce?: boolean;
 }
 
 export interface ReviewCard {

@@ -94,3 +94,5 @@ class TodayResponse(BaseModel):
     word_of_day: WordOfDay | None = None
     review_card: ReviewCardResponse | None = None
     total_tango: int = 0
+    # Finished a rehearsal (the last Getting started step on Home).
+    rehearsed_once: bool = False

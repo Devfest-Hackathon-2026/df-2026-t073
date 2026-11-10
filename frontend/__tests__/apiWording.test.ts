@@ -207,6 +207,8 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   expect(t.pins.map(p => p.label)).toEqual(['Koenji', 'Up next']);
   expect(t.pins.map(p => p.placeId)).toEqual([undefined, undefined]);
   expect(t.wordOfDay?.reason).toBe('For your visit to 麺屋たいき');
+  // Older servers leave the flag out: not rehearsed yet.
+  expect(t.rehearsedOnce).toBe(false);
 
   respond(today({ kind: 'topic', place_name: null, topic: 'transport' }));
   expect((await getToday()).wordOfDay?.reason).toBe(
@@ -216,6 +218,12 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   respond(today({ kind: 'everyday', place_name: null, topic: null }));
   // A general word: no reason line.
   expect((await getToday()).wordOfDay?.reason).toBe('');
+
+  respond({
+    ...today({ kind: 'everyday', place_name: null, topic: null }),
+    rehearsed_once: true,
+  });
+  expect((await getToday()).rehearsedOnce).toBe(true);
 });
 
 test('favorite pins keep the place they open', async () => {

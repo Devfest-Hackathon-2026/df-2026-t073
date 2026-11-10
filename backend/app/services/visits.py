@@ -120,6 +120,7 @@ async def build_today(*, db: AsyncClient, uid: str) -> TodayResponse:
         word_of_day=_word_of_day(uid, user, cards, visits, facts),
         review_card=build_review_card(cards, datetime.now(timezone.utc)),
         total_tango=len(cards),
+        rehearsed_once=bool(user.get("rehearsed_once")),
     )
 
 

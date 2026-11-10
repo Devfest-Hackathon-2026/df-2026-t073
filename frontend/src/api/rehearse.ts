@@ -9,6 +9,7 @@ import type {
   TurnAnswer,
   SentenceTango,
 } from '../types';
+import { clearCache } from '../cache/storage';
 import { API_V1, mockDelay, pick, request } from './client';
 import { type PlaceResponse, toPlace } from './places';
 import { copy } from '../copy';
@@ -290,6 +291,8 @@ export const getRehearsalResult = pick(
     const r = await request<ResultResponse>(
       `${API_V1}/rehearsals/${encodeURIComponent(rehearsalId)}/results`,
     );
+    // The server just recorded a finished rehearsal: Home must refetch.
+    await clearCache('today:');
     return {
       place: toPlace(r.place),
       lines: r.lines.map(l => ({

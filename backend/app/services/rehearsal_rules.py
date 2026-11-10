@@ -116,6 +116,12 @@ def parse_script(raw: dict[str, Any], seed: str) -> RehearsalScript:
     return RehearsalScript(staff_voice=str(raw.get("staff_voice", "")).strip() or "Staff", turns=turns)
 
 
+def all_replies_answered(turns: list[RehearsalTurn], answers: dict[str, Any]) -> bool:
+    """True once every learner reply in the script has an answer (a finished rehearsal)."""
+    replies = [t for t in turns if t.speaker == "user"]
+    return bool(replies) and all(t.id in answers for t in replies)
+
+
 def staff_before(turns: list[RehearsalTurn], turn_id: str) -> JpName:
     """The staff line the user was answering."""
     for i, t in enumerate(turns):

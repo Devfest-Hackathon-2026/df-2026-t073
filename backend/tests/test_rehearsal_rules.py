@@ -84,6 +84,22 @@ class TestAnswers:
         assert result.suggestion is not None and result.suggestion.jp.text == "reply1"
 
 
+class TestFinished:
+    def setup_method(self) -> None:
+        self.turns = rules.parse_script(FAKE_SCRIPT, seed="place").turns
+        self.replies = [t.id for t in self.turns if t.speaker == "user"]
+
+    def test_finished_once_every_reply_is_answered(self) -> None:
+        assert rules.all_replies_answered(self.turns, {r: {} for r in self.replies})
+
+    def test_not_finished_with_a_reply_missing(self) -> None:
+        assert not rules.all_replies_answered(self.turns, {r: {} for r in self.replies[:-1]})
+
+    def test_a_script_without_replies_is_not_finished(self) -> None:
+        staff_only = [t for t in self.turns if t.speaker == "staff"]
+        assert not rules.all_replies_answered(staff_only, {})
+
+
 class TestBriefing:
     def test_trimmed_to_screen_sizes(self) -> None:
         raw = {

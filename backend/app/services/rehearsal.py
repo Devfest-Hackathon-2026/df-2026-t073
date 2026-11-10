@@ -231,6 +231,12 @@ async def answer_turn(
 
 async def get_results(*, db: AsyncClient, uid: str, rehearsal_id: str) -> RehearsalResult:
     session = await _session(db, uid, rehearsal_id)
+    if rules.all_replies_answered(session.turns, session.answers):
+        # Ticks off the "Rehearse a conversation" step on Home, on every device.
+        try:
+            await db.collection(USERS_COLLECTION).document(uid).set({"rehearsed_once": True}, merge=True)
+        except (GoogleAPICallError, GoogleAuthError):
+            logger.exception("Failed to mark rehearsed_once for uid=%s", uid)
     cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
     lines = [
         rules.result_line(session.answers[t.id], cards)

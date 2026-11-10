@@ -107,6 +107,7 @@ interface TodayResponse {
   } | null;
   review_card?: ReviewCardResponse | null;
   total_tango?: number;
+  rehearsed_once?: boolean;
 }
 
 /** Why this word of the day was picked, in words; "" for a general word. */
@@ -211,6 +212,7 @@ export const getToday = pick(
         : null,
       reviewCard,
       totalTango: r.total_tango ?? 0,
+      rehearsedOnce: r.rehearsed_once ?? false,
     };
   },
 );
