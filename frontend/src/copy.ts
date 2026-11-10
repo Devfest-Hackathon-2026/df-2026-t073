@@ -591,8 +591,6 @@ const today = {
   /** Getting started progress, e.g. "1 of 3 done". */
   stepsDone: (n: number, total: number) => `${n} of ${total} done`,
   allStepsDone: "All done! You're ready to explore.",
-  /** e.g. "2 / 3" next to the catch step. */
-  caughtCount: (n: number, total: number) => `${n} / ${total}`,
   stepCatch: 'Find and capture 3 Tango',
   stepPlan: 'Make a plan',
   stepRehearse: 'Rehearse a conversation',

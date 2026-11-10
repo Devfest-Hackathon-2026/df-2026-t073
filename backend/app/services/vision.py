@@ -28,6 +28,33 @@ def _parse_normalized_vertices(poly: dict[str, Any]) -> list[Vertex]:
     ]
 
 
+# Two objects whose boxes overlap this much are the same thing under two names
+# (e.g. "Espresso machine" and "Coffeemaker"); only the more confident one is kept.
+SAME_OBJECT_OVERLAP = 0.6
+
+
+def box_overlap(a: list[Vertex], b: list[Vertex]) -> float:
+    """Intersection over union of two boxes' bounding rectangles (0 when either is empty)."""
+    if not a or not b:
+        return 0.0
+    ax0, ax1 = min(v.x for v in a), max(v.x for v in a)
+    ay0, ay1 = min(v.y for v in a), max(v.y for v in a)
+    bx0, bx1 = min(v.x for v in b), max(v.x for v in b)
+    by0, by1 = min(v.y for v in b), max(v.y for v in b)
+    inter = max(0.0, min(ax1, bx1) - max(ax0, bx0)) * max(0.0, min(ay1, by1) - max(ay0, by0))
+    union = (ax1 - ax0) * (ay1 - ay0) + (bx1 - bx0) * (by1 - by0) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def distinct_objects(objects: list[DetectedItem]) -> list[DetectedItem]:
+    """Drop objects that are the same thing as a more confident one (same box, other name)."""
+    kept: list[DetectedItem] = []
+    for obj in sorted(objects, key=lambda o: o.confidence or 0.0, reverse=True):
+        if all(box_overlap(obj.bounding_box, k.bounding_box) < SAME_OBJECT_OVERLAP for k in kept):
+            kept.append(obj)
+    return kept
+
+
 def _parse_pixel_vertices(
     poly: dict[str, Any], width: float, height: float
 ) -> list[Vertex]:
@@ -178,12 +205,13 @@ async def recognize_image_items(
     seen_labels: set[str] = set()
 
     # 1. Extract localized physical objects
+    objects: list[DetectedItem] = []
     for idx, obj in enumerate(annotation.get("localizedObjectAnnotations") or []):
         name = (obj.get("name") or "").strip()
         if not name or name.lower() in seen_labels:
             continue
         seen_labels.add(name.lower())
-        detected.append(
+        objects.append(
             DetectedItem(
                 item_id=f"obj_{idx}",
                 item_type="object",
@@ -194,6 +222,7 @@ async def recognize_image_items(
                 bounding_box=_parse_normalized_vertices(obj.get("boundingPoly") or {}),
             )
         )
+    detected.extend(distinct_objects(objects))
 
     # 2. Extract OCR text blocks using full page dimensions from fullTextAnnotation
     text_annotations = annotation.get("textAnnotations") or []

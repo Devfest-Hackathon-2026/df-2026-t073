@@ -33,7 +33,6 @@ import {
 } from '../../features/tango/saveWord';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
 import {
-  FIRST_CATCH,
   FIRST_STEPS,
   firstStepsProgress,
 } from '../../features/today/firstSteps';
@@ -459,7 +458,6 @@ function FirstOutingCard({
       <FirstStep
         index={1}
         title={copy.today.stepCatch}
-        note={copy.today.caughtCount(progress.caught, FIRST_CATCH)}
         done={progress.catchDone}
         action={
           <Button
@@ -507,14 +505,11 @@ function FirstOutingCard({
 function FirstStep({
   index,
   title,
-  note,
   done,
   action,
 }: {
   index: number;
   title: string;
-  /** Progress after the title, e.g. "2 / 3". */
-  note?: string;
   done: boolean;
   action: React.ReactNode;
 }): React.JSX.Element {
@@ -525,7 +520,6 @@ function FirstStep({
           <Text style={[styles.stepTitle, done && styles.stepTitleDone]}>
             {title}
           </Text>
-          {note && !done ? <Text style={base.caption}>{note}</Text> : null}
         </View>
         {done ? (
           // The teacher's red-pen mark, centered where a Go button sits: a

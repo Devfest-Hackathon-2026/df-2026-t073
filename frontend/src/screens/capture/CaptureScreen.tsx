@@ -816,6 +816,7 @@ export function CaptureScreen({
           device={device}
           isActive={isFocused}
           outputs={outputs}
+          enableNativeTapToFocusGesture
         />
       ) : (
         <View style={styles.noCamera}>
