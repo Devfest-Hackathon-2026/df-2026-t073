@@ -293,6 +293,11 @@ const meSections = {
   developer: 'Developer',
 };
 
+/** Bar at the top while the app can't reach the server. */
+const offline = {
+  banner: "You're offline. Changes will sync when you're back.",
+};
+
 const licenses = {
   intro:
     'Tankengo is built with these open-source packages, font and artwork. Tap one to read its license.',
@@ -917,6 +922,7 @@ export const copy = {
   tangoRow,
   meSections,
   licenses,
+  offline,
   review,
   mapScreen,
   me,

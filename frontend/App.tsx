@@ -2,6 +2,7 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import React from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { OfflineBanner } from './src/components/OfflineBanner';
 import { linking } from './src/navigation/linking';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/state/AuthContext';
@@ -26,12 +27,10 @@ function App(): React.JSX.Element {
       <StatusBar barStyle="dark-content" />
       <AuthProvider>
         <SettingsProvider>
-          <NavigationContainer
-            theme={theme}
-            linking={linking}
-          >
+          <NavigationContainer theme={theme} linking={linking}>
             <RootNavigator />
           </NavigationContainer>
+          <OfflineBanner />
         </SettingsProvider>
       </AuthProvider>
     </SafeAreaProvider>

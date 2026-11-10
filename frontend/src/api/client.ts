@@ -93,15 +93,14 @@ export async function request<T>(
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(
-      fullUrl,
-      {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal,
-      },
-    );
+    const response = await fetch(fullUrl, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    // Any answer from the server, even an error, means we're online.
+    setOnlineStatus(true);
 
     if (response.status === 304 && sentWith) {
       return sentWith.data as T;
@@ -115,9 +114,7 @@ export async function request<T>(
           .then((b: { detail?: unknown }) => b.detail)
           .catch(() => undefined);
         throw new ApiError(
-          typeof detail === 'string'
-            ? detail
-            : copy.errors.dailyLimit,
+          typeof detail === 'string' ? detail : copy.errors.dailyLimit,
           429,
         );
       }
@@ -141,8 +138,10 @@ export async function request<T>(
     if ((err as { name?: string })?.name === 'AbortError') {
       throw new ApiError(copy.errors.timedOut, 408);
     }
-    if (outboxFallback !== undefined && isNetworkError(err)) {
+    if (isNetworkError(err)) {
       setOnlineStatus(false);
+    }
+    if (outboxFallback !== undefined && isNetworkError(err)) {
       if (method !== 'GET') {
         await enqueueMutation({
           path,
@@ -171,7 +170,10 @@ export function mockDelay<T>(value: T, ms = 300): Promise<T> {
 /**
  * Automatically drains pending offline mutations in the background.
  */
-export function flushOutbox(): Promise<{ processed: number; remaining: number }> {
+export function flushOutbox(): Promise<{
+  processed: number;
+  remaining: number;
+}> {
   return drainOutbox(item =>
     request(item.path, {
       method: item.method,

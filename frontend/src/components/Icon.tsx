@@ -43,6 +43,7 @@ import {
   User,
   Users,
   Volume2,
+  WifiOff,
   X,
 } from 'lucide-react-native';
 import React from 'react';
@@ -52,6 +53,7 @@ import { TangoCard } from './TangoCard';
 // Every icon in the app, by what it means here (Lucide underneath).
 const ICONS = {
   play: Volume2,
+  offline: WifiOff,
   close: X,
   back: ChevronLeft,
   forward: ChevronRight,
