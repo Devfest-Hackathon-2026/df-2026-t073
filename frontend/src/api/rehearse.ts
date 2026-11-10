@@ -291,8 +291,9 @@ export const getRehearsalResult = pick(
     const r = await request<ResultResponse>(
       `${API_V1}/rehearsals/${encodeURIComponent(rehearsalId)}/results`,
     );
-    // The server just recorded a finished rehearsal: Home must refetch.
-    await clearCache('today:');
+    // The server just recorded a finished rehearsal (Home) and added
+    // heard/said events to the Tango in it (Tango pages): both must refetch.
+    await Promise.all([clearCache('today:'), clearCache('tango:')]);
     return {
       place: toPlace(r.place),
       lines: r.lines.map(l => ({

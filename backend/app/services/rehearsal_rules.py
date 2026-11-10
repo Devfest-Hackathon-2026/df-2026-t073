@@ -224,7 +224,7 @@ def sentence_to_save(
 
 
 def rehearsal_history(
-    session: RehearsalSession, cards: list[FlashcardResponse], now: datetime
+    session: RehearsalSession, cards: list[FlashcardResponse]
 ) -> list[tuple[str, HistoryEvent]]:
     """ "How it grew" events for the user's Tango in a rehearsal, as (flashcard_id, event).
 
@@ -232,6 +232,8 @@ def rehearsal_history(
     said_in_rehearsal: the user said it out loud (picking a written reply doesn't count).
     One of each per Tango per rehearsal; ones already recorded are skipped.
     Strength is unchanged: these show practice, they aren't graded.
+    Events are stamped with the rehearsal's start time, so two overlapping writes
+    produce identical events and Firestore's ArrayUnion stores only one.
     """
     # Staff lines up to the last answered reply were heard (all of them once finished).
     answered = [i for i, t in enumerate(session.turns) if t.id in session.answers]
@@ -251,7 +253,7 @@ def rehearsal_history(
                 (
                     card.flashcard_id,
                     tango_rules.history_event(
-                        now=now,
+                        now=session.started_at,
                         type=kind,
                         detail=session.place.name.text,
                         rehearsal_id=session.rehearsal_id,

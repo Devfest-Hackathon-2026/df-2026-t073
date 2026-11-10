@@ -354,7 +354,7 @@ const mapScreen = {
 
 const me = {
   loadingLines: ['Loading your profile...'],
-  title: '',
+  title: 'Me',
   mapOn: 'Map on',
   mapOff: 'Map off',
   statTango: 'Tango',
@@ -362,8 +362,6 @@ const me = {
   statPlaces: 'Places',
   logOut: 'Log out of this device',
   editProfile: 'Edit profile',
-  /** Under your name when no Japanese level is set. Otherwise the level's description from welcome.readingLevels. */
-  levelNotSet: 'Japanese level not set yet',
   credits:
     'Dictionary data: JMdict, © Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0.',
 };

@@ -1,36 +1,68 @@
 # Tankengo (探検語)
 
-Google DevFest Tokyo Hackathon 2026
+**Live it. Learn it.** Your everyday is your Japanese teacher.
 
-Theme: *Own the why, build with intent*
+Tankengo turns the Japanese around you (station signs, ticket machines, menus, shop counters) into your own vocabulary, then helps you read it and speak it before your next visit.
 
-Team ID: df-2026-t073
+Google DevFest Tokyo Hackathon 2026 · Theme: *Own the why, build with intent* · Team ID: df-2026-t073
 
-## Before starting
+<!-- TODO(team): add how judges can try it, e.g.
+**Try it:** Android APK via Firebase App Distribution (link), demo account (email / password).
+-->
 
-Please copy the contents of `.env.example` to `.env` and paste your API keys.
-
-Do NOT remove `.env` from `.gitignore`.
-
-The repo will become read-only once the deadline passes. Make sure to push all work to the submission repo before then. It will be used by panelists in the judging process.
-
-Submit here: https://github.com/Devfest-Hackathon-2026/df-2026-t073
+<!-- TODO(team): add 3-5 screenshots or a GIF: Catch → Tango page → Map → Rehearse.
+<p>
+  <img src="docs/screenshots/catch.png" width="200" alt="Catching a word from a sign">
+  <img src="docs/screenshots/tango.png" width="200" alt="A Tango page with its history">
+  <img src="docs/screenshots/map.png" width="200" alt="Tango stamps on the map">
+  <img src="docs/screenshots/rehearse.png" width="200" alt="Rehearsing at a restaurant">
+</p>
+-->
 
 ## Problem
 
-Japanese learners who live in Japan meet the language in places: station signs, ramen ticket machines, ward-office counters. A textbook word list doesn't know where you are or where you're going next.
+Tourists and foreign residents in Japan struggle with communication despite being surrounded by the local language. This often results in unnecessary friction in everyday life, with little progress beyond a handful of survival phrases.
 
-Tankengo is a camera-first vocabulary app built around place. You catch words from the real world, each one remembers where you found it, and the app helps you prepare for the next place you plan to visit.
+Although language learning should be fun, accessible, and deeply personal, existing solutions either solve the immediate communication barrier without building long-term skills (such as translation apps), or teach generic content that rarely carries over to practical, everyday use.
+
+## Solution
+
+To personalize Japanese learning for tourists and foreign residents by turning words from real places and experiences into vocabulary for reading and speaking practice.
+
+Tankengo is camera-first and built around place. You catch words from the real world, each one remembers where you found it, and the app helps you prepare for the next place you plan to visit.
 
 ## What it does
 
 - **Catch.** Point the camera at Japanese text and it is read on the phone (ML Kit). Or take a photo and the backend reads it (Cloud Vision). Each catch becomes a **Tango** (word, phrase, object or menu item) pinned to the place where you found it.
-- **Tango.** Reading, romaji, meaning, easy and keigo example phrases, where you saw it, and a history. Strength grows from 0 to 4; at 4 it becomes a hanamaru star on your map.
-- **Map and Today.** Your Tango as stamps on a Google map, your next planned visit, and a word of the day picked for your reading level and the places you plan to visit.
+- **Tango.** Reading, romaji, meaning, easy and keigo example phrases, where you saw it, and a history of how it grew: caught, seen again, reviewed, heard and said in rehearsals. Strength grows from 0 to 4; at 4 it becomes a hanamaru stamp on your map.
+- **Map and Today.** Your Tango as stamps on a Google map, your next planned visit, and a word of the day picked for your level and the places you plan to visit.
 - **Review.** Multiple choice, plus **fill the gap** on your own photo with the caught word covered. Questions are cued by the place you saw the word. Favorites and your own lists are reviewable collections.
 - **Prepare.** A briefing for a place: what to expect (from Google Maps reviews, written by Gemini), Tango for the visit, and anonymous tips.
-- **Rehearse.** A spoken role-play with the staff at that place. The staff voice is text-to-speech, your reply is transcribed by Speech-to-Text and rated by Gemini, or you can pick a reply instead.
-- **Privacy.** Sign in with Google or email, no public profile, and a home area you choose that is never pinned on the map.
+- **Rehearse.** A spoken role-play with the staff at that place. The staff voice is text-to-speech, your reply is transcribed by Speech-to-Text and rated by Gemini, or you can pick a reply instead. Lines that use your Tango can be saved to them.
+- **Privacy.** Sign in with Google or email, no public profile, a home area you choose that is never pinned on the map, and in-app account deletion that removes all your data and photos.
+
+## Why it's built this way
+
+- **Learn what you actually meet.** Every Tango comes from your own life, so the vocabulary is relevant by definition. No fixed word list.
+- **Place is the memory cue.** Each Tango keeps where you found it. Review questions are cued by that place, and fill-the-gap uses your own photo, so recall is tied to a real moment.
+- **From reading to speaking.** Catching builds reading; Prepare and Rehearse turn the same words into a conversation before you walk in. The Tango page shows that journey.
+- **Visible progress.** Strength 0–4 and hanamaru stamps on the map turn practice into places you've "owned", without streak pressure.
+- **Fast and affordable.** Live camera reading runs on the phone (ML Kit). Paid APIs are only called when they add something, and results such as briefings, scripts and speech are cached and shared. Per-user daily limits keep costs predictable.
+- **Works on the go.** Cached screens load instantly and changes made offline are queued and sent later.
+- **Respect the learner.** One level setting sets sensible display defaults (romaji, kana, furigana) that can each be changed. No public profile, and data is yours to delete.
+
+## Architecture
+
+```text
+Android app (React Native)                         Google Cloud
+ ├─ ML Kit (on-device text reading)         ┌─ FastAPI on Cloud Run
+ ├─ Google Maps SDK                          │   ├─ Cloud Vision (photo reading)
+ ├─ Firebase Auth (Google, email)  ──HTTPS──▶│   ├─ Gemini (meanings, briefings, scripts, rating)
+ └─ Offline cache and queue                  │   ├─ Speech-to-Text / Text-to-Speech (rehearsal)
+                                             │   ├─ Places API (New) (places, reviews)
+                                             │   └─ JMdict (dictionary)
+                                             └─ Firestore (user data, caches) · Cloud Storage (photos, audio)
+```
 
 ## Team
 

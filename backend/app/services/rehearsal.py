@@ -240,7 +240,7 @@ async def get_results(*, db: AsyncClient, uid: str, rehearsal_id: str) -> Rehear
     cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
     # "Heard in a rehearsal" / "Said it in a rehearsal" on the Tango page.
     by_card: dict[str, list[Any]] = {}
-    for flashcard_id, event in rules.rehearsal_history(session, cards, datetime.now(UTC)):
+    for flashcard_id, event in rules.rehearsal_history(session, cards):
         by_card.setdefault(flashcard_id, []).append(event)
     for flashcard_id, events in by_card.items():
         await add_history_events(db=db, uid=uid, flashcard_id=flashcard_id, events=events)

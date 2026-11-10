@@ -1,4 +1,3 @@
-import { clearOutbox } from '../cache/outbox';
 import { clearCache } from '../cache/storage';
 import { PROFILE } from '../mocks/user';
 import type { ProfileUpdate, ReadingLevel, UserProfile } from '../types';
@@ -74,21 +73,13 @@ export const updateProfile = pick(
 );
 
 /**
- * Permanently deletes the account and everything in it (server side), then
- * clears what this device saved. Mock mode only clears the device.
+ * Permanently deletes the account and everything in it (server side).
+ * Signing out afterwards clears what this device saved.
  */
 export const deleteAccount = pick(
   'user',
-  async () => {
-    await mockDelay(undefined);
-    await clearDeviceData();
-  },
+  () => mockDelay<void>(undefined),
   async () => {
     await request<void>(`${API_V1}/me`, { method: 'DELETE' });
-    await clearDeviceData();
   },
 );
-
-async function clearDeviceData(): Promise<void> {
-  await Promise.all([clearCache(), clearOutbox()]);
-}

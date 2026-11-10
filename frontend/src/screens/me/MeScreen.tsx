@@ -26,7 +26,6 @@ import {
   sizes,
   space,
 } from '../../styles/tokens';
-import type { ReadingLevel } from '../../types';
 import { copy } from '../../copy';
 
 const LINES = copy.me.loadingLines;
@@ -34,10 +33,6 @@ const LINES = copy.me.loadingLines;
 const PROFILE_SHARE = 0.4;
 const AVATAR_SIZE = 96;
 
-/** The tagline under your name: the same description the level picker shows. */
-function levelDescription(level: ReadingLevel | null | undefined): string {
-  return level ? copy.welcome.readingLevels[level].help : copy.me.levelNotSet;
-}
 
 /** Me: who you are and how you're doing at a glance; settings one tap away. */
 export function MeScreen(): React.JSX.Element {
@@ -105,8 +100,9 @@ export function MeScreen(): React.JSX.Element {
               <Text style={base.title} numberOfLines={1}>
                 {p.name}
               </Text>
+              {/* Same description as the level picker. */}
               <Text style={base.caption} numberOfLines={1}>
-                {levelDescription(settings.readingLevel ?? p.readingLevel)}
+                {copy.welcome.readingLevels[settings.readingLevel].help}
               </Text>
               <Button
                 label={copy.me.editProfile}

@@ -305,7 +305,8 @@ export const readSelection = pick(
   (_photoUri: string | null, _box: NormalizedBox) => {
     return mockDelay<SelectionReading>(SELECTION_READING, 700);
   },
-  // TODO confirm endpoint with backend (Gemini reads the cropped area)
+  // Not built on the backend yet. Unreachable live: with capture live, the photo is read
+  // whole and the "Read this" box isn't shown (see `photoSelection` in CaptureScreen).
   (photoUri: string | null, box: NormalizedBox) =>
     request<SelectionReading>(`${API_V1}/captures/read-selection`, {
       method: 'POST',

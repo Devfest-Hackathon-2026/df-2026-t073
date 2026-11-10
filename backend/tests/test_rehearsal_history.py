@@ -47,7 +47,7 @@ def kinds(events: list) -> set[tuple[str, str]]:
 
 def test_heard_from_staff_and_said_out_loud() -> None:
     s = session({"u1": answer("u1", "食券です"), "u2": answer("u2", "替え玉ください")})
-    events = rules.rehearsal_history(s, [SHOKKEN, KAEDAMA, OOMORI], NOW)
+    events = rules.rehearsal_history(s, [SHOKKEN, KAEDAMA, OOMORI])
     assert kinds(events) == {
         ("fc_shokken", "heard_in_rehearsal"),
         ("fc_shokken", "said_in_rehearsal"),
@@ -64,25 +64,35 @@ def test_heard_from_staff_and_said_out_loud() -> None:
 
 def test_unfinished_only_counts_lines_reached() -> None:
     s = session({"u1": answer("u1", "はい")})
-    events = rules.rehearsal_history(s, [SHOKKEN, KAEDAMA, OOMORI], NOW)
+    events = rules.rehearsal_history(s, [SHOKKEN, KAEDAMA, OOMORI])
     assert kinds(events) == {("fc_shokken", "heard_in_rehearsal")}
 
 
 def test_picked_reply_is_not_said() -> None:
     s = session({"u1": answer("u1", "食券です", spoken=False)})
-    events = rules.rehearsal_history(s, [SHOKKEN], NOW)
+    events = rules.rehearsal_history(s, [SHOKKEN])
     assert kinds(events) == {("fc_shokken", "heard_in_rehearsal")}
 
 
 def test_nothing_before_any_answer() -> None:
-    assert rules.rehearsal_history(session({}), [SHOKKEN], NOW) == []
+    assert rules.rehearsal_history(session({}), [SHOKKEN]) == []
 
 
 def test_recorded_once_per_rehearsal() -> None:
     s = session({"u1": answer("u1", "食券です")})
-    first = rules.rehearsal_history(s, [SHOKKEN], NOW)
+    first = rules.rehearsal_history(s, [SHOKKEN])
     updated = SHOKKEN.model_copy(update={"history": [*SHOKKEN.history, *(e for _, e in first)]})
-    assert rules.rehearsal_history(s, [updated], NOW) == []
+    assert rules.rehearsal_history(s, [updated]) == []
     # A new rehearsal records again.
-    again = rules.rehearsal_history(s.model_copy(update={"rehearsal_id": "rh2"}), [updated], NOW)
+    again = rules.rehearsal_history(s.model_copy(update={"rehearsal_id": "rh2"}), [updated])
     assert len(again) == 2
+
+
+def test_overlapping_writes_produce_identical_events() -> None:
+    # Two results loads at once both see nothing recorded; identical events let
+    # Firestore's ArrayUnion keep just one.
+    s = session({"u1": answer("u1", "食券です")})
+    first = [e.model_dump() for _, e in rules.rehearsal_history(s, [SHOKKEN])]
+    second = [e.model_dump() for _, e in rules.rehearsal_history(s, [SHOKKEN])]
+    assert first == second
+    assert all(e["at"] == NOW for e in first)
