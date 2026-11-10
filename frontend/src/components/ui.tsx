@@ -276,6 +276,8 @@ export function Chip({
             size="sm"
             tone={inverse ? 'inverse' : 'default'}
             keepFuriganaLine={false}
+            // Kanji centered under their reading; lists keep them flush left.
+            center
           />
         </View>
       ) : null}
@@ -290,9 +292,7 @@ export function Chip({
           {label}
         </Text>
       ) : null}
-      {count !== undefined ? (
-        <CountBadge count={count} />
-      ) : null}
+      {count !== undefined ? <CountBadge count={count} /> : null}
     </>
   );
   const chipStyle = [
@@ -539,15 +539,22 @@ export function NumberedStep({
   index,
   children,
   done = false,
+  center = false,
 }: {
   index: number;
   children: React.ReactNode;
   done?: boolean;
+  /** Center the number on a one-line step (e.g. one with a button). */
+  center?: boolean;
 }): React.JSX.Element {
   return (
-    <View style={styles.step}>
+    <View style={[styles.step, center && styles.center]}>
       <View style={[styles.stepNumber, done && styles.stepNumberDone]}>
-        <Text style={styles.stepNumberText}>{index}</Text>
+        {done ? (
+          <Icon name="done" size={fontSizes.xs} color={colors.textInverse} />
+        ) : (
+          <Text style={styles.stepNumberText}>{index}</Text>
+        )}
       </View>
       <View style={base.grow}>{children}</View>
     </View>

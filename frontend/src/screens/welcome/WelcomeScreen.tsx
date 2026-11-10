@@ -40,7 +40,12 @@ export function WelcomeScreen(): React.JSX.Element {
     const locationAllowed = wantsLocation
       ? await requestLocationPermission().catch(() => false)
       : false;
-    update({ locationAllowed, onboarded: true, dayOne: true });
+    update({
+      locationAllowed,
+      onboarded: true,
+      dayOne: true,
+      rehearsedOnce: false,
+    });
     // Best effort: the app works offline/signed out; the level is also kept locally.
     updateProfile({ readingLevel: settings.readingLevel }).catch(() => {});
   };
@@ -49,10 +54,7 @@ export function WelcomeScreen(): React.JSX.Element {
     <Screen
       footer={
         step === 0 ? (
-          <Button
-            label={copy.welcome.continue}
-            onPress={() => setStep(1)}
-          />
+          <Button label={copy.welcome.continue} onPress={() => setStep(1)} />
         ) : (
           <>
             <Button

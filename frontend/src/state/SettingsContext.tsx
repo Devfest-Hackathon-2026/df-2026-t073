@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   locationAllowed: false,
   onboarded: false,
   dayOne: false,
+  rehearsedOnce: false,
   mapFeatures: true,
 };
 

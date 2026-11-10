@@ -31,12 +31,13 @@ import {
   useSaveWord,
 } from '../../features/tango/saveWord';
 import { PlanVisitSheet } from '../../features/plans/PlanVisitSheet';
-import { ReviewStartCard } from '../../features/review/ReviewStartCard';
 import {
-  CardStack,
-  RedPenUnderline,
-  TicketCard,
-} from '../../components/shapes';
+  FIRST_CATCH,
+  FIRST_STEPS,
+  firstStepsProgress,
+} from '../../features/today/firstSteps';
+import { ReviewStartCard } from '../../features/review/ReviewStartCard';
+import { CardStack, TicketCard } from '../../components/shapes';
 import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -262,11 +263,15 @@ function Regular({
         <FirstOutingCard
           summary={summary}
           onDismiss={() => update({ dayOne: false })}
+          onPlan={() => setPlanning(true)}
         />
       ) : null}
       {summary.wordOfDay ? <WordOfDayCard word={summary.wordOfDay} /> : null}
       {effectiveReview ? (
-        <ReviewStartCard card={effectiveReview} title={copy.today.reviewTitle} />
+        <ReviewStartCard
+          card={effectiveReview}
+          title={copy.today.reviewTitle}
+        />
       ) : null}
       {summary.upNext ? <UpNextCard visit={summary.upNext} /> : null}
       <PlansRow
@@ -335,9 +340,7 @@ function PlansRow({
   return (
     <View style={styles.plansRow}>
       <View style={base.grow}>
-        <RedPenUnderline>
-          <Text style={base.heading}>{copy.today.yourPlans}</Text>
-        </RedPenUnderline>
+        <Text style={base.heading}>{copy.today.yourPlans}</Text>
         {hasPlans ? null : (
           <Text style={base.caption}>{copy.today.nothingPlanned}</Text>
         )}
@@ -393,17 +396,33 @@ function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
 function FirstOutingCard({
   summary,
   onDismiss,
+  onPlan,
 }: {
   summary: TodaySummary;
   onDismiss: () => void;
+  onPlan: () => void;
 }): React.JSX.Element {
   const nav = useRootNav();
+  const { settings } = useSettings();
+  const progress = firstStepsProgress({
+    totalTango: summary.totalTango ?? 0,
+    hasPlan: !!summary.upNext,
+    rehearsed: settings.rehearsedOnce,
+  });
+  let status: string = copy.today.aboutTenMin;
+  if (progress.allDone) {
+    status = copy.today.allStepsDone;
+  } else if (progress.doneCount > 0) {
+    status = copy.today.stepsDone(progress.doneCount, FIRST_STEPS);
+  }
   return (
     <Card>
       <View style={styles.firstOutingHeader}>
         <View style={base.grow}>
           <Text style={base.heading}>{copy.today.firstOuting}</Text>
-          <Text style={base.caption}>{copy.today.aboutTenMin}</Text>
+          <Text style={[base.caption, progress.allDone && styles.allDone]}>
+            {status}
+          </Text>
         </View>
         <IconButton
           icon="close"
@@ -411,43 +430,43 @@ function FirstOutingCard({
           onPress={onDismiss}
         />
       </View>
-      <NumberedStep index={1}>
-        <View style={base.rowBetween}>
-          <View style={base.grow}>
-            <Text style={styles.stepTitle}>{copy.today.stepCatch}</Text>
-          </View>
+      <FirstStep
+        index={1}
+        title={copy.today.stepCatch}
+        note={copy.today.caughtCount(progress.caught, FIRST_CATCH)}
+        done={progress.catchDone}
+        action={
           <Button
             label={copy.today.start}
             onPress={() => nav.navigate('Capture')}
           />
-        </View>
-      </NumberedStep>
-      <NumberedStep index={2}>
-        <View style={base.rowBetween}>
-          <View style={base.grow}>
-            <Text style={styles.stepTitle}>{copy.today.stepRehearse}</Text>
-            <Text style={base.caption}>{copy.today.stepRehearseNote}</Text>
-          </View>
+        }
+      />
+      <FirstStep
+        index={2}
+        title={copy.today.stepPlan}
+        done={progress.planDone}
+        action={
+          <Button label={copy.today.go} variant="secondary" onPress={onPlan} />
+        }
+      />
+      <FirstStep
+        index={3}
+        title={copy.today.stepRehearse}
+        done={progress.rehearseDone}
+        action={
           <Button
             label={copy.today.go}
             variant="secondary"
-            onPress={() => nav.navigate('Rehearse', { placeId: DAY_ONE_PLACE })}
+            // At the planned place once there is one; else the practice place.
+            onPress={() =>
+              nav.navigate('Rehearse', {
+                placeId: summary.upNext?.place.id ?? DAY_ONE_PLACE,
+              })
+            }
           />
-        </View>
-      </NumberedStep>
-      <NumberedStep index={3}>
-        <View style={base.rowBetween}>
-          <View style={base.grow}>
-            <Text style={styles.stepTitle}>{copy.today.stepReview}</Text>
-            <Text style={base.caption}>{copy.today.stepReviewNote}</Text>
-          </View>
-          <Button
-            label={copy.today.go}
-            variant="secondary"
-            onPress={() => nav.navigate('ReviewSession')}
-          />
-        </View>
-      </NumberedStep>
+        }
+      />
       <Text style={styles.eyebrow}>{copy.today.starterTango}</Text>
       <View style={base.wrap}>
         {summary.starterTango.map(jp => (
@@ -458,7 +477,53 @@ function FirstOutingCard({
   );
 }
 
+/** One Getting started step: once done its number turns into a green check and its button goes. */
+function FirstStep({
+  index,
+  title,
+  note,
+  done,
+  action,
+}: {
+  index: number;
+  title: string;
+  /** Progress after the title, e.g. "2 / 3". */
+  note?: string;
+  done: boolean;
+  action: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <NumberedStep index={index} center done={done}>
+      <View style={styles.firstStep}>
+        <View style={[base.row, base.grow]}>
+          <Text style={[styles.stepTitle, done && styles.stepTitleDone]}>
+            {title}
+          </Text>
+          {note && !done ? <Text style={base.caption}>{note}</Text> : null}
+        </View>
+        {done ? null : action}
+      </View>
+    </NumberedStep>
+  );
+}
+
 const styles = StyleSheet.create({
+  stepTitleDone: {
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  // As tall as a step with a button, so rows don't jump once done.
+  firstStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
+    minHeight: sizes.touch,
+  },
+  allDone: {
+    color: colors.positive,
+    fontWeight: fontWeights.bold,
+  },
   greeting: {
     flexDirection: 'row',
   },

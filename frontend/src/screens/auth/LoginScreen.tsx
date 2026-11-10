@@ -83,7 +83,7 @@ export function LoginScreen(): React.JSX.Element {
         update({ onboarded: true });
       } else {
         await signUp(trimmedEmail, trimmedPass);
-        update({ dayOne: true });
+        update({ dayOne: true, rehearsedOnce: false });
       }
     } catch (err: unknown) {
       setError(formatAuthError(err));
@@ -106,7 +106,7 @@ export function LoginScreen(): React.JSX.Element {
               new Date(u.metadata.lastSignInTime).getTime(),
           ) < 5000;
         if (isNewUser) {
-          update({ dayOne: true });
+          update({ dayOne: true, rehearsedOnce: false });
         } else {
           update({ onboarded: true });
         }
@@ -132,9 +132,7 @@ export function LoginScreen(): React.JSX.Element {
               : copy.login.createAccountTitle}
           </Text>
           <Text style={base.caption}>
-            {mode === 'signin'
-              ? copy.login.signInBody
-              : copy.login.signUpBody}
+            {mode === 'signin' ? copy.login.signInBody : copy.login.signUpBody}
           </Text>
         </View>
 
@@ -203,9 +201,7 @@ export function LoginScreen(): React.JSX.Element {
             style={styles.switchMode}
           >
             <Text style={styles.switchModeText}>
-              {mode === 'signin'
-                ? copy.login.toSignUp
-                : copy.login.toSignIn}
+              {mode === 'signin' ? copy.login.toSignUp : copy.login.toSignIn}
             </Text>
           </Pressable>
         </Card>

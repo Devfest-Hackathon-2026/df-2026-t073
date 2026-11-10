@@ -142,12 +142,13 @@ def jp(text: str, reading: str, romaji: str, meaning: str) -> JpName:
     return JpName(text=text, reading=reading, romaji=romaji, meaning=meaning)
 
 
-# Words a first-time user will likely see around any station (day-one screen).
+# Sample Tango for a first-time user (day-one screen): two signs, a food,
+# and an everyday expression.
 STARTER_TANGO = [
     jp("出口", "でぐち", "deguchi", "exit"),
-    jp("改札", "かいさつ", "kaisatsu", "ticket gate"),
-    jp("禁煙", "きんえん", "kin'en", "no smoking"),
     jp("営業中", "えいぎょうちゅう", "eigyōchū", "open"),
+    jp("定食", "ていしょく", "teishoku", "set meal"),
+    jp("すみません", "すみません", "sumimasen", "excuse me"),
 ]
 
 # Used when GOOGLE_PLACES_API_KEY is not set.

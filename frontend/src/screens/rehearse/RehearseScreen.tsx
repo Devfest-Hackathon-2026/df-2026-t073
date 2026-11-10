@@ -58,7 +58,7 @@ export function RehearseScreen({
   navigation,
 }: RootScreenProps<'Rehearse'>): React.JSX.Element {
   const { placeId } = route.params;
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const [speed, setSpeed] = useState(settings.staffSpeed);
   // One script per place (cached on the backend); speed only changes the staff voice.
   const script = useAsync(
@@ -91,13 +91,15 @@ export function RehearseScreen({
           <Conversation
             script={data}
             speed={speed}
-            onFinish={hintsUsed =>
+            onFinish={hintsUsed => {
+              // Ticks off the last Getting started step.
+              update({ rehearsedOnce: true });
               navigation.replace('RehearseResults', {
                 placeId,
                 hintsUsed,
                 rehearsalId: data.rehearsalId,
-              })
-            }
+              });
+            }}
           />
         )}
       </Loadable>

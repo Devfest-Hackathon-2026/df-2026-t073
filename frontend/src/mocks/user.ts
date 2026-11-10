@@ -7,10 +7,25 @@ export const PROFILE: UserProfile = {
   stats: { tango: 38, stars: 11, places: 9 },
 };
 
-/** Tango a first-time user will likely see around Koenji Station. */
+/** Sample Tango for a first-time user: two signs, a food and an expression. */
 export const STARTER_TANGO: JpText[] = [
   { text: '出口', reading: 'でぐち', romaji: 'deguchi', meaning: 'exit' },
-  { text: '改札', reading: 'かいさつ', romaji: 'kaisatsu', meaning: 'ticket gate' },
-  { text: '禁煙', reading: 'きんえん', romaji: 'kin-en', meaning: 'no smoking' },
-  { text: '営業中', reading: 'えいぎょうちゅう', romaji: 'eigyōchū', meaning: 'open' },
+  {
+    text: '営業中',
+    reading: 'えいぎょうちゅう',
+    romaji: 'eigyōchū',
+    meaning: 'open',
+  },
+  {
+    text: '定食',
+    reading: 'ていしょく',
+    romaji: 'teishoku',
+    meaning: 'set meal',
+  },
+  {
+    text: 'すみません',
+    reading: 'すみません',
+    romaji: 'sumimasen',
+    meaning: 'excuse me',
+  },
 ];

@@ -482,6 +482,8 @@ export interface Settings {
   onboarded: boolean;
   /** Show the first outing card on Today until the user dismisses it. */
   dayOne: boolean;
+  /** Finished a rehearsal (the last Getting started step). */
+  rehearsedOnce: boolean;
   /** Map tab, map cards and every use of location. Off = no GPS at all. */
   mapFeatures: boolean;
 }

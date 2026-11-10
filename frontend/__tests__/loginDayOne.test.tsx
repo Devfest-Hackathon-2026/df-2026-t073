@@ -62,11 +62,11 @@ describe('account creation onboarding', () => {
     await fill(tree);
     await press(tree, 'Create account');
 
-    expect(mockSignUp).toHaveBeenCalledWith(
-      'new@example.com',
-      'password123',
-    );
-    expect(mockUpdate).toHaveBeenCalledWith({ dayOne: true });
+    expect(mockSignUp).toHaveBeenCalledWith('new@example.com', 'password123');
+    expect(mockUpdate).toHaveBeenCalledWith({
+      dayOne: true,
+      rehearsedOnce: false,
+    });
   });
 
   test('existing account sign-in does not reset day one and marks onboarded', async () => {
@@ -91,7 +91,10 @@ describe('account creation onboarding', () => {
     await press(tree, 'Continue with Google');
 
     expect(mockSignInWithGoogle).toHaveBeenCalled();
-    expect(mockUpdate).toHaveBeenCalledWith({ dayOne: true });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      dayOne: true,
+      rehearsedOnce: false,
+    });
   });
 
   test('existing Google account marks onboarded without resetting day one', async () => {

@@ -567,16 +567,19 @@ const today = {
   reviewTitle: 'Review',
   start: 'Start',
   more: (n: number) => `+${n} more`,
-  firstOuting: 'Your first outing',
-  dismissFirstOuting: 'Dismiss first outing card',
+  firstOuting: 'Getting started',
+  dismissFirstOuting: 'Dismiss getting started card',
   aboutTenMin: 'About 10 min',
-  stepCatch: 'Catch 3 Tango around the station',
-  stepRehearse: 'Rehearse buying a ticket',
-  stepRehearseNote: '1 min with Gemini, at your own pace',
+  /** Getting started progress, e.g. "1 of 3 done". */
+  stepsDone: (n: number, total: number) => `${n} of ${total} done`,
+  allStepsDone: "All done! You're ready to explore.",
+  /** e.g. "2 / 3" next to the catch step. */
+  caughtCount: (n: number, total: number) => `${n} / ${total}`,
+  stepCatch: 'Find and capture 3 Tango',
+  stepPlan: 'Make a plan',
+  stepRehearse: 'Rehearse a conversation',
   go: 'Go',
-  stepReview: 'Your first review tonight',
-  stepReviewNote: 'Opens after you catch 3',
-  starterTango: "Tango you'll likely see around Koenji Station",
+  starterTango: 'Sample Tango',
 };
 
 const reviewSession = {
@@ -688,7 +691,8 @@ const capture = {
   youKnowThis: 'You know this',
   saved: 'Saved',
   newTango: 'New Tango',
-  frozenA11y: 'Tap highlighted text to select it, or drag across words to join them',
+  frozenA11y:
+    'Tap highlighted text to select it, or drag across words to join them',
   closeCamera: 'Close camera',
   caughtToday: (n: number) => `${n} caught today. Open today's catch`,
   photoReading: 'Reading the photo…',
