@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.core.firebase import get_gcp_access_token
 from app.schemas.capture import DetectedItem, Vertex
+from app.services.gemini import is_gemini_configured, request_json
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +47,10 @@ async def _enrich_items_with_gemini(
     http_client: httpx.AsyncClient,
     raw_items: list[DetectedItem],
 ) -> list[DetectedItem]:
-    """Translate English object labels to natural Japanese and add readings/glosses via Gemini."""
-    if not raw_items or not settings.GEMINI_API_KEY:
+    """Translate English object labels to natural Japanese and add readings/glosses via Gemini / Vertex AI."""
+    if not raw_items or not is_gemini_configured():
         return raw_items
 
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent"
-    )
     items_payload = [
         {
             "item_id": item.item_id,
@@ -74,7 +71,7 @@ async def _enrich_items_with_gemini(
     )
 
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.1,
             "responseMimeType": "application/json",
@@ -95,18 +92,10 @@ async def _enrich_items_with_gemini(
     }
 
     try:
-        resp = await http_client.post(
-            url,
-            headers={"x-goog-api-key": settings.GEMINI_API_KEY},
-            json=body,
-        )
-        resp.raise_for_status()
-        candidates = resp.json().get("candidates") or []
-        if not candidates:
+        enriched_list = await request_json(http=http_client, body=body)
+        if not isinstance(enriched_list, list):
             return raw_items
-        text_out = candidates[0]["content"]["parts"][0]["text"]
-        enriched_list: list[dict[str, str]] = json.loads(text_out)
-        by_id = {entry["item_id"]: entry for entry in enriched_list if "item_id" in entry}
+        by_id = {entry["item_id"]: entry for entry in enriched_list if isinstance(entry, dict) and "item_id" in entry}
 
         for item in raw_items:
             match = by_id.get(item.item_id)
@@ -115,7 +104,7 @@ async def _enrich_items_with_gemini(
                 item.reading = match.get("reading")
                 item.english_gloss = match.get("english_gloss")
     except Exception:
-        logger.exception("Gemini label enrichment failed; returning raw Vision labels")
+        logger.exception("Gemini / Vertex AI label enrichment failed; returning raw Vision labels")
 
     return raw_items
 

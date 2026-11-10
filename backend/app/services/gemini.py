@@ -13,6 +13,7 @@ import httpx
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.core.firebase import get_gcp_access_token
 
 logger = logging.getLogger(__name__)
 RETRYABLE_STATUS_CODES = {429, 500, 503, 504}
@@ -33,6 +34,11 @@ def _retry_after(value: str | None) -> float | None:
             return None
 
 
+def is_gemini_configured() -> bool:
+    """Return True if Vertex AI (via FIREBASE_PROJECT_ID) or AI Studio (via GEMINI_API_KEY) is configured."""
+    return bool(settings.FIREBASE_PROJECT_ID or settings.GEMINI_API_KEY)
+
+
 async def generate_json(
     *,
     http: httpx.AsyncClient,
@@ -41,20 +47,23 @@ async def generate_json(
     temperature: float = 0.3,
     inline: list[tuple[bytes, str]] | None = None,
 ) -> Any:
-    """Ask Gemini for JSON matching `schema`. `inline` adds (bytes, mime_type) parts.
+    """Ask Gemini / Vertex AI for JSON matching `schema`. `inline` adds (bytes, mime_type) parts.
 
-    Raises 503 when no key is configured or Gemini is temporarily unavailable, so callers
-    can show a clear error instead of half-filled data.
+    Raises 503 when neither Vertex AI nor an API key is configured, or when the service
+    is temporarily unavailable, so callers can show a clear error instead of half-filled data.
     """
-    if not settings.GEMINI_API_KEY:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="GEMINI_API_KEY is not configured.")
+    if not is_gemini_configured():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Neither FIREBASE_PROJECT_ID (for Vertex AI) nor GEMINI_API_KEY is configured.",
+        )
     parts: list[dict[str, Any]] = [
-        {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode("ascii")}}
+        {"inlineData": {"mimeType": mime, "data": base64.b64encode(data).decode("ascii")}}
         for data, mime in (inline or [])
     ]
     parts.append({"text": prompt})
     body = {
-        "contents": [{"parts": parts}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "temperature": temperature,
             "responseMimeType": "application/json",
@@ -65,16 +74,42 @@ async def generate_json(
 
 
 async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
-    """Send a prepared structured-output request with the shared retry policy."""
-    if not settings.GEMINI_API_KEY:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="GEMINI_API_KEY is not configured.")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
+    """Send a prepared structured-output request via Vertex AI (or AI Studio fallback) with retries."""
+    project = settings.FIREBASE_PROJECT_ID
+    location = getattr(settings, "VERTEX_LOCATION", "asia-northeast1")
+    model = settings.GEMINI_MODEL
+
+    if project:
+        # Vertex AI REST API (Keyless via GCP Application Default Credentials)
+        url = (
+            f"https://{location}-aiplatform.googleapis.com/v1/"
+            f"projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
+        )
+        token = await get_gcp_access_token()
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "x-goog-user-project": project,
+        }
+    elif settings.GEMINI_API_KEY:
+        # Fallback to AI Studio if no project ID is configured
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        headers = {
+            "x-goog-api-key": settings.GEMINI_API_KEY,
+            "Content-Type": "application/json",
+        }
+    else:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Neither FIREBASE_PROJECT_ID (for Vertex AI) nor GEMINI_API_KEY is configured.",
+        )
+
     attempts = max(1, settings.GEMINI_MAX_ATTEMPTS)
     retry_budget = max(0.0, settings.GEMINI_RETRY_BUDGET_S)
     started = asyncio.get_running_loop().time()
     for attempt in range(attempts):
         try:
-            resp = await http.post(url, headers={"x-goog-api-key": settings.GEMINI_API_KEY}, json=body)
+            resp = await http.post(url, headers=headers, json=body)
             if resp.status_code in RETRYABLE_STATUS_CODES:
                 logger.warning("Gemini transient HTTP %s (attempt %s/%s)", resp.status_code, attempt + 1, attempts)
                 if attempt + 1 < attempts:

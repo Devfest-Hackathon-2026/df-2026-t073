@@ -12,18 +12,17 @@ from app.schemas.flashcard import (
     JpOption,
     RelatedVocabItem,
 )
-from app.services.gemini import request_json
+from app.services.gemini import is_gemini_configured, request_json
 
 logger = logging.getLogger(__name__)
 
 
-def _require_gemini_key() -> str:
-    if not settings.GEMINI_API_KEY:
+def _require_gemini() -> None:
+    if not is_gemini_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY is not configured.",
+            detail="Vertex AI / Gemini is not configured.",
         )
-    return settings.GEMINI_API_KEY
 
 
 async def generate_flashcard_content(
@@ -35,7 +34,7 @@ async def generate_flashcard_content(
     language: str = "English",
 ) -> GeneratedFlashcardContent:
     """Generate structured Japanese vocabulary flashcard content via Gemini Structured Outputs."""
-    _require_gemini_key()
+    _require_gemini()
 
     context_hint = (
         f" (detected from photo {item_type}: '{source_label}')"
@@ -123,7 +122,7 @@ async def generate_related_vocabulary(
     language: str = "English",
 ) -> list[RelatedVocabItem]:
     """Generate 4 contextually related Japanese vocabulary words to extend the lesson."""
-    _require_gemini_key()
+    _require_gemini()
 
     prompt = (
         f"Given the Japanese vocabulary word '{kanji}' ({meaning}), suggest 4 closely related "
@@ -176,7 +175,7 @@ async def generate_distractors(
     Returns {flashcard_id: Distractors}. Never raises: on any failure it returns
     what it has (possibly {}), and the caller fills gaps from other sources.
     """
-    if not cards or not settings.GEMINI_API_KEY:
+    if not cards or not is_gemini_configured():
         return {}
 
     items = [

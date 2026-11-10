@@ -39,7 +39,7 @@ steps:
       - '--max-instances=10'
       - '--concurrency=80'
       - '--timeout=60s'
-      - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB,GCS_BUCKET_NAME=$_GCS_BUCKET_NAME'
+      - '--set-env-vars=FIREBASE_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=$_FIRESTORE_DB,GCS_BUCKET_NAME=$_GCS_BUCKET_NAME,VERTEX_LOCATION=$_REGION'
       - '--set-secrets=$_SECRETS_FLAG'
 
 options:
@@ -51,7 +51,7 @@ substitutions:
   _SERVICE_NAME: 'fastapi-backend'
   _FIRESTORE_DB: '(default)'
   _GCS_BUCKET_NAME: '$PROJECT_ID.firebasestorage.app'
-  _SECRETS_FLAG: 'GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest'
+  _SECRETS_FLAG: 'GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest'
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$COMMIT_SHA'

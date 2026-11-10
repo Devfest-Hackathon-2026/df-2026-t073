@@ -12,10 +12,12 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str | None = None
     FIRESTORE_DATABASE_ID: str = "(default)"
 
-    # Cloud Storage & Gemini AI settings for Tankengo
+    # Cloud Storage & Gemini / Vertex AI settings for Tankengo
     GCS_BUCKET_NAME: str | None = None
     GEMINI_API_KEY: str | None = None
-    # 3.8-flash timed out (90 s+) in testing; 3.5-flash answers in ~9 s.
+    # Vertex AI region (default asia-northeast1 for Tokyo, or us-central1)
+    VERTEX_LOCATION: str = "asia-northeast1"
+    # Vertex AI model name (e.g. gemini-1.5-flash, gemini-2.0-flash, or gemini-3.5-flash)
     GEMINI_MODEL: str = "gemini-3.5-flash"
     # Gemini calls retry transient failures (HTTP 429, 500, 503, 504 and network
     # timeouts) with a short backoff. The budget is the longest a request may spend
