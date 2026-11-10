@@ -52,6 +52,8 @@ google-cloud-firestore==2.34.1
     #   firebase-admin
 google-cloud-storage==3.17.1
     # via firebase-admin
+google-genai>=0.1.1
+    # via backend
 google-crc32c==1.9.0
     # via
     #   google-cloud-storage

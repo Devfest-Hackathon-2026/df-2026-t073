@@ -1,4 +1,8 @@
-"""Shared Gemini call: structured JSON output, optionally with inline audio/images."""
+"""Shared Gemini call: structured JSON output, optionally with inline audio/images.
+
+Supports Google Gen AI SDK (google-genai) for Gemini Enterprise Agent Platform (GEAP) /
+Vertex AI with automatic fallback to Google AI Studio and direct REST protocols.
+"""
 
 import asyncio
 import base64
@@ -17,6 +21,16 @@ from app.core.firebase import get_gcp_access_token
 
 logger = logging.getLogger(__name__)
 RETRYABLE_STATUS_CODES = {429, 500, 503, 504}
+
+try:
+    from google import genai
+    from google.genai import types
+
+    _HAS_GENAI_SDK = True
+except ImportError:
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
+    _HAS_GENAI_SDK = False
 
 
 def _retry_after(value: str | None) -> float | None:
@@ -73,32 +87,112 @@ async def generate_json(
     return await request_json(http=http, body=body)
 
 
+async def _call_genai_sdk(
+    *,
+    body: dict[str, Any],
+    project: str | None,
+    location: str,
+    model: str,
+    api_key: str | None,
+    use_vertex: bool,
+) -> Any:
+    """Invoke Gemini Enterprise Agent Platform (GEAP) / Vertex AI or AI Studio via google-genai SDK."""
+    if not _HAS_GENAI_SDK or genai is None or types is None:
+        raise RuntimeError("google-genai SDK is not installed.")
+
+    if use_vertex and project:
+        client = genai.Client(
+            vertexai=True,
+            project=project,
+            location=location,
+        )
+    elif api_key:
+        client = genai.Client(
+            api_key=api_key,
+        )
+    else:
+        raise ValueError("Neither Vertex AI project nor GEMINI_API_KEY is available.")
+
+    raw_contents = body.get("contents", [])
+    raw_config = body.get("generationConfig", {})
+
+    sdk_contents: list[Any] = []
+    for item in raw_contents:
+        parts_list = item.get("parts", [])
+        for p in parts_list:
+            if "inlineData" in p:
+                mime = p["inlineData"]["mimeType"]
+                data = base64.b64decode(p["inlineData"]["data"])
+                sdk_contents.append(types.Part.from_bytes(data=data, mime_type=mime))
+            elif "text" in p:
+                sdk_contents.append(p["text"])
+
+    config = types.GenerateContentConfig(
+        temperature=raw_config.get("temperature", 0.2),
+        response_mime_type=raw_config.get("responseMimeType", "application/json"),
+        response_schema=raw_config.get("responseSchema"),
+    )
+
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=sdk_contents,
+        config=config,
+    )
+
+    raw_text = (response.text or "").strip()
+    if raw_text.startswith("```"):
+        lines = raw_text.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw_text = "\n".join(lines).strip()
+
+    return json.loads(raw_text)
+
+
+async def _call_vertex_ai(
+    http: httpx.AsyncClient,
+    body: dict[str, Any],
+    project: str,
+    location: str,
+    model: str,
+) -> httpx.Response:
+    token = await get_gcp_access_token()
+    url = (
+        f"https://{location}-aiplatform.googleapis.com/v1/"
+        f"projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-goog-user-project": project,
+    }
+    return await http.post(url, headers=headers, json=body)
+
+
+async def _call_ai_studio(
+    http: httpx.AsyncClient,
+    body: dict[str, Any],
+    api_key: str,
+    model: str,
+) -> httpx.Response:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    headers = {
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+    return await http.post(url, headers=headers, json=body)
+
+
 async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
-    """Send a prepared structured-output request via Vertex AI (or AI Studio fallback) with retries."""
+    """Send a prepared structured-output request via Vertex AI (with AI Studio fallback) and retry logic."""
     project = settings.FIREBASE_PROJECT_ID
     location = getattr(settings, "VERTEX_LOCATION", "asia-northeast1")
     model = settings.GEMINI_MODEL
+    api_key = settings.GEMINI_API_KEY
 
-    if project:
-        # Vertex AI REST API (Keyless via GCP Application Default Credentials)
-        url = (
-            f"https://{location}-aiplatform.googleapis.com/v1/"
-            f"projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
-        )
-        token = await get_gcp_access_token()
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "x-goog-user-project": project,
-        }
-    elif settings.GEMINI_API_KEY:
-        # Fallback to AI Studio if no project ID is configured
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        headers = {
-            "x-goog-api-key": settings.GEMINI_API_KEY,
-            "Content-Type": "application/json",
-        }
-    else:
+    if not project and not api_key:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Neither FIREBASE_PROJECT_ID (for Vertex AI) nor GEMINI_API_KEY is configured.",
@@ -107,9 +201,76 @@ async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
     attempts = max(1, settings.GEMINI_MAX_ATTEMPTS)
     retry_budget = max(0.0, settings.GEMINI_RETRY_BUDGET_S)
     started = asyncio.get_running_loop().time()
+    use_vertex = bool(project)
+
+    # 1. Prefer Google Gen AI SDK (google-genai) if installed
+    if _HAS_GENAI_SDK:
+        for attempt in range(attempts):
+            try:
+                try:
+                    return await _call_genai_sdk(
+                        body=body,
+                        project=project,
+                        location=location,
+                        model=model,
+                        api_key=api_key,
+                        use_vertex=use_vertex,
+                    )
+                except Exception as sdk_err:
+                    if use_vertex and api_key:
+                        logger.warning(
+                            "Vertex AI SDK call failed (%s); falling back to Google AI Studio with GEMINI_API_KEY: %s",
+                            type(sdk_err).__name__,
+                            sdk_err,
+                        )
+                        return await _call_genai_sdk(
+                            body=body,
+                            project=None,
+                            location=location,
+                            model=model,
+                            api_key=api_key,
+                            use_vertex=False,
+                        )
+                    raise
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "Google Gen AI SDK transient error (attempt %s/%s): %s",
+                    attempt + 1,
+                    attempts,
+                    exc,
+                )
+                if attempt + 1 < attempts:
+                    delay = min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
+                    if asyncio.get_running_loop().time() - started + delay < retry_budget:
+                        await asyncio.sleep(delay)
+                        continue
+                logger.warning("Google Gen AI SDK attempts exhausted; falling back to REST: %s", exc)
+                break
+
+    # 2. REST Protocol execution (fallback or when google-genai is not installed)
     for attempt in range(attempts):
         try:
-            resp = await http.post(url, headers=headers, json=body)
+            if use_vertex:
+                try:
+                    resp = await _call_vertex_ai(http, body, project, location, model)
+                except Exception as auth_exc:
+                    if api_key:
+                        logger.warning(
+                            "Vertex AI credentials unavailable (%s); falling back to Google AI Studio",
+                            auth_exc,
+                        )
+                        use_vertex = False
+                        resp = await _call_ai_studio(http, body, api_key, model)
+                    else:
+                        raise HTTPException(
+                            status.HTTP_502_BAD_GATEWAY,
+                            detail=f"Vertex AI authentication failed: {auth_exc}. Run 'gcloud auth application-default login' for local dev.",
+                        ) from auth_exc
+            else:
+                resp = await _call_ai_studio(http, body, api_key, model)
+
             if resp.status_code in RETRYABLE_STATUS_CODES:
                 logger.warning("Gemini transient HTTP %s (attempt %s/%s)", resp.status_code, attempt + 1, attempts)
                 if attempt + 1 < attempts:
@@ -123,29 +284,44 @@ async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
                     detail="Gemini is temporarily busy.",
                     headers={"Retry-After": resp.headers.get("Retry-After", "5")},
                 )
-            resp.raise_for_status()
+
+            # If Vertex AI returned 403 (e.g. API disabled or IAM missing) or 404 (model not in region)
+            if resp.status_code in (403, 404) and use_vertex and api_key:
+                logger.warning(
+                    "Vertex AI HTTP %s (%s); falling back to Google AI Studio with GEMINI_API_KEY",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                use_vertex = False
+                resp = await _call_ai_studio(http, body, api_key, model)
+
+            if resp.status_code >= 400:
+                err_text = resp.text[:400]
+                logger.error("Gemini / Vertex AI HTTP %s: %s", resp.status_code, err_text)
+                raise HTTPException(
+                    status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Gemini API HTTP {resp.status_code}: {err_text}",
+                )
+
             candidates = resp.json().get("candidates") or []
             if not candidates:
-                raise ValueError("Gemini returned no candidates.")
-            return json.loads(candidates[0]["content"]["parts"][0]["text"])
+                raise ValueError(f"Gemini returned no candidates: {resp.text[:300]}")
+
+            raw_text = candidates[0]["content"]["parts"][0]["text"].strip()
+            # Strip markdown code blocks if present
+            if raw_text.startswith("```"):
+                lines = raw_text.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                raw_text = "\n".join(lines).strip()
+
+            return json.loads(raw_text)
+
         except HTTPException:
             raise
-        except httpx.HTTPStatusError as exc:
-            logger.error("Gemini returned HTTP %s: %s", exc.response.status_code, exc.response.text[:300])
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Gemini request failed.") from exc
-        except httpx.TimeoutException as exc:
-            logger.warning("Gemini timed out (attempt %s/%s)", attempt + 1, attempts)
-            if attempt + 1 < attempts:
-                delay = min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
-                if asyncio.get_running_loop().time() - started + delay < retry_budget:
-                    await asyncio.sleep(delay)
-                    continue
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini is temporarily unavailable.",
-                headers={"Retry-After": "5"},
-            ) from exc
-        except httpx.RequestError as exc:
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
             logger.warning("Gemini network error (attempt %s/%s): %s", attempt + 1, attempts, exc)
             if attempt + 1 < attempts:
                 delay = min(0.5 * (2 ** attempt), 4.0) * random.uniform(0.75, 1.25)
@@ -154,12 +330,15 @@ async def request_json(*, http: httpx.AsyncClient, body: dict[str, Any]) -> Any:
                     continue
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini is temporarily unavailable.",
+                detail=f"Gemini connection error: {exc}",
                 headers={"Retry-After": "5"},
             ) from exc
         except Exception as exc:
-            logger.exception("Gemini call failed")
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Gemini.") from exc
+            logger.exception("Gemini / Vertex AI call failed")
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail=f"Gemini request failed: {type(exc).__name__}: {exc}",
+            ) from exc
 
 
 def jp_schema() -> dict[str, Any]:
