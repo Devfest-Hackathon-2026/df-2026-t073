@@ -13,6 +13,26 @@ export interface OutboxEntry {
 }
 
 const OUTBOX_STORAGE_KEY = '@tankengo:outbox_queue';
+/** A change that keeps failing for a temporary reason is dropped after this. */
+export const MAX_ATTEMPTS = 5;
+
+/**
+ * Failures worth retrying later: expired sign-in, rate limits, timeouts and
+ * server errors. Other client errors mean the change itself is bad.
+ */
+function isTemporary(err: unknown): boolean {
+  const status = (err as { status?: unknown })?.status;
+  if (typeof status !== 'number') {
+    return false;
+  }
+  return (
+    status === 401 ||
+    status === 403 ||
+    status === 408 ||
+    status === 429 ||
+    status >= 500
+  );
+}
 let isDraining = false;
 
 /**
@@ -77,9 +97,7 @@ export async function clearOutbox(): Promise<void> {
   }
 }
 
-export type MutationExecutor = (
-  entry: OutboxEntry,
-) => Promise<unknown>;
+export type MutationExecutor = (entry: OutboxEntry) => Promise<unknown>;
 
 /**
  * Drains all queued mutations in FIFO order using the provided executor.
@@ -118,9 +136,19 @@ export async function drainOutbox(
           // Device is offline: stop draining and keep remaining queue for retry
           setOnlineStatus(false);
           break;
+        } else if (isTemporary(err) && item.attempts + 1 < MAX_ATTEMPTS) {
+          // e.g. sign-in expired or the server is down: keep it, in order,
+          // and try again next time the app opens.
+          remainingQueue[0] = {
+            ...item,
+            attempts: item.attempts + 1,
+            lastError: err instanceof Error ? err.message : String(err),
+          };
+          await saveOutbox(remainingQueue);
+          break;
         } else {
-          // Non-network failure (e.g. 400 Bad Request, 404, or 409 stale conflict)
-          // Drop bad entry to prevent queue blockage
+          // The change itself is bad (e.g. 400, 404, 409), or it kept
+          // failing: drop it so the queue doesn't stay blocked.
           remainingQueue.shift();
           await saveOutbox(remainingQueue);
         }
@@ -132,4 +160,3 @@ export async function drainOutbox(
     isDraining = false;
   }
 }
-

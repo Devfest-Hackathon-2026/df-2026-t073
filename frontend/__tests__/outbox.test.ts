@@ -100,7 +100,9 @@ describe('outbox mutation queue', () => {
 
   it('enqueues to outbox when request fails with a network error and outboxFallback is provided', async () => {
     const originalFetch = global.fetch;
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network request failed'));
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new Error('Network request failed'));
 
     const { request } = require('../src/api/client');
 
@@ -118,5 +120,43 @@ describe('outbox mutation queue', () => {
     expect(outbox[0].body).toEqual({ count: 42 });
 
     global.fetch = originalFetch;
+  });
+
+  const failWith = (status: number) =>
+    Object.assign(new Error(`HTTP ${status}`), { status });
+
+  it('keeps a change that failed because sign-in expired, to retry later', async () => {
+    await enqueueMutation({ path: '/item1', method: 'POST' });
+    await enqueueMutation({ path: '/item2', method: 'POST' });
+    const executor = jest.fn(async () => {
+      throw failWith(401);
+    });
+
+    const result = await drainOutbox(executor);
+
+    // Stops at the first one so the order is kept.
+    expect(executor).toHaveBeenCalledTimes(1);
+    expect(result.remaining).toBe(2);
+    const queue = await getOutbox();
+    expect(queue[0].attempts).toBe(1);
+    expect(queue[0].lastError).toBe('HTTP 401');
+  });
+
+  it('drops a change the server rejects as bad', async () => {
+    await enqueueMutation({ path: '/item1', method: 'POST' });
+    await drainOutbox(async () => {
+      throw failWith(400);
+    });
+    expect(await getOutbox()).toHaveLength(0);
+  });
+
+  it('drops a change after it keeps failing', async () => {
+    await enqueueMutation({ path: '/item1', method: 'POST' });
+    for (let i = 0; i < 5; i++) {
+      await drainOutbox(async () => {
+        throw failWith(503);
+      });
+    }
+    expect(await getOutbox()).toHaveLength(0);
   });
 });
