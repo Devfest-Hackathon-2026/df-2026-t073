@@ -35,6 +35,7 @@ backend/
 │   │   └── firebase.py        # Firebase Admin, Async Firestore, Storage and HTTP client lifecycle
 │   ├── schemas/               # Pydantic request/response models, one file per area
 │   └── services/              # Business logic. *_rules.py files are pure (no I/O) and unit-tested
+│       ├── account_deletion.py  # DELETE /api/v1/me: removes a user's data in Firestore and Storage
 │       ├── firestore.py       # captures, flashcards, review sessions in Firestore
 │       ├── tango_rules.py     # card identity, strength 0-4, sightings, history
 │       ├── review.py / review_rules/         # due cards, sessions, questions, results
@@ -44,13 +45,14 @@ backend/
 │       ├── briefing.py        # prepare briefings (Places reviews + Gemini, cached)
 │       ├── rehearsal.py / rehearsal_rules.py # role-play scripts and rating replies
 │       ├── stt.py / tts.py    # Speech-to-Text and Text-to-Speech
-│       ├── gemini.py          # shared structured-JSON Gemini call
+│       ├── gemini.py          # shared structured-JSON Gemini call: retries, backoff, Retry-After
 │       ├── flashcard_generator.py            # card content, related words, quiz wrong answers
 │       ├── vision.py / image_orientation.py  # Cloud Vision reads and EXIF box rotation
 │       ├── storage.py         # Cloud Storage uploads
 │       ├── dictionary.py      # JMdict lookups (local SQLite)
 │       ├── word_of_day.py / everyday_words.py # word of the day
 │       ├── lists.py           # lists and favorites
+│       ├── favorite_places.py # favourite places (PUT/DELETE /api/v1/me/favorite-places/{place_id})
 │       └── usage.py           # per-user daily limits
 ├── scripts/
 │   ├── build_jmdict.py        # builds data/jmdict.sqlite
@@ -106,6 +108,8 @@ cp ../.env.example .env
 | `GEMINI_API_KEY` | For AI features | Gemini API key from Google AI Studio |
 | `GEMINI_MODEL` | No | Defaults to `gemini-3.5-flash` |
 | `GOOGLE_PLACES_API_KEY` | For real places | Server-side key for Places API (New). Keep it separate from the Android Maps key |
+| `GEMINI_MAX_ATTEMPTS` | No | Attempts per Gemini call before giving up, default `3` |
+| `GEMINI_RETRY_BUDGET_S` | No | Longest time one Gemini call may spend, retries included, default `38`. Keep it under the app's 45 s timeout |
 | `MAX_UPLOAD_BYTES` | No | Photo size limit, default 10 MiB |
 | `LIMIT_*` | No | Daily limits, see below |
 
@@ -148,8 +152,18 @@ Endpoints that call paid Google APIs count calls per user per day (Japan time) i
 | `LIMIT_TTS` | `POST /speech/tts` | 400 |
 | `LIMIT_REVIEW` | `GET /review/session` | 80 |
 | `LIMIT_PLACES` | `GET /places/search`, `/places/nearby` | 400 |
+| `LIMIT_EXPAND` | `POST /flashcards/{id}/expand` | 100 |
 
-If the counter can't be reached, calls are allowed.
+A call is counted before the work starts. If the endpoint then fails, the count is refunded, so failed calls don't use up the day. If the counter can't be reached, calls are allowed.
+
+### When Gemini is busy
+Gemini sometimes returns HTTP 503 or 429 under high demand. Most Gemini calls go through one shared helper, `request_json` in `backend/app/services/gemini.py`. It retries 429, 500, 503, 504 and network timeouts up to `GEMINI_MAX_ATTEMPTS` times, with jittered backoff, and honours a `Retry-After` header when Gemini sends one. `GEMINI_RETRY_BUDGET_S` stops new retries once that much time has been spent. It does not yet cap a single attempt, so one request can run longer than the budget.
+
+The exception is photo label enrichment in `vision.py`. It makes one attempt without retries, and if Gemini fails, the photo keeps the raw Cloud Vision labels in English.
+
+When every attempt fails, the endpoint returns **503** with a `Retry-After` header, so the app can ask the person to try again. Other failures return **502**: a non-retryable Gemini error such as a rejected key, or a reply that can't be parsed. Stale cached briefings are returned instead of an error when they exist. Quiz wrong answers fall back to other sources and never block a review session.
+
+There is deliberately no fallback to a second model. Different models give different wording, and results should stay consistent for a place.
 
 ### Step 4c: Build the dictionary (one time)
 Tango cards for dictionary words are made instantly from JMdict instead of Gemini (Gemini then adds the example phrases in the background). Build the local database once (downloads ~12 MB, writes `data/jmdict.sqlite`, ~90 MB, git-ignored):
@@ -241,8 +255,9 @@ The image build downloads JMdict and builds `data/jmdict.sqlite`, so it needs ne
 ## 6. Cloud Run Deployment (via Cloud Build)
 
 Deployment is automated via `cloudbuild.yaml`:
+0. Runs `pytest` on `backend/tests/`. A failing test stops the deploy.
 1. Builds the Docker image from `backend/Dockerfile`.
-2. Pushes the image to Google Artifact Registry (`$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME`).
-3. Deploys the image to Cloud Run with `FIREBASE_PROJECT_ID`, `FIRESTORE_DATABASE_ID` and `GCS_BUCKET_NAME` set as env vars, and `GEMINI_API_KEY` and `GOOGLE_PLACES_API_KEY` mounted from Secret Manager.
+2. Pushes the image to Google Artifact Registry (`$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME`). The default region is `asia-east1`.
+3. Deploys the image to Cloud Run with `FIREBASE_PROJECT_ID`, `FIRESTORE_DATABASE_ID` and `GCS_BUCKET_NAME` set as env vars, and `GEMINI_API_KEY` and `GOOGLE_PLACES_API_KEY` mounted from Secret Manager. Guardrails: `--max-instances=10`, `--concurrency=80`, `--timeout=60s`.
 
 Before the first deploy, create both secrets in Secret Manager and let the Cloud Run service account read them. The service account also needs access to Firestore, Cloud Storage, Vision, Speech-to-Text and Text-to-Speech.

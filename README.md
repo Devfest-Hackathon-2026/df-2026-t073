@@ -75,7 +75,7 @@ Android app (React Native)                         Google Cloud
 
 | Layer | What we use |
 | :--- | :--- |
-| Mobile app | React Native 0.88 (Android), VisionCamera with ML Kit text recognition, react-native-maps, Firebase Auth (Google and email) |
+| Mobile app | React Native 0.88 (Android), VisionCamera with ML Kit text recognition, react-native-maps, Firebase Auth (Google and email), offline cache with a retry queue |
 | Backend | FastAPI on Python 3.12, managed with `uv`; Docker image for Cloud Run |
 | Data | Cloud Firestore (user data, place and briefing caches), Cloud Storage (photos, cached speech) |
 | Google APIs | Cloud Vision, Cloud Speech-to-Text, Cloud Text-to-Speech, Places API (New), Gemini |
@@ -85,14 +85,17 @@ Android app (React Native)                         Google Cloud
 
 ```text
 .
-├── backend/    FastAPI service (see backend/README.md)
-├── frontend/   React Native Android app (see frontend/README.md)
-└── .env.example   Backend and Android build keys (copy to .env); app settings are in frontend/.env.example
+├── backend/            FastAPI service (see backend/README.md)
+├── frontend/           React Native Android app (see frontend/README.md)
+├── .env.example        Backend keys and the Android Maps key (copy to .env)
+└── frontend/.env.example   App settings: mock mode, API URL, Firebase, Google sign-in
 ```
 
 ## Getting started
 
-1. Copy `.env.example` to `.env` in the repository root and fill it in:
+There are two env files. Each is read by a different part of the build, so keys in the wrong file are silently ignored.
+
+1. **Repository-root `.env`** (copy from `.env.example`). Read by the backend and by the Android build:
 
    | Variable | Used by | What it is |
    | :--- | :--- | :--- |
@@ -100,21 +103,11 @@ Android app (React Native)                         Google Cloud
    | `GEMINI_API_KEY` | backend | Gemini API key from Google AI Studio |
    | `GEMINI_MODEL` | backend | Optional model override (default `gemini-3.5-flash`) |
    | `GOOGLE_PLACES_API_KEY` | backend | Server-side key for Places API (New) |
-   | `GOOGLE_MAPS_API_KEY` | app build | Android Maps SDK key, baked into the app at build time |
+   | `GOOGLE_MAPS_API_KEY` | Android build | Maps SDK for Android key, compiled into the APK |
 
    Use two different keys for Maps and Places: the Maps key is restricted to the Android app, the Places key is for the server.
 
-2. Copy `frontend/.env.example` to `frontend/.env` and fill it in. These are the app's own settings:
-
-   | Variable | What it is |
-   | :--- | :--- |
-   | `USE_MOCKS`, `LIVE_APIS` | Mock data or the real backend, per area |
-   | `API_BASE_URL` | Backend URL (`http://10.0.2.2:8000` in the emulator) |
-   | `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID` | Firebase web app config |
-   | `GOOGLE_WEB_CLIENT_ID` | Needed for Google sign-in. Web client ID from Firebase › Authentication › Sign-in method › Google › Web SDK configuration |
-   | `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` | Optional fixed test account |
-
-   Google sign-in also needs the debug keystore's SHA-1 and SHA-256 registered in Firebase; see [`frontend/README.md`](./frontend/README.md#4-mock-data-and-the-backend).
+2. **`frontend/.env`** (copy from `frontend/.env.example`). Read by the app's JavaScript: `USE_MOCKS`, `LIVE_APIS`, `API_BASE_URL`, the `FIREBASE_*` values and `GOOGLE_WEB_CLIENT_ID`. Google sign-in setup (Web client ID, SHA fingerprints) is in [`frontend/README.md`](./frontend/README.md#4-mock-data-and-the-backend).
 
 3. Run the backend: follow [`backend/README.md`](./backend/README.md) (Google Cloud sign-in, enabling the APIs, `uv run uvicorn main:app --port 8000`).
 4. Run the app: follow [`frontend/README.md`](./frontend/README.md). It runs on mock data until you point it at the backend.
