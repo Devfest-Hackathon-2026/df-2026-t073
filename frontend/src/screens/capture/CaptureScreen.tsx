@@ -1599,6 +1599,7 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   hint: {
+    alignItems: 'center',
     backgroundColor: colors.overlay,
     borderRadius: radii.md,
     padding: space.sm,
