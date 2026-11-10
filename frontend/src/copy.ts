@@ -413,6 +413,8 @@ const rehearse = {
   you: 'You',
   spoken: 'Spoken',
   yourTurn: 'Your turn',
+  /** Under your latest reply: answer it again. */
+  tryAgain: 'Try again',
   /** Before the English of the reply staff expect; any close reply is fine. */
   sayNext: 'Try saying something like:',
   /** How many of the learner's replies are still to come. */

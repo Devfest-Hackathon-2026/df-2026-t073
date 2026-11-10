@@ -107,7 +107,7 @@ export function RehearseScreen({
   );
 }
 
-function Conversation({
+export function Conversation({
   script,
   speed,
   onFinish,
@@ -131,6 +131,23 @@ function Conversation({
   const scrollRef = useRef<ScrollViewInstance>(null);
 
   const next = turns[shown] as RehearsalTurn | undefined;
+  // The latest reply on screen can be tried again.
+  const lastAnswered = [...turns.slice(0, shown)]
+    .reverse()
+    .find(t => t.speaker === 'user' && answers[t.id]);
+
+  /** Opens a reply again: its answer goes, and lines after it are hidden. */
+  const tryAgain = (turn: RehearsalTurn) => {
+    setAnswers(a => {
+      const rest = { ...a };
+      delete rest[turn.id];
+      return rest;
+    });
+    setHintOpen(false);
+    setChoosing(false);
+    setMessage(null);
+    setShown(turns.indexOf(turn));
+  };
   // The learner's replies: how many there are and how many are still to come.
   const replies = turns.filter(t => t.speaker === 'user');
   const repliesLeft = replies.filter(t => !answers[t.id]).length;
@@ -306,13 +323,29 @@ function Conversation({
                 <Jp {...(said?.said ?? turn.jp)} size="lg" tone="inverse" />
               </View>
               {said ? (
+                <View style={styles.naturalnessRow}>
+                  <Icon
+                    name={said.ok ? 'done' : 'triangle'}
+                    size={fontSizes.sm}
+                    color={said.ok ? colors.positive : colors.caution}
+                  />
+                  <Text
+                    style={[
+                      styles.naturalness,
+                      !said.ok && styles.naturalnessWarn,
+                    ]}
+                  >
+                    {said.label}
+                  </Text>
+                </View>
+              ) : null}
+              {said && turn.id === lastAnswered?.id && !checking ? (
                 <Text
-                  style={[
-                    styles.naturalness,
-                    !said.ok && styles.naturalnessWarn,
-                  ]}
+                  accessibilityRole="button"
+                  style={styles.tryAgain}
+                  onPress={() => tryAgain(turn)}
                 >
-                  {said.ok ? '○' : '△'} {said.label}
+                  {copy.rehearse.tryAgain}
                 </Text>
               ) : null}
             </View>
@@ -484,6 +517,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: space.md,
     maxWidth: '85%',
+  },
+  naturalnessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  tryAgain: {
+    ...base.caption,
+    padding: space.xs,
   },
   naturalness: {
     ...base.caption,
