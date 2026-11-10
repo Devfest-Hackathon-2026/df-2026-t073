@@ -21,6 +21,7 @@ steps:
         FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}
         FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}
         FIREBASE_APP_ID=${_FIREBASE_WEB_APP_ID}
+        GOOGLE_WEB_CLIENT_ID=${_GOOGLE_WEB_CLIENT_ID}
         EOF
         echo "Generated frontend/.env successfully (USE_MOCKS=false)"
 
@@ -84,4 +85,5 @@ substitutions:
   _FIREBASE_API_KEY: 'AIzaSyBT6IJtakkhOyNzRjCkGpiBsmpo6kHbRbQ'
   _FIREBASE_WEB_APP_ID: ''
   _GOOGLE_MAPS_API_KEY: ''
+  _GOOGLE_WEB_CLIENT_ID: ''
 
