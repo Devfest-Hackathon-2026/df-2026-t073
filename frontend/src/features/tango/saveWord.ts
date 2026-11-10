@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { catchTango } from '../../api/capture';
+import { deleteTango } from '../../api/tango';
 import { getStaffAudio } from '../../api/rehearse';
 import { playUrl } from '../../audio/audio';
 import { API_BASE_URL } from '../../config';
@@ -39,9 +40,18 @@ export function useSaveWord(word: {
   text: string;
   reading?: string;
   meaning?: string;
-}): { state: SaveState; save: () => Promise<void>; busy: boolean } {
+}): {
+  state: SaveState;
+  save: () => Promise<void>;
+  busy: boolean;
+  /** Set when this save created the Tango, so it can be undone. */
+  canUndo: boolean;
+  undo: () => Promise<void>;
+} {
   const { settings } = useSettings();
   const [state, setState] = useState<SaveState>('idle');
+  // Only a Tango this save created; one that was already saved is kept.
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const save = async () => {
     setState('saving');
     try {
@@ -61,9 +71,30 @@ export function useSaveWord(word: {
         onlyIfNew: true,
       });
       setState(result.created ? 'saved' : 'owned');
+      setCreatedId(result.created ? result.tango.id : null);
     } catch {
       setState('failed');
     }
   };
-  return { state, save, busy: state !== 'idle' && state !== 'failed' };
+  const undo = async () => {
+    if (!createdId) {
+      return;
+    }
+    setState('saving');
+    try {
+      await deleteTango(createdId);
+      setCreatedId(null);
+      setState('idle');
+    } catch {
+      // Still saved: keep showing it, so undo can be tried again.
+      setState('saved');
+    }
+  };
+  return {
+    state,
+    save,
+    busy: state !== 'idle' && state !== 'failed',
+    canUndo: state === 'saved' && !!createdId,
+    undo,
+  };
 }

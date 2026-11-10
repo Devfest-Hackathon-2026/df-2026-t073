@@ -556,13 +556,18 @@ const today = {
   yourPlans: 'Your plans',
   nothingPlanned: 'Nothing planned yet',
   wordOfDay: "Today's Tango",
+  /** The word of the day once saved; "Tap to undo" sits under it. */
+  saved: 'Saved',
+  /** Removes a word of the day that was just saved. */
+  undoSave: 'Tap to undo',
+  /** Opens the word in an online dictionary (Jisho). */
+  lookUp: (text: string) => `Look up ${text} online`,
   /** Why this word of the day was picked. */
   wordReason: {
     visit: (place: string) => `For your visit to ${place}`,
     /** `topicId` is the backend's topic, e.g. "food". */
     topic: (topicId: string) =>
       `You've been catching ${TOPIC_NAMES[topicId] ?? topicId} words`,
-    everyday: 'An everyday word for your level',
   },
   reviewTitle: 'Review',
   start: 'Start',

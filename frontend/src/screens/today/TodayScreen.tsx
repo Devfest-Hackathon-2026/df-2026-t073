@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -37,7 +38,7 @@ import {
   firstStepsProgress,
 } from '../../features/today/firstSteps';
 import { ReviewStartCard } from '../../features/review/ReviewStartCard';
-import { CardStack, TicketCard } from '../../components/shapes';
+import { TicketCard } from '../../components/shapes';
 import { useCachedAsync } from '../../hooks/useCachedAsync';
 import { useReloadOnFocus } from '../../hooks/useReloadOnFocus';
 import { useRootNav } from '../../navigation/types';
@@ -60,6 +61,7 @@ import type {
   WordOfDay,
 } from '../../types';
 import { formatVisitTime } from '../../utils/format';
+import { NotoHanamaru } from '../../components/NotoHanamaru';
 import { Icon } from '../../components/Icon';
 import { copy } from '../../copy';
 
@@ -357,39 +359,62 @@ function PlansRow({
   );
 }
 
+/** Jisho, a free online Japanese dictionary. */
+const DICTIONARY_URL = 'https://jisho.org/search/';
+
 function WordOfDayCard({ word }: { word: WordOfDay }): React.JSX.Element {
   const saver = useSaveWord(word);
   return (
-    <CardStack>
-      <Card>
-        <Text style={styles.eyebrow}>{copy.today.wordOfDay}</Text>
-        <Text style={base.caption}>{word.reason}</Text>
-        <View style={base.rowBetween}>
-          <View style={base.grow}>
-            <Jp
-              text={word.text}
-              reading={word.reading}
-              romaji={word.romaji}
-              bold
-              size="jumbo"
-            />
-            <Text style={styles.wordMeaning}>{word.meaning}</Text>
-          </View>
+    <Card>
+      <Text style={styles.eyebrow}>{copy.today.wordOfDay}</Text>
+      {word.reason ? <Text style={base.caption}>{word.reason}</Text> : null}
+      <View style={base.rowBetween}>
+        <View style={base.grow}>
+          <Jp
+            text={word.text}
+            reading={word.reading}
+            romaji={word.romaji}
+            bold
+            size="jumbo"
+          />
+          <Text style={styles.wordMeaning}>{word.meaning}</Text>
+        </View>
+        <View style={base.row}>
           <IconButton
             icon="play"
             label={copy.common.play(word.text)}
             onPress={() => playWord(word.text)}
           />
+          <IconButton
+            icon="search"
+            label={copy.today.lookUp(word.text)}
+            onPress={() =>
+              Linking.openURL(
+                DICTIONARY_URL + encodeURIComponent(word.text),
+              ).catch(() => {})
+            }
+          />
         </View>
-        <Button
-          label={SAVE_LABEL[saver.state]}
-          icon={SAVE_ICON[saver.state]}
-          variant="secondary"
-          disabled={saver.busy}
-          onPress={saver.save}
-        />
-      </Card>
-    </CardStack>
+      </View>
+      <Button
+        label={
+          saver.state === 'saved' ? copy.today.saved : SAVE_LABEL[saver.state]
+        }
+        icon={SAVE_ICON[saver.state]}
+        variant="secondary"
+        disabled={saver.busy}
+        onPress={saver.save}
+      />
+      {saver.canUndo ? (
+        <Text
+          accessibilityRole="button"
+          style={styles.undoLink}
+          onPress={saver.undo}
+        >
+          {copy.today.undoSave}
+        </Text>
+      ) : null}
+    </Card>
   );
 }
 
@@ -477,7 +502,7 @@ function FirstOutingCard({
   );
 }
 
-/** One Getting started step: once done its number turns into a green check and its button goes. */
+/** One Getting started step: once done it is crossed out, with a hanamaru in place of its button. */
 function FirstStep({
   index,
   title,
@@ -493,7 +518,7 @@ function FirstStep({
   action: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <NumberedStep index={index} center done={done}>
+    <NumberedStep index={index} center>
       <View style={styles.firstStep}>
         <View style={[base.row, base.grow]}>
           <Text style={[styles.stepTitle, done && styles.stepTitleDone]}>
@@ -501,13 +526,54 @@ function FirstStep({
           </Text>
           {note && !done ? <Text style={base.caption}>{note}</Text> : null}
         </View>
-        {done ? null : action}
+        {done ? (
+          // The teacher's red-pen mark, centered where a Go button sits: a
+          // hidden one keeps the spot, so marks line up down the card.
+          <View>
+            <View
+              style={styles.hiddenAction}
+              pointerEvents="none"
+              importantForAccessibility="no-hide-descendants"
+              accessibilityElementsHidden
+            >
+              <Button label={copy.today.go} variant="secondary" />
+            </View>
+            <View style={styles.doneMark} pointerEvents="none">
+              <NotoHanamaru size={DONE_MARK_SIZE} />
+            </View>
+          </View>
+        ) : (
+          action
+        )}
       </View>
     </NumberedStep>
   );
 }
 
+/** The hanamaru on a done Getting started step. */
+const DONE_MARK_SIZE = 52;
+
 const styles = StyleSheet.create({
+  undoLink: {
+    ...base.caption,
+    alignSelf: 'center',
+    padding: space.xs,
+  },
+  hiddenAction: {
+    opacity: 0,
+  },
+  // Centered over the hidden button, and allowed to spill past it.
+  doneMark: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: -DONE_MARK_SIZE,
+    right: -DONE_MARK_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-12deg' }],
+    opacity: 0.75,
+  },
   stepTitleDone: {
     color: colors.textMuted,
     textDecorationLine: 'line-through',

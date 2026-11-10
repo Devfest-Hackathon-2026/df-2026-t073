@@ -109,7 +109,7 @@ interface TodayResponse {
   total_tango?: number;
 }
 
-/** Why this word of the day was picked, in words. */
+/** Why this word of the day was picked, in words; "" for a general word. */
 function wordReason(reason: {
   kind: 'visit' | 'topic' | 'everyday';
   place_name: string | null;
@@ -121,7 +121,7 @@ function wordReason(reason: {
   if (reason.kind === 'topic' && reason.topic) {
     return copy.today.wordReason.topic(reason.topic);
   }
-  return copy.today.wordReason.everyday;
+  return '';
 }
 
 function toJp(n: JpNameResponse): JpText {

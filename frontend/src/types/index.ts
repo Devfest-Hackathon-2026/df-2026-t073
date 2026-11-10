@@ -147,7 +147,7 @@ export interface WordOfDay {
   reading: string;
   romaji: string;
   meaning: string;
-  /** Why this word, e.g. "For your visit to 麺屋たいき". */
+  /** Why this word, e.g. "For your visit to 麺屋たいき"; "" when there is no particular reason. */
   reason: string;
 }
 

@@ -550,11 +550,7 @@ export function NumberedStep({
   return (
     <View style={[styles.step, center && styles.center]}>
       <View style={[styles.stepNumber, done && styles.stepNumberDone]}>
-        {done ? (
-          <Icon name="done" size={fontSizes.xs} color={colors.textInverse} />
-        ) : (
-          <Text style={styles.stepNumberText}>{index}</Text>
-        )}
+        <Text style={styles.stepNumberText}>{index}</Text>
       </View>
       <View style={base.grow}>{children}</View>
     </View>

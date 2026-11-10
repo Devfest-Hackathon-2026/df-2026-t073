@@ -148,7 +148,7 @@ STARTER_TANGO = [
     jp("出口", "でぐち", "deguchi", "exit"),
     jp("営業中", "えいぎょうちゅう", "eigyōchū", "open"),
     jp("定食", "ていしょく", "teishoku", "set meal"),
-    jp("すみません", "すみません", "sumimasen", "excuse me"),
+    jp("どこですか", "どこですか", "doko desu ka", "where is it?"),
 ]
 
 # Used when GOOGLE_PLACES_API_KEY is not set.

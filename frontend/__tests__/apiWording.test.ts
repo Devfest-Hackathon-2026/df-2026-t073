@@ -214,9 +214,8 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   );
 
   respond(today({ kind: 'everyday', place_name: null, topic: null }));
-  expect((await getToday()).wordOfDay?.reason).toBe(
-    'An everyday word for your level',
-  );
+  // A general word: no reason line.
+  expect((await getToday()).wordOfDay?.reason).toBe('');
 });
 
 test('favorite pins keep the place they open', async () => {

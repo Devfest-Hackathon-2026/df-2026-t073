@@ -23,9 +23,9 @@ export const STARTER_TANGO: JpText[] = [
     meaning: 'set meal',
   },
   {
-    text: 'すみません',
-    reading: 'すみません',
-    romaji: 'sumimasen',
-    meaning: 'excuse me',
+    text: 'どこですか',
+    reading: 'どこですか',
+    romaji: 'doko desu ka',
+    meaning: 'where is it?',
   },
 ];
