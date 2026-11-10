@@ -365,7 +365,12 @@ export function Jp({
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.scrim} onPress={() => setOpen(false)}>
+        <Pressable
+          style={styles.scrim}
+          onPress={() => setOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel={copy.common.close}
+        >
           {/* Taps inside the card don't close it. */}
           <Pressable style={styles.peek} onPress={() => {}}>
             <View style={base.rowBetween}>
@@ -375,6 +380,7 @@ export function Jp({
               <Pressable
                 style={styles.audio}
                 onPress={() => playWord(text)}
+                accessibilityRole="button"
                 accessibilityLabel={copy.common.play(text)}
               >
                 <Icon name="play" color={colors.textInverse} />

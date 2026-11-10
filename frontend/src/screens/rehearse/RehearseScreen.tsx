@@ -290,6 +290,7 @@ export function Conversation({
                     onPress={() =>
                       setRevealed(r => ({ ...r, [turn.id]: true }))
                     }
+                    accessibilityRole="button"
                     accessibilityHint={copy.rehearse.tapForEnglish}
                   >
                     <Jp {...turn.jp} size="lg" />
@@ -372,6 +373,7 @@ export function Conversation({
             ) : (
               <Pressable
                 style={styles.hintButton}
+                accessibilityRole="button"
                 onPress={() => {
                   setHintOpen(true);
                   setHintsUsed(n => n + 1);

@@ -357,7 +357,8 @@ export function CaptureScreen({
     }
     // Repeated text would give two overlay items the same key; keep the first.
     const unique = read.lines.filter(
-      (line, i) => read.lines.findIndex(other => other.text === line.text) === i,
+      (line, i) =>
+        read.lines.findIndex(other => other.text === line.text) === i,
     );
     const items: Detection[] = unique.map(line => {
       const tangoId = owned.current.get(line.text);
@@ -479,7 +480,9 @@ export function CaptureScreen({
       }
       setToast({
         jp: tango,
-        text: created ? copy.capture.savedPinnedHere : copy.capture.seenAgainHere,
+        text: created
+          ? copy.capture.savedPinnedHere
+          : copy.capture.seenAgainHere,
         undo: { tangoId: tango.id, sightingId, created },
       });
       unfreeze();
@@ -771,7 +774,9 @@ export function CaptureScreen({
       await recordRecognition(tango.id, recognized, where);
       setToast({
         jp: tango,
-        text: recognized ? copy.capture.recognizedYes : copy.capture.recognizedNo,
+        text: recognized
+          ? copy.capture.recognizedYes
+          : copy.capture.recognizedNo,
       });
     } catch (err) {
       showError(err);
@@ -1040,8 +1045,14 @@ export function CaptureScreen({
           />
         ) : null}
         {error ? (
-          <Pressable onPress={() => setError(null)} style={styles.hint}>
-            <Text style={styles.hintText}>{copy.capture.tapToDismiss(error)}</Text>
+          <Pressable
+            onPress={() => setError(null)}
+            style={styles.hint}
+            accessibilityRole="button"
+          >
+            <Text style={styles.hintText}>
+              {copy.capture.tapToDismiss(error)}
+            </Text>
           </Pressable>
         ) : null}
 
@@ -1142,7 +1153,11 @@ export function CaptureScreen({
               <SegmentedControl
                 options={[
                   { value: 'text', label: copy.capture.modeText, icon: 'scan' },
-                  { value: 'objects', label: copy.capture.modeObjects, icon: 'photo' },
+                  {
+                    value: 'objects',
+                    label: copy.capture.modeObjects,
+                    icon: 'photo',
+                  },
                 ]}
                 value={mode}
                 onChange={next => {
@@ -1169,7 +1184,9 @@ export function CaptureScreen({
                 ) : centered && mode !== 'text' ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={copy.capture.catchWord(centered.japanese_text)}
+                    accessibilityLabel={copy.capture.catchWord(
+                      centered.japanese_text,
+                    )}
                     onPress={() => doCatch(centered)}
                     style={styles.catchButton}
                   >

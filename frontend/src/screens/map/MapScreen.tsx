@@ -11,12 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getToday, searchPlaces } from '../../api/places';
 import { TangoMap } from '../../components/TangoMap';
 import { Icon } from '../../components/Icon';
-import {
-  Button,
-  Card,
-  Chip,
-  Facts,
-} from '../../components/ui';
+import { Button, Card, Chip, Facts } from '../../components/ui';
 import { useAsync } from '../../hooks/useAsync';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { type Coords, getCurrentCoords } from '../../location/location';
@@ -46,10 +41,7 @@ export function MapScreen({
   // Place search: results near you first; a pick opens Prepare.
   const [query, setQuery] = useState('');
   const searchQuery = useDebouncedValue(query);
-  const results = useAsync(
-    () => searchPlaces(searchQuery, here),
-    searchQuery,
-  );
+  const results = useAsync(() => searchPlaces(searchQuery, here), searchQuery);
 
   useEffect(() => {
     let alive = true;
@@ -192,12 +184,16 @@ export function AreaCard({
         <Pressable
           onPress={onClose}
           disabled={!onClose}
+          accessibilityRole="button"
           accessibilityLabel={copy.mapScreen.closeAreaCard}
         >
           <View style={base.row}>
             <Facts
               items={[
-                { icon: 'tango', text: copy.common.tangoCount(area.tangoCount) },
+                {
+                  icon: 'tango',
+                  text: copy.common.tangoCount(area.tangoCount),
+                },
                 { icon: 'pin', text: copy.common.placeCount(area.placeCount) },
               ]}
             />

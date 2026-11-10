@@ -122,6 +122,7 @@ export function MapPlaceholder({
       {pins.map(pin => (
         <Pressable
           key={pin.id}
+          accessibilityRole="button"
           accessibilityLabel={copy.map.placeholderPin(pin.label, pin.count)}
           onPress={onPinPress ? () => onPinPress(pin) : undefined}
           style={[
@@ -216,6 +217,7 @@ function SheetBody({
       <Pressable
         style={styles.sheetScrim}
         onPress={onClose}
+        accessibilityRole="button"
         accessibilityLabel={copy.common.close}
       />
       <View style={[styles.sheet, { paddingBottom: space.lg + insets.bottom }]}>
