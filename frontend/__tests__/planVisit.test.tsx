@@ -189,7 +189,12 @@ describe('PlanVisitSheet', () => {
     await press(tree, 'Earlier hour');
     await press(tree, 'Earlier hour');
     expect(allTexts(tree)).toContain('Mon 9 Nov, 8:00');
-    expect(allTexts(tree)).toContain('Pick a time later than now.');
+    const add = tree.root.findAll(
+      n =>
+        typeof n.props.onPress === 'function' &&
+        n.findAllByType(Text).some(t => t.props.children === 'Add to plans'),
+    )[0];
+    expect(add!.props.disabled).toBe(true);
   });
 
   test('an existing plan shows Change and Remove', async () => {

@@ -3,7 +3,7 @@ import { USER_NAME } from './places';
 
 export const PROFILE: UserProfile = {
   name: USER_NAME,
-  levelNote: 'Reads hiragana and katakana',
+  readingLevel: 'kana',
   stats: { tango: 38, stars: 11, places: 9 },
 };
 

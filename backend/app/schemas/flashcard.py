@@ -59,14 +59,19 @@ class Sighting(BaseModel):
     image_url: str | None = None
 
 
+HistoryType = Literal["caught", "reviewed", "seen_again", "heard_in_rehearsal", "said_in_rehearsal"]
+
+
 class HistoryEvent(BaseModel):
     """One step in "How it grew" on the Tango detail screen."""
 
-    type: Literal["caught", "reviewed", "seen_again"]
+    type: HistoryType
     at: datetime
     detail: str = ""
     # Links caught/seen_again events to their sighting, so Undo can remove both.
     sighting_id: str | None = None
+    # Rehearsal events: the rehearsal they came from, so each is recorded once.
+    rehearsal_id: str | None = None
     strength_after: int = 0
     # Store prior review_stats so undoing a sighting restores the schedule
     review_stats_before: ReviewStats | None = None

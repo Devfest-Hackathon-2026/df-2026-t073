@@ -784,6 +784,18 @@ async def add_saved_sentence(
         ) from exc
 
 
+async def add_history_events(
+    *, db: AsyncClient, uid: str, flashcard_id: str, events: list[HistoryEvent]
+) -> None:
+    """Append "How it grew" events that don't change strength or the schedule. Best effort."""
+    try:
+        await _flashcard_ref(db, uid, flashcard_id).update(
+            {"history": ArrayUnion([e.model_dump(mode="python") for e in events])}
+        )
+    except (GoogleAPICallError, GoogleAuthError):
+        logger.exception("Failed to add history to %s (uid=%s)", flashcard_id, uid)
+
+
 async def remove_saved_sentence(
     *, db: AsyncClient, uid: str, flashcard_id: str, sentence_id: str
 ) -> FlashcardResponse:

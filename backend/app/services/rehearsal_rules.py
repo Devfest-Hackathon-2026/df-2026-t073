@@ -5,11 +5,12 @@ import random
 from datetime import datetime
 from typing import Any
 
-from app.schemas.flashcard import FlashcardResponse, SavedSentence
+from app.schemas.flashcard import FlashcardResponse, HistoryEvent, SavedSentence
 from app.schemas.place import JpName
 from app.schemas.prepare import BriefingContent, BriefingTango
 from app.schemas.rehearsal import (
     RehearsalScript,
+    RehearsalSession,
     RehearsalTurn,
     ReplyChoice,
     ResultLine,
@@ -18,6 +19,7 @@ from app.schemas.rehearsal import (
     Suggestion,
     TurnResult,
 )
+from app.services import tango_rules
 
 CHOICES_PER_TURN = 3
 MAX_STEPS = 3
@@ -219,6 +221,45 @@ def sentence_to_save(
         turn_id=result.turn_id,
         saved_at=now,
     )
+
+
+def rehearsal_history(
+    session: RehearsalSession, cards: list[FlashcardResponse], now: datetime
+) -> list[tuple[str, HistoryEvent]]:
+    """ "How it grew" events for the user's Tango in a rehearsal, as (flashcard_id, event).
+
+    heard_in_rehearsal: the staff said it, in a line the user got to.
+    said_in_rehearsal: the user said it out loud (picking a written reply doesn't count).
+    One of each per Tango per rehearsal; ones already recorded are skipped.
+    Strength is unchanged: these show practice, they aren't graded.
+    """
+    # Staff lines up to the last answered reply were heard (all of them once finished).
+    answered = [i for i, t in enumerate(session.turns) if t.id in session.answers]
+    if not answered:
+        return []
+    heard_until = len(session.turns) if all_replies_answered(session.turns, session.answers) else answered[-1]
+    heard = " ".join(t.jp.text for t in session.turns[:heard_until] if t.speaker == "staff")
+    said = " ".join(a.said.text for a in session.answers.values() if a.spoken)
+
+    events: list[tuple[str, HistoryEvent]] = []
+    for card in cards:
+        recorded = {(e.type, e.rehearsal_id) for e in card.history}
+        for kind, text in (("heard_in_rehearsal", heard), ("said_in_rehearsal", said)):
+            if (kind, session.rehearsal_id) in recorded or not tango_in(text, [card]):
+                continue
+            events.append(
+                (
+                    card.flashcard_id,
+                    tango_rules.history_event(
+                        now=now,
+                        type=kind,
+                        detail=session.place.name.text,
+                        rehearsal_id=session.rehearsal_id,
+                        strength_after=card.strength,
+                    ),
+                )
+            )
+    return events
 
 
 def already_saved(card: FlashcardResponse, sentence: SavedSentence) -> bool:

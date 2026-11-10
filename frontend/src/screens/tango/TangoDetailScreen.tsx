@@ -52,6 +52,8 @@ const EVENT_ICON: Record<TangoEvent['type'], IconName> = {
   caught: 'camera',
   reviewed: 'review',
   seen_again: 'seen',
+  heard_in_rehearsal: 'play',
+  said_in_rehearsal: 'mic',
 };
 
 interface PlaceGroup {
@@ -470,6 +472,8 @@ const eventStyles = StyleSheet.create({
   caught: { backgroundColor: colors.caution },
   reviewed: { backgroundColor: colors.accent },
   seen_again: { backgroundColor: colors.hanamaru },
+  heard_in_rehearsal: { backgroundColor: colors.ink },
+  said_in_rehearsal: { backgroundColor: colors.positive },
 });
 
 const styles = StyleSheet.create({

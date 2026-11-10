@@ -29,7 +29,7 @@ from app.schemas.rehearsal import (
 from app.services import places
 from app.services import rehearsal_rules as rules
 from app.services import stt
-from app.services.firestore import USERS_COLLECTION, add_saved_sentence, list_flashcards
+from app.services.firestore import USERS_COLLECTION, add_history_events, add_saved_sentence, list_flashcards
 from app.services.gemini import generate_json, jp_schema
 
 logger = logging.getLogger(__name__)
@@ -238,6 +238,12 @@ async def get_results(*, db: AsyncClient, uid: str, rehearsal_id: str) -> Rehear
         except (GoogleAPICallError, GoogleAuthError):
             logger.exception("Failed to mark rehearsed_once for uid=%s", uid)
     cards = await list_flashcards(db=db, uid=uid, limit=MAX_CARDS)
+    # "Heard in a rehearsal" / "Said it in a rehearsal" on the Tango page.
+    by_card: dict[str, list[Any]] = {}
+    for flashcard_id, event in rules.rehearsal_history(session, cards, datetime.now(UTC)):
+        by_card.setdefault(flashcard_id, []).append(event)
+    for flashcard_id, events in by_card.items():
+        await add_history_events(db=db, uid=uid, flashcard_id=flashcard_id, events=events)
     lines = [
         rules.result_line(session.answers[t.id], cards)
         for t in session.turns

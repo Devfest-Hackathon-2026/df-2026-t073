@@ -69,6 +69,8 @@ interface SettingsContextValue {
   /** False until saved settings have been read from storage. */
   ready: boolean;
   update: (patch: Partial<Settings>) => void;
+  /** Back to first-run defaults (shows the welcome screen again). */
+  reset: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -122,9 +124,13 @@ export function SettingsProvider({
     setSettings(prev => ({ ...prev, ...patch }));
   }, []);
 
+  const reset = useCallback(() => {
+    setSettings(DEFAULT_SETTINGS);
+  }, []);
+
   const value = useMemo(
-    () => ({ settings, ready, update }),
-    [settings, ready, update],
+    () => ({ settings, ready, update, reset }),
+    [settings, ready, update, reset],
   );
 
   return (

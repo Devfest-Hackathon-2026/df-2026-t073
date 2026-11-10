@@ -2,6 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { Conversation } from '../src/screens/rehearse/RehearseScreen';
+import { copy } from '../src/copy';
 import { SettingsProvider } from '../src/state/SettingsContext';
 import type { RehearsalScript } from '../src/types';
 
@@ -93,7 +94,7 @@ test('Try again reopens the latest reply', async () => {
   });
   // Choose a reply instead of speaking.
   await ReactTestRenderer.act(async () => {
-    pressText(tree, "Can't speak right now? Choose a reply");
+    pressText(tree, copy.rehearse.chooseReply);
   });
   const choice = tree.root.findAll(
     n => n.props.accessibilityRole === 'button' && n.props.disabled === false,

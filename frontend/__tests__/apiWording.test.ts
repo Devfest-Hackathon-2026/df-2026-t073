@@ -6,6 +6,7 @@ import {
   getSessionResult,
 } from '../src/api/review';
 import { request } from '../src/api/client';
+import { copy } from '../src/copy';
 
 // Use the real adapters (not the mocks) and answer each request with a fixture.
 jest.mock('../src/api/client', () => ({
@@ -206,13 +207,13 @@ test('Today words areas, the next-visit pin and the word-of-day reason', async (
   expect(t.areas[0].label).toBe('Around Koenji');
   expect(t.pins.map(p => p.label)).toEqual(['Koenji', 'Up next']);
   expect(t.pins.map(p => p.placeId)).toEqual([undefined, undefined]);
-  expect(t.wordOfDay?.reason).toBe('For your visit to 麺屋たいき');
+  expect(t.wordOfDay?.reason).toBe(copy.today.wordReason.visit('麺屋たいき'));
   // Older servers leave the flag out: not rehearsed yet.
   expect(t.rehearsedOnce).toBe(false);
 
   respond(today({ kind: 'topic', place_name: null, topic: 'transport' }));
   expect((await getToday()).wordOfDay?.reason).toBe(
-    "You've been catching train and bus words",
+    copy.today.wordReason.topic('transport'),
   );
 
   respond(today({ kind: 'everyday', place_name: null, topic: null }));

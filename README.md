@@ -55,7 +55,7 @@ Tankengo is a camera-first vocabulary app built around place. You catch words fr
 .
 ├── backend/    FastAPI service (see backend/README.md)
 ├── frontend/   React Native Android app (see frontend/README.md)
-└── .env.example   API keys shared by both (copy to .env)
+└── .env.example   Backend and Android build keys (copy to .env); app settings are in frontend/.env.example
 ```
 
 ## Getting started
@@ -72,6 +72,18 @@ Tankengo is a camera-first vocabulary app built around place. You catch words fr
 
    Use two different keys for Maps and Places: the Maps key is restricted to the Android app, the Places key is for the server.
 
-2. Run the backend: follow [`backend/README.md`](./backend/README.md) (Google Cloud sign-in, enabling the APIs, `uv run uvicorn main:app --port 8000`).
-3. Run the app: follow [`frontend/README.md`](./frontend/README.md). It runs on mock data until you point it at the backend.
-4. The request and response shapes between the two are in [`frontend/docs/api-contract.md`](./frontend/docs/api-contract.md).
+2. Copy `frontend/.env.example` to `frontend/.env` and fill it in. These are the app's own settings:
+
+   | Variable | What it is |
+   | :--- | :--- |
+   | `USE_MOCKS`, `LIVE_APIS` | Mock data or the real backend, per area |
+   | `API_BASE_URL` | Backend URL (`http://10.0.2.2:8000` in the emulator) |
+   | `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID` | Firebase web app config |
+   | `GOOGLE_WEB_CLIENT_ID` | Needed for Google sign-in. Web client ID from Firebase › Authentication › Sign-in method › Google › Web SDK configuration |
+   | `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` | Optional fixed test account |
+
+   Google sign-in also needs the debug keystore's SHA-1 and SHA-256 registered in Firebase; see [`frontend/README.md`](./frontend/README.md#4-mock-data-and-the-backend).
+
+3. Run the backend: follow [`backend/README.md`](./backend/README.md) (Google Cloud sign-in, enabling the APIs, `uv run uvicorn main:app --port 8000`).
+4. Run the app: follow [`frontend/README.md`](./frontend/README.md). It runs on mock data until you point it at the backend.
+5. The request and response shapes between the two are in [`frontend/docs/api-contract.md`](./frontend/docs/api-contract.md).

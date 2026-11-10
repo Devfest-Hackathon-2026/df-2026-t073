@@ -1,8 +1,8 @@
+import { clearOutbox } from '../cache/outbox';
 import { clearCache } from '../cache/storage';
 import { PROFILE } from '../mocks/user';
 import type { ProfileUpdate, ReadingLevel, UserProfile } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
-import { copy } from '../copy';
 
 /** Backend shape (backend/app/schemas/user.py). */
 interface ProfileResponse {
@@ -21,9 +21,6 @@ interface ProfileResponse {
 function toProfile(r: ProfileResponse): UserProfile {
   return {
     name: r.name,
-    levelNote: r.reading_level
-      ? copy.me.levelNotes[r.reading_level]
-      : copy.me.levelNotSet,
     readingLevel: r.reading_level,
     homeArea: r.home_area
       ? {
@@ -75,3 +72,23 @@ export const updateProfile = pick(
     return profile;
   },
 );
+
+/**
+ * Permanently deletes the account and everything in it (server side), then
+ * clears what this device saved. Mock mode only clears the device.
+ */
+export const deleteAccount = pick(
+  'user',
+  async () => {
+    await mockDelay(undefined);
+    await clearDeviceData();
+  },
+  async () => {
+    await request<void>(`${API_V1}/me`, { method: 'DELETE' });
+    await clearDeviceData();
+  },
+);
+
+async function clearDeviceData(): Promise<void> {
+  await Promise.all([clearCache(), clearOutbox()]);
+}

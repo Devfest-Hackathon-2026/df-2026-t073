@@ -4,12 +4,12 @@ import { Platform } from 'react-native';
 // Every color, font and size in the app comes from this file.
 
 export const colors = {
-  // Neutrals, warm like the app icon: cream paper cards on a warm page,
-  // warm black ink.
-  bg: '#F1EDE6',
-  surface: '#FBF8F3',
-  surfaceMuted: '#E8E3DB',
-  border: '#D9D2C7',
+  // Neutrals: off-white paper cards on a soft off-white page, with just a
+  // hint of warmth, and warm black ink.
+  bg: '#F3F2EF',
+  surface: '#FCFCFA',
+  surfaceMuted: '#E9E8E4',
+  border: '#DAD8D3',
   text: '#1E1B18',
   textMuted: '#6B655E',
   textInverse: '#FFFFFF',
@@ -33,7 +33,7 @@ export const colors = {
   caution: '#A35C00',
   // 花丸 (mastered Tango): a teacher's red pen.
   hanamaru: '#D2452B',
-  /** The icon's sparkles: for celebrating, on dark cards (too light for text on cream). */
+  /** The icon's sparkles: for celebrating, on dark cards (too light for text on the light page). */
   gold: '#F2C14E',
 } as const;
 

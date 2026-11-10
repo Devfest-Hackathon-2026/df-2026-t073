@@ -9,6 +9,7 @@ import type {
   Strength,
   Tango,
   TangoEvent,
+  TangoEventType,
   TangoKind,
 } from '../types';
 import { API_V1, mockDelay, pick, request } from './client';
@@ -28,7 +29,7 @@ export interface SightingResponse {
 }
 
 export interface HistoryEventResponse {
-  type: 'caught' | 'reviewed' | 'seen_again';
+  type: TangoEventType;
   at: string;
   detail: string;
   sighting_id: string | null;
@@ -123,6 +124,21 @@ function toEvent(
       detail: event.detail,
       when,
       badge,
+    };
+  }
+  if (
+    event.type === 'heard_in_rehearsal' ||
+    event.type === 'said_in_rehearsal'
+  ) {
+    return {
+      type: event.type,
+      label:
+        event.type === 'heard_in_rehearsal'
+          ? copy.history.heardInRehearsal
+          : copy.history.saidInRehearsal,
+      detail: event.detail,
+      when,
+      badge: '',
     };
   }
   const missed =

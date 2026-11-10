@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from app.schemas.flashcard import HistoryEvent, Sighting
+from app.schemas.flashcard import HistoryEvent, HistoryType, Sighting
 
 MAX_STRENGTH = 4
 REVIEW_DELTA: dict[str, int] = {"again": -1, "good": 1, "easy": 2}
@@ -112,9 +112,10 @@ def new_sighting(
 def history_event(
     *,
     now: datetime,
-    type: Literal["caught", "reviewed", "seen_again"],
+    type: HistoryType,
     detail: str = "",
     sighting_id: str | None = None,
+    rehearsal_id: str | None = None,
     strength_after: int,
     review_stats_before: Any = None,
 ) -> HistoryEvent:
@@ -123,6 +124,7 @@ def history_event(
         at=now,
         detail=detail,
         sighting_id=sighting_id,
+        rehearsal_id=rehearsal_id,
         strength_after=strength_after,
         review_stats_before=review_stats_before,
     )

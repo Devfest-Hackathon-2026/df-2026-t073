@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
+import { copy } from '../src/copy';
 import { MeScreen } from '../src/screens/me/MeScreen';
 import { SettingsProvider } from '../src/state/SettingsContext';
 
@@ -41,7 +42,8 @@ const texts = () =>
 
 test('the profile section shows who you are and your stats', () => {
   const all = texts();
-  expect(all).toContain('Reads hiragana and katakana');
+  // The tagline is the level picker's description for the current level (default: kana).
+  expect(all).toContain(copy.welcome.readingLevels.kana.help);
   expect(all).toEqual(
     expect.arrayContaining(['Tango', 'Hana Stamps', 'Places']),
   );

@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { checkBackendAuth, checkBackendHealth } from '../../api/health';
 import { searchPlaces } from '../../api/places';
-import { getProfile, updateProfile } from '../../api/user';
+import { deleteAccount, getProfile, updateProfile } from '../../api/user';
 import { Icon } from '../../components/Icon';
 import {
   Button,
@@ -50,8 +57,42 @@ const HOME_RADIUS_M = 500;
 // ---------- Profile: name, reading level, home area ----------
 
 export function ProfileSection(): React.JSX.Element {
-  const { settings, update } = useSettings();
+  const { settings, update, reset } = useSettings();
   const auth = useAuth();
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = () => {
+    if (deleting) {
+      return;
+    }
+    Alert.alert(
+      copy.settings.deleteAccountTitle,
+      copy.settings.deleteAccountBody,
+      [
+        { text: copy.settings.cancel, style: 'cancel' },
+        {
+          text: copy.settings.deleteAccountConfirm,
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch {
+              setDeleting(false);
+              Alert.alert(
+                copy.settings.deleteAccountFailedTitle,
+                copy.settings.deleteAccountFailedBody,
+              );
+              return;
+            }
+            // The account is gone: start over from the welcome screen.
+            reset();
+            auth.signOut().catch(() => {});
+          },
+        },
+      ],
+    );
+  };
   const profile = useAsync(getProfile);
   const [name, setName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +180,12 @@ export function ProfileSection(): React.JSX.Element {
                 onPress={() => {
                   auth.signOut().catch(() => {});
                 }}
+              />
+              <Button
+                label={copy.settings.deleteAccount}
+                variant="ghost"
+                disabled={deleting}
+                onPress={confirmDelete}
               />
             </Card>
           ) : null}

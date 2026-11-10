@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from fastapi import HTTPException, status
 from firebase_admin import auth
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
@@ -27,8 +28,15 @@ SUBCOLLECTIONS = (
 
 
 async def delete_user_account(*, db: AsyncClient, uid: str) -> None:
-    """Purge all Firestore subcollections, the user doc, Storage blobs, and Firebase Auth record."""
+    """Purge all Firestore subcollections, the user doc, Storage blobs, and Firebase Auth record.
+
+    Every data step runs even if an earlier one fails, so a retry has less left to do.
+    If any data could not be deleted, raises 503 (and keeps the sign-in) so the app
+    doesn't report success. The Firebase Auth record goes last and is best effort:
+    a leftover sign-in holds no data.
+    """
     user_ref = db.collection(USERS_COLLECTION).document(uid)
+    failed: list[str] = []
 
     # 1. Delete all Firestore subcollections under users/{uid}
     for sub in SUBCOLLECTIONS:
@@ -38,32 +46,45 @@ async def delete_user_account(*, db: AsyncClient, uid: str) -> None:
                 await doc.reference.delete()
         except (GoogleAPICallError, GoogleAuthError):
             logger.exception("Failed to purge subcollection %s for uid=%s", sub, uid)
+            failed.append(sub)
 
     # 2. Delete the user document itself
     try:
         await user_ref.delete()
     except (GoogleAPICallError, GoogleAuthError):
         logger.exception("Failed to delete user document for uid=%s", uid)
+        failed.append("profile")
 
-    # 3 & 4. Offload synchronous Cloud Storage and Firebase Auth deletions to a worker thread
-    await asyncio.to_thread(_purge_storage_and_auth_sync, uid)
+    # 3. Photos in Cloud Storage (synchronous client, so off the event loop)
+    if not await asyncio.to_thread(_purge_photos_sync, uid):
+        failed.append("photos")
+
+    if failed:
+        # Keep the sign-in so the user can retry.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not delete everything ({', '.join(failed)}). Try again.",
+        )
+
+    # 4. Firebase Auth record, last
+    await asyncio.to_thread(_delete_auth_sync, uid)
 
 
-def _purge_storage_and_auth_sync(uid: str) -> None:
-    # 3. Delete user photos from Cloud Storage
+def _purge_photos_sync(uid: str) -> bool:
+    """Returns False if the photos could not be deleted."""
     try:
-        bucket_name = _resolve_bucket_name()
-        storage_client = get_storage_client()
-        bucket = storage_client.bucket(bucket_name)
+        bucket = get_storage_client().bucket(_resolve_bucket_name())
         blobs = list(bucket.list_blobs(prefix=f"captures/{uid}/"))
         if blobs:
             bucket.delete_blobs(blobs)
     except Exception:
         logger.exception("Failed to delete storage blobs for uid=%s", uid)
+        return False
+    return True
 
-    # 4. Delete Firebase Auth user record
+
+def _delete_auth_sync(uid: str) -> None:
     try:
         auth.delete_user(uid)
     except Exception:
         logger.warning("Could not delete Firebase Auth record for uid=%s (already deleted or ADC restricted)", uid)
-

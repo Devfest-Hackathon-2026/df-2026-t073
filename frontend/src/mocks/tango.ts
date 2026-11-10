@@ -120,6 +120,8 @@ export const TANGO: Record<string, Tango> = {
     stage: 'mcq',
     known: false,
     history: [
+      { type: 'said_in_rehearsal', label: 'Said it in a rehearsal', detail: '麺屋 たいき', when: 'Fri', badge: '' },
+      { type: 'heard_in_rehearsal', label: 'Heard in a rehearsal', detail: '麺屋 たいき', when: 'Fri', badge: '' },
       { type: 'reviewed', label: 'Got it in review', detail: 'Place cue', when: 'Thu', badge: '+1' },
       caught('麺屋 たいき, Koenji', 'Mon'),
     ],

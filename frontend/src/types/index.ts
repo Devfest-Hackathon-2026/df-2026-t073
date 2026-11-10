@@ -56,8 +56,15 @@ export type QuestionType =
   | 'fill_object_name';
 export type Strength = 0 | 1 | 2 | 3 | 4;
 
+export type TangoEventType =
+  | 'caught'
+  | 'reviewed'
+  | 'seen_again'
+  | 'heard_in_rehearsal'
+  | 'said_in_rehearsal';
+
 export interface TangoEvent {
-  type: 'caught' | 'reviewed' | 'seen_again';
+  type: TangoEventType;
   label: string;
   /** Where it happened, or the question asked; may be empty. */
   detail: string;
@@ -453,7 +460,6 @@ export interface HomeArea {
 
 export interface UserProfile {
   name: string;
-  levelNote: string;
   readingLevel?: ReadingLevel | null;
   /** Pins inside it are never placed (privacy promise). */
   homeArea?: HomeArea | null;

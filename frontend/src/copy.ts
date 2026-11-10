@@ -64,13 +64,13 @@ const common = {
   aboutMinutes: (n: number) => `About ${n} min`,
   open: (text: string) => `Open ${text}`,
   /** Light, upbeat lines shown while something loads. */
-  loadingLines: ['Gathering your words…', 'Lining things up…', 'Almost there…'],
+  loadingLines: ['Getting ready to learn...', 'Putting it all together...', 'Doing some heavy lifting...', 'Almost there...'],
 };
 
 const strength = {
   a11y: (n: number) => `Strength ${n} of 4`,
   /** Label per strength 0-4. */
-  levels: ['New', 'Warming up', 'Warming up', 'Almost there', 'Stamp'],
+  levels: ['New', 'Warming up', 'Getting used to it', 'Almost there', 'Stamp'],
 };
 
 const tabs = {
@@ -104,9 +104,9 @@ const jp = {
 
 const saveWord = {
   idle: 'Save as Tango',
-  saving: 'Saving…',
-  saved: 'Saved to your Tango',
-  owned: 'Already in your Tango',
+  saving: 'Saving...',
+  saved: 'Saved to My Tango',
+  owned: 'Already in My Tango',
   failed: 'Could not save. Try again',
 };
 
@@ -115,7 +115,9 @@ const history = {
   caught: 'Caught',
   seenAgain: 'Seen again with the camera',
   missedInReview: 'Missed in review',
-  gotItInReview: 'Got it in review',
+  gotItInReview: 'Remembered during review',
+  heardInRehearsal: 'Heard during rehearsal',
+  saidInRehearsal: 'Spoken during rehearsal',
 };
 
 /** Review stage and question names. */
@@ -161,7 +163,7 @@ const errors = {
 };
 
 const captureToday = {
-  loadingLines: ["Counting today's catch…"],
+  loadingLines: ["Retrieving today's catch..."],
   title: "Today's catch",
   empty: 'Nothing caught yet today.',
   reviewed: 'Reviewed',
@@ -189,7 +191,7 @@ const plans = {
   later: (unit: string) => `Later ${unit.toLowerCase()}`,
   pickLabel: (weekday: string, date: number, month: string, time: string) =>
     `${weekday} ${date} ${month.slice(0, 3)}, ${time}`,
-  pastTime: 'Pick a time later than now.',
+  pastTime: 'You can\'t choose a time in the past!',
   slots: {
     morning: 'Morning',
     lunch: 'Lunch',
@@ -210,8 +212,10 @@ const plans = {
 
 const rehearseResults = {
   loadingLines: [
-    'Looking back at your conversation…',
-    'Picking out what went well…',
+    'Crunching the numbers...',
+    'Analyzing your results',
+    'Almost there...',
+    'Personalizing your next steps...'
   ],
   rehearseAgain: 'Rehearse again',
   title: 'Results',
@@ -233,9 +237,9 @@ const rehearseResults = {
 };
 
 const allTango = {
-  loadingLines: ['Laying out your Tango…'],
+  loadingLines: ['Loading your Tango...'],
   title: 'All Tango',
-  searchPlaceholder: 'Search words, meanings or places',
+  searchPlaceholder: 'Search Tango, meanings or places',
   searchA11y: 'Search Tango or places',
   noMatches: 'No matches',
   filters: {
@@ -264,11 +268,11 @@ const allTango = {
 
 const lists = {
   couldNotSave: 'Could not save',
-  namePlaceholder: 'e.g. Ramen shop words',
+  namePlaceholder: 'e.g. "Ramen shop words"',
   nameA11y: 'List name',
   addToList: 'Add to a list',
   newList: 'New list',
-  loadingLines: ['Opening your list…'],
+  loadingLines: ['Opening your list...'],
   gone: 'This list no longer exists.',
   deleteTitle: (name: string) => `Delete "${name}"?`,
   deleteBody: 'The Tango themselves stay.',
@@ -308,7 +312,7 @@ const licenses = {
 };
 
 const review = {
-  loadingLines: ['Counting what is due…', 'Sorting your collections…'],
+  loadingLines: ['Loading your next review...', 'Creating magic...', 'Putting it all together...'],
   title: 'My Tango',
   quickReview: 'Quick review',
   collections: 'Collections',
@@ -349,7 +353,7 @@ const mapScreen = {
 };
 
 const me = {
-  loadingLines: ['Tallying your Tango…', 'Counting your Stamps…'],
+  loadingLines: ['Loading your profile...'],
   title: '',
   mapOn: 'Map on',
   mapOff: 'Map off',
@@ -358,23 +362,18 @@ const me = {
   statPlaces: 'Places',
   logOut: 'Log out of this device',
   editProfile: 'Edit profile',
-  /** Under your name, from your reading level. */
-  levelNotes: {
-    none: 'Just starting, with romaji for now',
-    kana: 'Reads hiragana and katakana',
-    some_kanji: 'Reads some everyday kanji',
-    most: 'Reads most signs and menus',
-  },
-  levelNotSet: 'Reading level not set yet',
+  /** Under your name when no Japanese level is set. Otherwise the level's description from welcome.readingLevels. */
+  levelNotSet: 'Japanese level not set yet',
   credits:
     'Dictionary data: JMdict, © Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0.',
 };
 
 const prepare = {
   loadingLines: [
-    'Reading what visitors say about this place…',
-    "Picking the words you'll hear at the counter…",
-    'Planning your first moves inside…',
+    'Reading what visitors say about this place...',
+    'Predicting their next move...',
+    "Making magic...",
+    'Coming up with new strategies...',
   ],
   rehearse: 'Rehearse with staff',
   rehearseTime: 'About 2 min',
@@ -399,21 +398,22 @@ const prepare = {
 
 const rehearse = {
   loadingLines: [
-    'Your staff member is getting ready…',
-    'Setting the scene…',
-    'Warming up the counter…',
+    'A staff member will be with you shortly...',
+    'Setting the scene...',
+    'Just a moment...',
+    'Warming up the counter...',
   ],
   aiRolePlay: 'AI role-play',
   slower: 'Slower',
   natural: 'Natural',
   couldNotCheck: 'Could not check that reply.',
-  noMicrophone: 'No microphone access, so choose a reply instead.',
+  noMicrophone: 'Unable to access microphone. Please choose a reply from the list.',
   recordingUnavailable:
-    'Recording is not available here. Choose a reply instead.',
-  holdWhileSpeaking: 'Hold the button while you speak.',
-  recordingFailed: 'Recording failed. Choose a reply instead.',
+    'Recording is not available. Please choose a reply from the list.',
+  holdWhileSpeaking: 'Hold the button down while you speak.',
+  recordingFailed: 'Recording failed. Please choose a reply from the list.',
   staffAi: 'Staff',
-  tapForEnglish: 'Tap to see English',
+  tapForEnglish: 'View translation',
   playAgain: 'Play again',
   you: 'You',
   spoken: 'Spoken',
@@ -427,18 +427,18 @@ const rehearse = {
     n === 0 ? 'All done' : n === 1 ? 'Last reply' : `${n} replies left`,
   hint: 'Hint',
   needHint: 'Need a hint?',
-  seeResults: 'See results',
+  seeResults: 'View results',
   holdToSpeak: 'Hold to speak',
-  checking: 'Checking your reply…',
-  listening: 'Listening… release to send',
-  chooseReply: "Can't speak right now? Choose a reply",
+  checking: 'Checking your reply...',
+  listening: 'Listening...',
+  chooseReply: "Can't speak right now? Choose a reply from the list.",
 };
 
 const tangoDetail = {
-  loadingLines: ['Opening your Tango…'],
+  loadingLines: ['Loading Tango...'],
   unknownPlace: 'Unknown place',
   deleteTitle: 'Delete Tango',
-  deleteBody: 'Are you sure you want to delete this word?',
+  deleteBody: 'Are you sure you want to delete this Tango?',
   couldNotDeleteTitle: 'Could not delete',
   couldNotDeleteBody: 'Failed to delete this Tango. Please try again.',
   couldNotExpand: 'Could not generate related vocabulary. Please try again.',
@@ -448,7 +448,7 @@ const tangoDetail = {
   deleteTango: 'Delete Tango',
   toStamp: (steps: number) => stepsToStamp(steps),
   phrases: 'Phrases',
-  writingPhrases: 'Writing example phrases…',
+  writingPhrases: 'Writing example phrases...',
   noPhrases: 'No example phrases yet',
   registerEasy: 'Easy',
   registerKeigo: 'Keigo',
@@ -456,9 +456,9 @@ const tangoDetail = {
   stage: (label: string) => `Stage: ${label}`,
   relatedVocab: 'Related vocabulary',
   gemini: 'Gemini',
-  generatingRelated: 'Generating related words…',
-  expandRelated: 'Expand with related vocabulary',
-  whereYouSawIt: 'Where you saw it',
+  generatingRelated: 'Generating related Tango...',
+  expandRelated: 'Generate related vocabulary',
+  whereYouSawIt: 'First seen',
   yourSentences: 'Your sentences',
   sentenceKind: (kind: 'yours' | 'suggested') =>
     kind === 'yours' ? 'You said' : 'Suggested',
@@ -468,16 +468,13 @@ const tangoDetail = {
 
 const welcome = {
   readingLevels: {
-    none: { title: 'Not yet', help: 'Romaji and English help everywhere' },
-    kana: { title: 'Hiragana and katakana', help: 'Furigana on every kanji' },
+    none: { title: 'Beginner', help: 'Can say and understand a few phrases' },
+    kana: { title: 'Elementary', help: 'Can greet, order and ask simple questions' },
     some_kanji: {
-      title: 'Some everyday kanji',
-      help: 'Furigana only on new kanji',
+      title: 'Intermediate',
+      help: 'Can hold a simple conversation on familiar topics',
     },
-    most: {
-      title: 'Most signs and menus',
-      help: 'Japanese first, help on request',
-    },
+    most: { title: 'Advanced', help: 'Can follow and join in most conversations' },
   },
   privacy: {
     pins: {
@@ -496,7 +493,7 @@ const welcome = {
   continue: 'Continue',
   allowLocation: 'Allow location while using the app',
   notNow: 'Not now, use the camera without places',
-  readTitle: 'What can you read so far?',
+  readTitle: 'How much Japanese do you know?',
   readBody:
     "Just a starting point. Tankengo adjusts as you catch and review, so there's no wrong answer.",
   explanationsIn: (language: string) =>
@@ -520,13 +517,13 @@ const login = {
   badge: 'Tangoをキャッチする',
   welcomeBack: 'Welcome back',
   createAccountTitle: 'Create an account',
-  signInBody: 'Sign in to access your saved words, places, and study progress.',
+  signInBody: 'Sign in to access your saved Tango, places, and study progress.',
   signUpBody: 'Sign up to keep your vocabulary synchronized across devices.',
   email: 'Email address',
   emailPlaceholder: 'name@example.com',
   password: 'Password',
   passwordPlaceholder: 'Password (minimum 6 characters)',
-  signingIn: 'Signing in…',
+  signingIn: 'Signing in...',
   signIn: 'Sign in',
   createAccount: 'Create account',
   toSignUp: "Don't have an account? Create one",
@@ -542,9 +539,10 @@ const login = {
 const today = {
   title: 'Home',
   loadingLines: [
-    "Gathering today's words…",
-    "Checking what's due…",
-    'Choosing your word of the day…',
+    "Opening the blinds...",
+    "Checking your agenda...",
+    'Starting the coffee machine...',
+    'Turning the calendar...'
   ],
   greeting: {
     text: 'こんにちは',
@@ -584,7 +582,7 @@ const today = {
     visit: (place: string) => `For your visit to ${place}`,
     /** `topicId` is the backend's topic, e.g. "food". */
     topic: (topicId: string) =>
-      `You've been catching ${TOPIC_NAMES[topicId] ?? topicId} words`,
+      `You've caught ${TOPIC_NAMES[topicId] ?? topicId} Tango`,
   },
   reviewTitle: 'Review',
   start: 'Start',
@@ -605,7 +603,7 @@ const today = {
 };
 
 const reviewSession = {
-  loadingLines: ['Picking your weakest Tango…', 'Setting up your questions…'],
+  loadingLines: ['Putting it all together...', 'Choosing exercises...', 'Making it fun...', 'Doing a barrel roll...'],
   nothingDue: 'Nothing due right now.',
   endReview: 'End review',
   hintButton: 'Where did I see this Tango?',
@@ -685,7 +683,7 @@ const capture = {
    * names in older data (PLACEHOLDER_PLACE_NAMES in backend/app/services/tango_rules.py),
    * so update that list too if you rename them.
    */
-  placeFinding: 'Finding your place…',
+  placeFinding: 'Finding your place...',
   placeUnknown: 'Unknown place',
   placeLocationOff: 'Location off',
   placeNearYou: 'Near you',
@@ -714,10 +712,10 @@ const capture = {
   saved: 'Saved',
   newTango: 'New Tango',
   frozenA11y:
-    'Tap highlighted text to select it, or drag across words to join them',
+    'Tap or drag across the image to select detected text',
   closeCamera: 'Close camera',
   caughtToday: (n: number) => `${n} caught today. Open today's catch`,
-  photoReading: 'Reading the photo…',
+  photoReading: 'Reading the photo...',
   photoFound: (n: number) => `${n} found in this photo`,
   photoNothing: 'Nothing found in this photo',
   details: 'Details',
@@ -725,25 +723,25 @@ const capture = {
   tapToDismiss: (error: string) => `${error} (tap to dismiss)`,
   partsJoined: (n: number) => `${n} parts joined`,
   objectTag: 'Object',
-  pickOrJoin: 'tap a box to pick it, or drag across boxes to join them',
-  selectText: 'Tap highlighted text in the photo to select it.',
-  pick: 'tap a box to pick it',
+  pickOrJoin: 'Tap or drag across the image to select detected text',
+  selectText: 'Tap or drag across the image to select detected text',
+  pick: 'Tap on any object surrounded by a box',
   retake: 'Retake',
-  reading: 'Reading…',
+  reading: 'Scanning...',
   catch: 'Catch',
-  saving: 'Saving…',
+  saving: 'Saving...',
   dragBox:
-    'Drag the box around what you want, and the corner to resize. Handwriting, odd fonts and blurry signs all work.',
+    'Move and resize the box over the desired text.',
   readThis: 'Read this',
   modeText: 'Text',
   modeObjects: 'Objects',
   importPhotos: 'Import from photos',
-  caught: 'Caught!',
+  caught: 'Got it!',
   catchWord: (text: string) => `Catch ${text}`,
   shutter: 'Shutter',
   explainedBy: 'Explained by Gemini',
-  waysToHear: 'Ways you might hear it',
-  registerEasy: 'Easy',
+  waysToHear: 'Related expressions',
+  registerEasy: 'Standard',
   registerKeigo: 'Keigo',
   practice: 'Practice',
   saveTango: 'Save Tango',
@@ -768,13 +766,20 @@ const settings = {
   couldNotSave: 'Could not save',
   name: 'Name',
   nameA11y: 'Your name',
-  readingLevel: 'Reading level',
+  readingLevel: 'Japanese level',
   account: 'Account',
   signedInAs: (email: string) => `Signed in as ${email}`,
   signedInGuest: 'Signed in as Guest (Anonymous)',
   signedIn: 'Signed in',
   uid: (uid: string) => `UID: ${uid}`,
   logOut: 'Log out of this device',
+  deleteAccount: 'Delete account',
+  deleteAccountTitle: 'Delete your account?',
+  deleteAccountBody:
+    'This permanently deletes your Tango, photos, places, plans and progress. It cannot be undone.',
+  deleteAccountConfirm: 'Delete everything',
+  deleteAccountFailedTitle: 'Could not delete your account',
+  deleteAccountFailedBody: 'Nothing was signed out. Check your connection and try again.',
   homeArea: 'Home area',
   notSet: 'Not set',
   homeRadius: (meters: number) => `Nothing within ${meters} m is pinned`,
@@ -840,7 +845,7 @@ const settings = {
   languageFooter: 'Meanings, hints and feedback are shown in this language.',
   mapAndLocation: 'Map and location',
   mapOn: 'On',
-  mapOff: 'Off: no map, and Tankengo never reads your location',
+  mapOff: 'Off',
   howLocationIsUsed: 'How your location is used',
   locationUses: {
     pins: 'Pins each Tango to the place you caught it, so reviews can remind you where you saw it.',
@@ -859,16 +864,16 @@ const settings = {
 /** Me > Developer (test account only). */
 const developer = {
   notChecked: 'Not checked',
-  checking: 'Checking…',
+  checking: 'Checking...',
   online: (status: number | string) => `Online (${status})`,
   unreachable: (error: string) => `Unreachable (${error})`,
-  accepted: (uid: string) => `Accepted (uid ${uid}…)`,
+  accepted: (uid: string) => `Accepted (uid ${uid}...)`,
   rejected: (error: string) => `Rejected (${error})`,
   /** Stands in for an error with no message. */
   error: 'error',
-  signingInTest: 'Signing in / creating test account…',
+  signingInTest: 'Signing in / creating test account...',
   signedInAs: (email: string | undefined, uid: string | undefined) =>
-    `Signed in as ${email} (uid: ${uid}…)`,
+    `Signed in as ${email} (uid: ${uid}...)`,
   failed: (error: string) => `Failed: ${error}`,
   signedOut: 'Signed out.',
   signOutError: (error: string) => `Sign out error: ${error}`,
@@ -886,11 +891,11 @@ const developer = {
   status: (label: string) => `Status: ${label}`,
   email: (email: string) => `Email: ${email}`,
   anonymous: 'Anonymous user',
-  uid: (uid: string) => `UID: ${uid}…`,
+  uid: (uid: string) => `UID: ${uid}...`,
   authError: (error: string) => `Error: ${error}`,
   authStatus: {
     not_configured: 'off (Firebase values not set in .env)',
-    signing_in: 'signing in…',
+    signing_in: 'signing in...',
     signed_in: 'signed in',
     signed_out: 'signed out',
     error: 'failed',
@@ -898,7 +903,7 @@ const developer = {
   testCredentials: 'Test user credentials',
   testEmail: 'Test email',
   testPassword: 'Test password',
-  pleaseWait: 'Please wait…',
+  pleaseWait: 'Please wait...',
   signInTest: 'Sign in as test user',
   signOut: 'Sign out',
   restartOnboarding: 'Restart onboarding',
