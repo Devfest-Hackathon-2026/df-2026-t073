@@ -289,7 +289,17 @@ const meSections = {
   practice: 'Conversation practice settings',
   languages: 'Native language',
   privacy: 'Map and location settings',
+  licenses: 'Open-source licenses',
   developer: 'Developer',
+};
+
+const licenses = {
+  intro:
+    'Tankengo is built with these open-source packages, font and artwork. Tap one to read its license.',
+  /** e.g. "1.2.3, MIT". */
+  versionLicense: (version: string, license: string) =>
+    `${version}, ${license}`,
+  rowA11y: (name: string, license: string) => `${name}, ${license} license`,
 };
 
 const review = {
@@ -904,6 +914,7 @@ export const copy = {
   lists,
   tangoRow,
   meSections,
+  licenses,
   review,
   mapScreen,
   me,

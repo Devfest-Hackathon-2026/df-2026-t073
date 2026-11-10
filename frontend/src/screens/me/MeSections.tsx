@@ -45,7 +45,6 @@ export const LANGUAGES = [
 
 const AUTH_LABEL: Record<AuthStatus, string> = copy.developer.authStatus;
 
-
 const HOME_RADIUS_M = 500;
 
 // ---------- Profile: name, reading level, home area ----------
@@ -131,7 +130,9 @@ export function ProfileSection(): React.JSX.Element {
                   ? copy.settings.signedInGuest
                   : copy.settings.signedIn}
               </Text>
-              <Text style={base.caption}>{copy.settings.uid(auth.user.uid)}</Text>
+              <Text style={base.caption}>
+                {copy.settings.uid(auth.user.uid)}
+              </Text>
               <Button
                 label={copy.settings.logOut}
                 variant="ghost"
@@ -201,7 +202,13 @@ function HomeAreaCard({
           ) : null}
         </View>
         <Button
-          label={open ? copy.settings.cancel : current ? copy.settings.change : copy.settings.set}
+          label={
+            open
+              ? copy.settings.cancel
+              : current
+              ? copy.settings.change
+              : copy.settings.set
+          }
           variant="secondary"
           onPress={() => setOpen(o => !o)}
         />
@@ -411,7 +418,9 @@ export function DeveloperSection(): React.JSX.Element {
   const { update } = useSettings();
   const auth = useAuth();
   const [health, setHealth] = useState<string>(copy.developer.notChecked);
-  const [backendAuth, setBackendAuth] = useState<string>(copy.developer.notChecked);
+  const [backendAuth, setBackendAuth] = useState<string>(
+    copy.developer.notChecked,
+  );
   const [testEmail, setTestEmail] = useState(
     TEST_USER_EMAIL || 'test@tankengo.com',
   );
@@ -428,7 +437,9 @@ export function DeveloperSection(): React.JSX.Element {
       setHealth(copy.developer.online(res.status));
     } catch (err) {
       setHealth(
-        copy.developer.unreachable(err instanceof Error ? err.message : copy.developer.error),
+        copy.developer.unreachable(
+          err instanceof Error ? err.message : copy.developer.error,
+        ),
       );
     }
   };
@@ -440,7 +451,9 @@ export function DeveloperSection(): React.JSX.Element {
       setBackendAuth(copy.developer.accepted(me.uid.slice(0, 8)));
     } catch (err) {
       setBackendAuth(
-        copy.developer.rejected(err instanceof Error ? err.message : copy.developer.error),
+        copy.developer.rejected(
+          err instanceof Error ? err.message : copy.developer.error,
+        ),
       );
     }
   };
@@ -450,7 +463,9 @@ export function DeveloperSection(): React.JSX.Element {
     setAuthMsg(copy.developer.signingInTest);
     try {
       const u = await auth.signInWithTest(testEmail, testPassword);
-      setAuthMsg(copy.developer.signedInAs(u?.email ?? undefined, u?.uid.slice(0, 8)));
+      setAuthMsg(
+        copy.developer.signedInAs(u?.email ?? undefined, u?.uid.slice(0, 8)),
+      );
     } catch (err) {
       setAuthMsg(
         copy.developer.failed(err instanceof Error ? err.message : String(err)),
@@ -467,7 +482,9 @@ export function DeveloperSection(): React.JSX.Element {
       setAuthMsg(copy.developer.signedOut);
     } catch (err) {
       setAuthMsg(
-        copy.developer.signOutError(err instanceof Error ? err.message : String(err)),
+        copy.developer.signOutError(
+          err instanceof Error ? err.message : String(err),
+        ),
       );
     } finally {
       setAuthBusy(false);
@@ -492,7 +509,9 @@ export function DeveloperSection(): React.JSX.Element {
           variant="secondary"
           onPress={ping}
         />
-        <Text style={base.caption}>{copy.developer.signInCheck(backendAuth)}</Text>
+        <Text style={base.caption}>
+          {copy.developer.signInCheck(backendAuth)}
+        </Text>
         <Button
           label={copy.developer.checkSignIn}
           variant="secondary"
@@ -506,7 +525,9 @@ export function DeveloperSection(): React.JSX.Element {
           {copy.developer.status(AUTH_LABEL[auth.status])}
         </Text>
         {auth.user?.email ? (
-          <Text style={base.caption}>{copy.developer.email(auth.user.email)}</Text>
+          <Text style={base.caption}>
+            {copy.developer.email(auth.user.email)}
+          </Text>
         ) : auth.user?.isAnonymous ? (
           <Text style={base.caption}>{copy.developer.anonymous}</Text>
         ) : null}
@@ -516,7 +537,9 @@ export function DeveloperSection(): React.JSX.Element {
           </Text>
         ) : null}
         {auth.error ? (
-          <Text style={base.caption}>{copy.developer.authError(auth.error)}</Text>
+          <Text style={base.caption}>
+            {copy.developer.authError(auth.error)}
+          </Text>
         ) : null}
 
         <Text style={styles.subLabel}>{copy.developer.testCredentials}</Text>
@@ -540,7 +563,9 @@ export function DeveloperSection(): React.JSX.Element {
         {authMsg ? <Text style={styles.authNotice}>{authMsg}</Text> : null}
 
         <Button
-          label={authBusy ? copy.developer.pleaseWait : copy.developer.signInTest}
+          label={
+            authBusy ? copy.developer.pleaseWait : copy.developer.signInTest
+          }
           variant="secondary"
           disabled={authBusy}
           onPress={handleTestSignIn}

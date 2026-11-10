@@ -25,6 +25,7 @@ export type MeSectionId =
   | 'practice'
   | 'languages'
   | 'privacy'
+  | 'licenses'
   | 'developer';
 
 export type RootStackParamList = {

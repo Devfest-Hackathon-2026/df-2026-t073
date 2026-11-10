@@ -106,7 +106,9 @@ export function MeScreen(): React.JSX.Element {
                 label={copy.me.editProfile}
                 icon="edit"
                 variant="secondary"
-                onPress={() => nav.navigate('MeSection', { section: 'profile' })}
+                onPress={() =>
+                  nav.navigate('MeSection', { section: 'profile' })
+                }
               />
             </View>
             <View style={styles.stats}>
@@ -177,6 +179,18 @@ export function MeScreen(): React.JSX.Element {
           <Icon name="forward" color={colors.textMuted} />
         </Pressable>
       ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => nav.navigate('MeSection', { section: 'licenses' })}
+        style={styles.row}
+      >
+        <Icon name="learn" color={colors.textMuted} />
+        <Text style={[base.caption, base.grow]}>
+          {copy.meSections.licenses}
+        </Text>
+        <Icon name="forward" color={colors.textMuted} />
+      </Pressable>
 
       <Text style={base.caption}>{copy.me.credits}</Text>
     </Screen>

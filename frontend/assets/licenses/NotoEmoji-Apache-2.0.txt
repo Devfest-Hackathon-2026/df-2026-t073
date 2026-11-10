@@ -1,4 +1,4 @@
-Noto Emoji: 💮 (U+1F4AE) in src/components/NotoHanamaru.tsx
+Noto Emoji: hanamaru, white flower (U+1F4AE) in src/components/NotoHanamaru.tsx
 https://github.com/googlefonts/noto-emoji
 Modified: white fill removed, recolored and converted to React Native.
 

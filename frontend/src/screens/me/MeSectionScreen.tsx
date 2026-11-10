@@ -11,6 +11,7 @@ import {
   PrivacySection,
   ProfileSection,
 } from './MeSections';
+import { LicensesSection } from './LicensesSection';
 import { copy } from '../../copy';
 
 const SECTIONS: Record<
@@ -22,6 +23,7 @@ const SECTIONS: Record<
   practice: { title: copy.meSections.practice, Body: PracticeSection },
   languages: { title: copy.meSections.languages, Body: LanguagesSection },
   privacy: { title: copy.meSections.privacy, Body: PrivacySection },
+  licenses: { title: copy.meSections.licenses, Body: LicensesSection },
   developer: { title: copy.meSections.developer, Body: DeveloperSection },
 };
 
